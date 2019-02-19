@@ -24,7 +24,7 @@ from halotools import empirical_models
 from astropy.cosmology import Planck15 as Cosmo_AstroPy
 plt = mpl.pyplot
 T1 = time.time()
-print('hi')
+print("test")
 cosmology.setCosmology("planck15")
 Cosmo = cosmology.getCurrent()
 h = Cosmo.h
