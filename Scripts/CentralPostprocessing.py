@@ -1,6 +1,6 @@
 import os
 import sys
-AbsPath = os.path.abspath("")
+AbsPath = str(__file__)[:-len("/CentralPostprocessing.py")]
 sys.path.append(AbsPath+"/..")
 import multiprocessing
 import pickle
@@ -13,7 +13,7 @@ from matplotlib.gridspec import GridSpec
 mpl.use('agg')
 import matplotlib.pyplot as plt
 import matplotlib.ticker as tik
-from Scrips.Plots import SDSS_Plots
+from Scripts.Plots import SDSS_Plots
 from Functions import Functions as F
 from Functions import Functions_c as F_c
 from scipy import interpolate
@@ -27,11 +27,11 @@ HMF_fun = F.Make_HMF_Interp() #N Mpc^-3 h^3 dex^-1, Args are (Mass, Redshift)
 h = Cosmo.h
 h_3 = h*h*h
 
-if "SDSS.pkl" in os.listdir("./CentralPostProcessing"):
-    Add_SDSS = pickle.load(open("./CentralPostProcessing/SDSS.pkl", 'rb'))
+if "SDSS.pkl" in os.listdir("./Scripts/CentralPostprocessing"):
+    Add_SDSS = pickle.load(open("./Scripts/CentralPostprocessing/SDSS.pkl", 'rb'))
 else:
     Add_SDSS = SDSS_Plots.SDSS_Plots(11.5,15,0.1) #pass this halomass:min, max, and binwidth for amting the SDSS plots
-    pickle.dump(Add_SDSS, open("./CentralPostProcessing/SDSS.pkl", 'wb'))
+    pickle.dump(Add_SDSS, open("./Scripts/CentralPostprocessing/SDSS.pkl", 'wb'))
 
 #set plot paramaters here
 mpl.rcParams.update(mpl.rcParamsDefault)
@@ -390,7 +390,7 @@ class PairFractionData:
     
 def MakeClass(Fit):
     Class = PairFractionData(Fit)
-    pickle.dump(Class, open("./PaperTwoPlotData/PFT/"+Fit+".pkl", 'wb'))
+    pickle.dump(Class, open("./Scripts/CentralPostprocessing/PaperTwoPlotData/PFT/"+Fit+".pkl", 'wb'))
     return [Fit, Class]   
 
 if __name__ == "__main__":
@@ -404,32 +404,32 @@ if __name__ == "__main__":
     #G18_Factors = ['G18','G18_Strip']
     #cMod_Factors = ['G19_cMod', 'G19_cMod_Strip', "G19_cMod_SF_Strip", "G19_cMod_PP_SF_Strip"]
     #Moster_Factors = ['Moster10', 'Moster10_Strip', 'Moster', 'Moster_Strip']
-    Evo_Factors = ['G19_SE_SF', 'G19_SE_Strip', 'G19_SE_SF_Strip','G19_SE_PP_SF_Strip']
+    Evo_Factors = ['G19_SE', 'G19_SE_SF', 'G19_SE_Strip', 'G19_SE_SF_Strip']#,'G19_SE_PP_SF_Strip']
     #Ill_Factors = ['Illustris_Strip', 'Illustris_Illustris_NOCE_SF_Strip', 'Illustris_Illustris_NOCE_PP_SF_Strip']
     #OtherSFR = ['G19_SE_NOCE_SF_Strip', 'G19_SE_NOCE_PP_SF_Strip','G19_SE_S16CE_NOCE_SF_Strip']
     #Alt_Dyn_Factors = ['G19_SE_Strip_1.0_AltDyn', 'G19_SE_Strip_0.8_AltDyn', 'G19_SE_S16CE_NOCE_SF_Strip_1.0_AltDyn', 'G19_SE0.1Dyn', 'G19_SE_1.0_AltDyn']
     #Override_Factors = ['Override_z']
 
-    Total_Factors = M_Factors+N_Factors+b_Factors+g_Factors+extra_g_Factors+G18_Factors+cMod_Factors+Moster_Factors+Evo_Factors+Ill_Factors+OtherSFR+Alt_Dyn_Factors+Override_Factors#
+    Total_Factors = Evo_Factors #M_Factors+N_Factors+b_Factors+g_Factors+extra_g_Factors+G18_Factors+cMod_Factors+Moster_Factors+Evo_Factors+Ill_Factors+OtherSFR+Alt_Dyn_Factors+Override_Factors#
 
     if False:
         ClassList = []
-        SucessfulData = os.listdir("./CentralPostProcessing/")
+        SucessfulData = os.listdir("./Scripts/CentralPostprocessing/")
         for Fit in Total_Factors:
             if Fit+".pkl" in SucessfulData:
-                ClassList.append([Fit, pickle.load(open("./CentralPostProcessing/"+Fit+".pkl", 'rb'))])
+                ClassList.append([Fit, pickle.load(open("./Scripts/CentralPostprocessing/"+Fit+".pkl", 'rb'))])
             else:
                 try:
-                    pickle.dump(PairFractionData(Fit), open("./CentralPostProcessing/"+Fit+".pkl", 'wb'))
+                    pickle.dump(PairFractionData(Fit), open("./Scripts/CentralPostprocessing/"+Fit+".pkl", 'wb'))
                 except Exception as e:
                     print(Fit + "excepted with:", e)
     else:
         ClassList = []
         FitToRun = []
-        SucessfulData = os.listdir("./CentralPostProcessing/")
+        SucessfulData = os.listdir("./Scripts/CentralPostprocessing/")
         for Fit in Total_Factors:
             if Fit+".pkl" in SucessfulData:
-                ClassList.append([Fit, pickle.load(open("./CentralPostProcessing/"+Fit+".pkl", 'rb'))])
+                ClassList.append([Fit, pickle.load(open("./Scripts/CentralPostprocessing/"+Fit+".pkl", 'rb'))])
             else:
                 if Fit not in FitToRun:
                     FitToRun.append(Fit)
