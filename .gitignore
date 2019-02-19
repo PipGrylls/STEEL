@@ -1,0 +1,17 @@
+/Data/Model/Input/*.dat
+/Data/Model/Input/*.pkl
+/Data/Model/Input/*.npy
+*.ipynb_checkpoints/
+Data/Model/Output/Other/SMHM_Fitting/*.pkl
+Data/Model/Output/Other/SMHM_Fitting/*.png
+Data/Model/Output/Other/SMHM_Fitting/*.prof
+Data/Model/Output/Other/SubHaloes/*.png
+Data/Model/Output/Other/SubHaloes/*.dat
+Data/Model/Output/Other/SubHaloes/*.npy
+Data/Model/Output/RunFiles/RunParam*
+Data/Model/Output/Other/SubHaloes/Figures/*.png
+Data/Observational/*/
+Functions/build/
+Functions/Functions_c.c
+Functions/__pycache__/
+Functions/Functions_c.cpython*
