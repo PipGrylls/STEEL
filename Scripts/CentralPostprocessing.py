@@ -390,7 +390,7 @@ class PairFractionData:
     
 def MakeClass(Fit):
     Class = PairFractionData(Fit)
-    pickle.dump(Class, open("./Scripts/CentralPostprocessing/PaperTwoPlotData/PFT/"+Fit+".pkl", 'wb'))
+    pickle.dump(Class, open("./Scripts/CentralPostprocessing/"+Fit+".pkl", 'wb'))
     return [Fit, Class]   
 
 if __name__ == "__main__":
@@ -963,7 +963,7 @@ if __name__ == "__main__":
                 z_CE= np.concatenate((z_CE, X_acc_hz[1:]))
                 Mass_CE= np.concatenate((Mass_CE, np.convolve(CentralMass, np.ones((N,))/N, mode='valid')[1:]))
                 SFR_CE= np.concatenate((SFR_CE, (1-Y_acc_hz[1:])*np.convolve(CMG_dt, np.ones((N,))/N, mode='valid')[1:]))
-            np.save("./CentralPostProcessing/HaloMassTrackCE", np.vstack((Mass_CE, SFR_CE, z_CE)))
+            np.save("Scripts/CentralPostprocessing/HaloMassTrackCE", np.vstack((Mass_CE, SFR_CE, z_CE)))
             
             for i_, i in enumerate([np.digitize(12, bins = DataClass.AvaStellarMass[0])-1, np.digitize(11.5, bins = DataClass.AvaStellarMass[0])-1, np.digitize(11, bins = DataClass.AvaStellarMass[0])-1]):#, np.digitize(10, bins = DataClass.AvaStellarMass[0])-1, np.digitize(9, bins = DataClass.AvaStellarMass[0])-1]):
                 colour = next(colourcycler)
@@ -1010,7 +1010,7 @@ if __name__ == "__main__":
                 M_acc_dot = Accretion_Interp_dt(z_for_SFH)
                 MaxGas, Tquench, Tau_f = 100, -1, 0
                 
-                M_out, M_dot, M_dot_noacc, SFH, GMLR = F_c.Starformation_Centrals(DataClass.AvaStellarMass[zbin5,i], t, d_t, z_for_SFH, M_acc_dot, MaxGas, Tquench, Tau_f, SFR_Model = "Test", Scatter_On = 0)
+                M_out, M_dot, M_dot_noacc, SFH, GMLR = F_c.Starformation_Centrals(DataClass.AvaStellarMass[zbin5,i], t, d_t, z_for_SFH, M_acc_dot, MaxGas, Tquench, Tau_f, SFR_Model = "G19_DPL", Scatter_On = 0)
                 M_out, M_dot, M_dot_noacc, SFH, GMLR = np.power(10, np.array(M_out)), np.array(M_dot), np.array(M_dot_noacc), np.array(SFH), np.array(GMLR)
                 #Msun, Myr-1, Myr-1      , M  , Myr-1
                 #print(M_out, "\n", M_dot, "\n", M_dot_noacc, "\n", SFH, "\n", GMLR)
@@ -1065,10 +1065,10 @@ if __name__ == "__main__":
             colourcycler = cycle(colours)
             for i in [12,11.5,11]:
                 colour = next(colourcycler)
-                z = np.load("./PaperTwoPlotData/Illustris/z_{}.npy".format(i))
-                Mcen_l, Mcen_u = np.load("./PaperTwoPlotData/Illustris/Mcen_{}.npy".format(i))
-                Macc_l, Macc_u = np.load("./PaperTwoPlotData/Illustris/Macc_Mcen_{}.npy".format(i))
-                Macc_Mcen_l, Macc_Mcen_u = np.load("./PaperTwoPlotData/Illustris/Macc_{}.npy".format(i))
+                z = np.load("./Data/Observational/Illustris/z_{}.npy".format(i))
+                Mcen_l, Mcen_u = np.load("./Data/Observational/Illustris/Mcen_{}.npy".format(i))
+                Macc_l, Macc_u = np.load("./Data/Observational/Illustris/Macc_Mcen_{}.npy".format(i))
+                Macc_Mcen_l, Macc_Mcen_u = np.load("./Data/Observational/Illustris/Macc_{}.npy".format(i))
 
                 SubPlots[0].fill_between(z,  Mcen_l, Mcen_u, alpha = 0.25, color = colour)
                 SubPlots[0].fill_between(z, Macc_l, Macc_u, alpha = 0.25, facecolor = "none", hatch = "X", edgecolor = colour)
