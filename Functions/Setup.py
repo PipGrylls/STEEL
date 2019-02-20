@@ -14,16 +14,4 @@ setup(
                              include_dirs=[cython_gsl.get_cython_include_dir()])]
     )
 
-
-
-
-
-
-"""
-from distutils.core import setup
-from Cython.Build import cythonize
-
-setup(
-    ext_modules = cythonize("Functions_c.pyx")
-)
-"""
+#run this file using the command 'python Setup.py build_ext --inplace' this must be run from inside functions

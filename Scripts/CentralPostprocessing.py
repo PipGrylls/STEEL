@@ -961,7 +961,7 @@ if __name__ == "__main__":
                 Cent_Loss_Rate = np.zeros_like(CentralMassGrowth)
                 for j, Mass in enumerate(CentralMassGrowth):
                     if j > 1:
-                        f_loss = 0.05*np.log(1+np.divide((np.flip(np.cumsum(np.flip(dt_CMG[:j])))*(10**3)), 1.4))
+                        f_loss = 0.05*np.log(1+np.divide((np.flip(np.cumsum(np.flip(dt_CMG[:j])))*(10**3)), 1.4)) #Moster+18
                         loss_rate = np.divide(np.insert(f_loss[1:] - f_loss[:-1], -1, 0)*Mass, dt_CMG[:j]*(10**9)) #Msun yr-1
                         Cent_Loss_Rate[:j] = Cent_Loss_Rate[:j] + loss_rate #Msun yr-1
                 CMG_dt = np.divide(CentralMassGrowth, dt_CMG*(10**9)) - Cent_Loss_Rate #Central Mass Growth dM/dt Msun yr-1
@@ -969,9 +969,9 @@ if __name__ == "__main__":
                 CMG_dt_interp = interpolate.interp1d(DataClass.z, CMG_dt) 
                 N = 3
                 X_acc_hz, Y_acc_hz = np.convolve(DataClass.z, np.ones((N,))/N, mode='valid'), np.convolve( np.divide(Mass_Accretion_PerCentral[:,i], CentralMassGrowth), np.ones((N,))/N, mode='valid')
-                z_CE= np.concatenate((z_CE, X_acc_hz[1:]))
+                z_CE= np.concatenate((z_CE, X_acc_hz[:-1]))
                 Mass_CE= np.concatenate((Mass_CE, np.convolve(CentralMass, np.ones((N,))/N, mode='valid')[1:]))
-                SFR_CE= np.concatenate((SFR_CE, (1-Y_acc_hz[1:])*np.convolve(CMG_dt, np.ones((N,))/N, mode='valid')[1:]))
+                SFR_CE= np.concatenate((SFR_CE, (1-Y_acc_hz[:-1])*np.convolve(CMG_dt, np.ones((N,))/N, mode='valid')[:-1]))
             np.save("Scripts/CentralPostprocessing/HaloMassTrackCE", np.vstack((Mass_CE, SFR_CE, z_CE)))
             
             for i_, i in enumerate([np.digitize(12, bins = DataClass.AvaStellarMass[0])-1, np.digitize(11.5, bins = DataClass.AvaStellarMass[0])-1, np.digitize(11, bins = DataClass.AvaStellarMass[0])-1, np.digitize(10, bins = DataClass.AvaStellarMass[0])-1]):#, np.digitize(10, bins = DataClass.AvaStellarMass[0])-1, np.digitize(9, bins = DataClass.AvaStellarMass[0])-1]):
@@ -995,7 +995,7 @@ if __name__ == "__main__":
                 CentralMassGrowth = CentralMass[:-1] - CentralMass[1:]
                 CentralMassGrowth = np.insert(CentralMassGrowth, -1,CentralMassGrowth[-1])
                 dt_CMG = Cosmo.lookbackTime(DataClass.z[1:]) - Cosmo.lookbackTime(DataClass.z[:-1]) 
-                dt_CMG = np.insert(dt_CMG, len(dt_CMG)-1, dt_CMG[-1]) # timesteps in gyr
+                dt_CMG = np.insert(dt_CMG, -1, dt_CMG[-1]) # timesteps in gyr
                 CMG_dt = np.divide(CentralMassGrowth, dt_CMG*(10**9)) #Central Mass Growth dM/dt Msun yr-1    
                 CM_interp = interpolate.interp1d(DataClass.z, CentralMass)
                 CMG_dt_interp = interpolate.interp1d(DataClass.z, CMG_dt)
@@ -1021,6 +1021,7 @@ if __name__ == "__main__":
                 
                 M_out, M_dot, M_dot_noacc, SFH, GMLR = F_c.Starformation_Centrals(DataClass.AvaStellarMass[zbin5,i], t, d_t, z_for_SFH, M_acc_dot, MaxGas, Tquench, Tau_f, SFR_Model = "G19_DPL", Scatter_On = 0)
                 M_out, M_dot, M_dot_noacc, SFH, GMLR = np.power(10, np.array(M_out)), np.array(M_dot), np.array(M_dot_noacc), np.array(SFH), np.array(GMLR)
+                np.save("Scripts/CentralPostprocessing/GalaxyTracks{}".format(round(DataClass.AvaStellarMass[0,i],1)), np.vstack((z_for_SFH, M_out, M_dot_noacc, GMLR)))
                 #Msun, Myr-1, Myr-1      , M  , Myr-1
                 #print(M_out, "\n", M_dot, "\n", M_dot_noacc, "\n", SFH, "\n", GMLR)
                 #Cumlative SFH

@@ -59,8 +59,8 @@ def Starformation_c(double[:] M_infall, double[:] t, double[:] delta_t, double[:
         double[:,:] GasMass = np.zeros((N_gal, N))
         double SFR, Residual, alpha, 
         double A0 = 2.8 #Msun yr-1
-        double C0 = 0.05 #0.046
-        double Lambda =  3*c_pow(10,5)#1.4*c_pow(10,6)
+        double C0 = 0.05 
+        double Lambda = 1.4*c_pow(10,6)
         double beta = -0.25
         double s0, logM0, Gamma, log10MperY_0, log10MperY_5, log10MperY, sSFR, SM_new, SFR_tquench, alpha_l, beta_l, Factor, Scatter
         double A, B
@@ -124,10 +124,10 @@ def Starformation_c(double[:] M_infall, double[:] t, double[:] delta_t, double[:
                     log10MperY = s0 - c_log10(1 + c_pow(c_pow(10, (M_out[k,i] - logM0) ), Gamma))
                 #G19_DPL
                 if SFR_Model_int == 6:
-                    M_n = 10.6+ 0.4*z[i] - 0.075*(z[i]**2) #logMsun
-                    Norm = c_pow(10, 0.7 + 0.74*z[i] - 0.085*(z[i]**2)) #SFR peak
-                    Alpha = 1.05 #low mass slope
-                    Beta = 1.2 - 0.15*z[i] #high mass slope
+                    M_n = 10.6+ 0.38*z[i] - 0.08*(z[i]**2) #logMsun
+                    Norm = c_pow(10, 0.7 + 0.71*z[i] - 0.085*(z[i]**2)) #SFR peak
+                    Alpha = 1.05 - 0.03*z[i] + 0.008*(z[i]**2) #low mass slope 
+                    Beta = 1.2 - 0.1*z[i] - 0.05*(z[i]**2)#high mass slope
                     MperY = 2*Norm*c_pow( c_pow(10, -Alpha*(M_out[k,i]-M_n)) + c_pow(10, Beta*(M_out[k,i]-M_n)),-1) #SFR
                     log10MperY = c_log10(MperY) #logSFR
                 #Test
@@ -228,9 +228,9 @@ def Starformation_Centrals(double M_infall, double[:] t, double[:] delta_t, doub
         double SFR, Residual, alpha, 
         double A0 = 2.8 #Msun yr-1
         double C0 = 0.05 #0.046
-        double Lambda =  3*c_pow(10,5)#1.4*c_pow(10,6)
+        double Lambda =  1.4*c_pow(10,6)
         double beta = -0.25
-        double s0, logM0, Gamma, log10MperY_0, log10MperY_5, log10MperY, sSFR, SM_new, SFR_tquench, alpha_l, beta_l, Factor, Scatter
+        double s0, logM0, Gamma, log10MperY_0, log10MperY, sSFR, SM_new, SFR_tquench, alpha_l, beta_l, Factor, Scatter
         double A, B
         double m,r,m0,a0,a1,m1,a2,Max
         int SFR_Model_int
@@ -285,51 +285,21 @@ def Starformation_Centrals(double M_infall, double[:] t, double[:] delta_t, doub
                 log10MperY = s0 - c_log10(1 + c_pow(c_pow(10, (M_out[i] - logM0) ), Gamma))
             #G19_DPL
             if SFR_Model_int == 6:
-                M_n = 10.6+ 0.4*z[i] - 0.075*(z[i]**2) #logMsun
-                Norm = c_pow(10, 0.7 + 0.74*z[i] - 0.085*(z[i]**2)) #SFR peak
-                Alpha = 1.05 #low mass slope
-                Beta = 1.2 - 0.15*z[i] #high mass slope
+                M_n = 10.7+ 0.35*z[i] - 0.08*(z[i]**2) #logMsun
+                Norm = c_pow(10, 0.75+ 0.71*z[i] - 0.086*(z[i]**2)) #SFR peak
+                Alpha = 1.03 - 0.019*z[i] + 0.007*(z[i]**2) #low mass slope 
+                Beta = 1.5 - 0.23*z[i] - 0.045*(z[i]**2)#high mass slope
                 MperY = 2*Norm*c_pow( c_pow(10, -Alpha*(M_out[i]-M_n)) + c_pow(10, Beta*(M_out[i]-M_n)),-1) #SFR
                 log10MperY = c_log10(MperY) #logSFR
             #Test
-            if SFR_Model_int == 6:
-                M_n = 10.6+ 0.4*z[i] - 0.075*(z[i]**2) #logMsun
+            if SFR_Model_int == 7:
+                M_n = 10.7+ 0.4*z[i] - 0.075*(z[i]**2) #logMsun
                 Norm = c_pow(10, 0.7 + 0.74*z[i] - 0.085*(z[i]**2)) #SFR peak
                 Alpha = 1.05 #low mass slope
                 Beta = 1.2 - 0.15*z[i] #high mass slope
                 MperY = 2*Norm*c_pow( c_pow(10, -Alpha*(M_out[i]-M_n)) + c_pow(10, Beta*(M_out[i]-M_n)),-1) #SFR
                 log10MperY = c_log10(MperY) #logSFR
-            SFR = c_pow(10, log10MperY)            
-                
-               
-            #Check Gas depletion
-            SM_new = c_pow(10,M_out[i]) - c_pow(10,M_out[0])
-            GasMass[i] = MaxGas - SM_new
-            if SM_new > 0:                
-                if c_log10(SM_new) > MaxGas:
-                    SFR = c_pow(10,M_out[i]-12.0) 
-            
-            #check sSFR
-            sSFR = SFR/c_pow(10, M_out[i])               
-            if sSFR < c_pow(10.0, -12):
-                SFR = c_pow(10,M_out[i] -12.0)
-            
-            SFR_tquench = SFR
-        else:
-            #galaxy is now quenched
-            #apply fastmode quenching 
-            SFR = SFR_tquench*c_exp(-((T_quench-t[i])/Tau_f))
-            
-            #Check Gas depletion
-            SM_new = c_pow(10,M_out[i]) - c_pow(10,M_out[0])
-            GasMass[i] = MaxGas - SM_new
-            if SM_new > 0:                
-                if c_log10(SM_new) > MaxGas:
-                    SFR = c_pow(10,M_out[i]-12.0)
-            #check sSFR
-            sSFR = SFR/c_pow(10, M_out[i])              
-            if sSFR <= c_pow(10.0, -12):
-                SFR = c_pow(10,M_out[i] -12.0)
+            SFR = c_pow(10, log10MperY)
             
         #apply sactter to SFR
         if Scatter_On == 1:
