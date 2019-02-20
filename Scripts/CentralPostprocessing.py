@@ -1157,7 +1157,7 @@ if __name__ == "__main__":
         linecycler = cycle(lines)
         colourcycler = cycle(colours)
         x,y=0,0
-        Tdyn_Factors = ['G19_SE_PP_SF_Strip'] #['G19_SE_SF_Strip','G19_SE_PP_SF_Strip', 'G19_cMod_PP_SF_Strip']
+        Tdyn_Factors = ['G19_SE_SF_Strip'] #['G19_SE_SF_Strip','G19_SE_PP_SF_Strip', 'G19_cMod_PP_SF_Strip']
         for i, Fit in enumerate(Tdyn_Factors): 
             DataClass = Classes[FitList.index(Fit)]
             Line = next(linecycler)
