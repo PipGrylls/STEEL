@@ -152,14 +152,14 @@ PreProcessed_Factors = ['G19_SE_PP_SF_Strip','G19_SE_NOCE_PP_SF_Strip']
 class PairFractionData:
     def __init__(self, Fit_in):
         dyn, strip, SF, evo, CE = 1.0, False, False, True, 'CE' #Defaults
-        if Fit_in[-3:] == "Dyn":
-            Fit_in = Fit_in[:-3]
+        if Fit_in[-4:] == "_Dyn":
+            Fit_in = Fit_in[:-4]
             if Fit_in[-4:] == "_Alt":
                 dyn = Fit_in[-7:]
                 Fit_in = Fit_in[:-8]
             else:
                 dyn = float(Fit_in[-3:])
-                Fit_in = Fit_in[:-3]
+                Fit_in = Fit_in[:-4]
         if Fit_in[-6:] == "_Strip":
             Fit_in = Fit_in[:-6]
             strip = True
@@ -173,22 +173,28 @@ class PairFractionData:
             Fit_in = Fit_in[:-3]
             if Fit_in[-5:] == "_NOCE":
                 Fit_in = Fit_in[:-5]
-                if Fit_in[-6:] == '_S16CE':
-                    CE = 'S16CE'
+                if Fit_in[-4:] == "_DPL":
+                    CE = 'G19_DPL_PP'
+                    Fit_in = Fit_in[:-4]
+                elif Fit_in[-6:] == '_S16CE':
+                    CE = 'S16CE_PP'
                     Fit_in = Fit_in[:-6]
-                if Fit_in[-10:] == "_Illustris":
-                    CE = 'Illustris'
+                elif Fit_in[-10:] == "_Illustris":
+                    CE = 'Illustris_PP'
                     Fit_in = Fit_in[:-10]
                 else:
-                    CE = "S16"
+                    CE = "S16_PP"
             else:
                 CE = "CE_PP"    
         elif Fit_in[-5:] == "_NOCE":
             Fit_in = Fit_in[:-5]
-            if Fit_in[-6:] == '_S16CE':
+            if Fit_in[-4:] == "_DPL":
+                CE = 'G19_DPL'
+                Fit_in = Fit_in[:-4]
+            elif Fit_in[-6:] == '_S16CE':
                 CE = 'S16CE'
                 Fit_in = Fit_in[:-6]
-            if Fit_in[-10:] == "_Illustris":
+            elif Fit_in[-10:] == "_Illustris":
                 CE = 'Illustris'
                 Fit_in = Fit_in[:-10]
             else:
@@ -405,12 +411,13 @@ if __name__ == "__main__":
     #cMod_Factors = ['G19_cMod', 'G19_cMod_Strip', "G19_cMod_SF_Strip", "G19_cMod_PP_SF_Strip"]
     #Moster_Factors = ['Moster10', 'Moster10_Strip', 'Moster', 'Moster_Strip']
     Evo_Factors = ['G19_SE', 'G19_SE_SF', 'G19_SE_Strip', 'G19_SE_SF_Strip']#,'G19_SE_PP_SF_Strip']
+    DPL_Factors = ['G19_SE_DPL_NOCE_SF', 'G19_SE_DPL_NOCE_SF_Strip', 'G19_SE_DPL_NOCE_PP_SF_Strip', 'G19_SE_DPL_NOCE_SF_Strip_1.2_Dyn', 'G19_SE_DPL_NOCE_PP_SF_Strip_1.2_Dyn', 'G19_SE_DPL_NOCE_SF_Strip_0.8_Dyn', 'G19_SE_DPL_NOCE_PP_SF_Strip_0.8_Dyn']
     #Ill_Factors = ['Illustris_Strip', 'Illustris_Illustris_NOCE_SF_Strip', 'Illustris_Illustris_NOCE_PP_SF_Strip']
     #OtherSFR = ['G19_SE_NOCE_SF_Strip', 'G19_SE_NOCE_PP_SF_Strip','G19_SE_S16CE_NOCE_SF_Strip']
     #Alt_Dyn_Factors = ['G19_SE_Strip_1.0_AltDyn', 'G19_SE_Strip_0.8_AltDyn', 'G19_SE_S16CE_NOCE_SF_Strip_1.0_AltDyn', 'G19_SE0.1Dyn', 'G19_SE_1.0_AltDyn']
     #Override_Factors = ['Override_z']
 
-    Total_Factors = Evo_Factors #M_Factors+N_Factors+b_Factors+g_Factors+extra_g_Factors+G18_Factors+cMod_Factors+Moster_Factors+Evo_Factors+Ill_Factors+OtherSFR+Alt_Dyn_Factors+Override_Factors#
+    Total_Factors = Evo_Factors + DPL_Factors #M_Factors+N_Factors+b_Factors+g_Factors+extra_g_Factors+G18_Factors+cMod_Factors+Moster_Factors+Evo_Factors+Ill_Factors+OtherSFR+Alt_Dyn_Factors+Override_Factors#
 
     if False:
         ClassList = []
@@ -917,7 +924,7 @@ if __name__ == "__main__":
         Max[Max<0] = 0
         return m-m0+a0*r-a1*np.power(Max, 2)
     if True:     
-        for k, Fit in enumerate(['G19_SE_SF_Strip']):#'G19_SE_SF_Strip','G19_SE_PP_SF_Strip', 'G19_cMod_PP_SF_Strip'
+        for k, Fit in enumerate(['G19_SE_DPL_NOCE_PP_SF_Strip']):#'G19_SE_DPL_NOCE_SF', 'G19_SE_DPL_NOCE_SF_Strip', 'G19_SE_DPL_NOCE_PP_SF_Strip', 'G19_SE_DPL_NOCE_SF_Strip_1.2_Dyn', 'G19_SE_DPL_NOCE_PP_SF_Strip_1.2_Dyn', 'G19_SE_DPL_NOCE_SF_Strip_0.8_Dyn', 'G19_SE_DPL_NOCE_PP_SF_Strip_0.8_Dyn'
             f, SubPlots = plt.subplots(3, 1, figsize = (8,8), sharex = True, sharey = 'row')
 
             colours = ["C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "k"]
@@ -951,13 +958,15 @@ if __name__ == "__main__":
                 CentralMassGrowth = np.insert(CentralMassGrowth, -1,CentralMassGrowth[-1])
                 dt_CMG = Cosmo.lookbackTime(DataClass.z[1:]) - Cosmo.lookbackTime(DataClass.z[:-1]) 
                 dt_CMG = np.insert(dt_CMG, len(dt_CMG)-1, dt_CMG[-1]) # timesteps in gyr
-                f_loss = 0.05*np.log(1+np.divide((dt_CMG*(10**3)), 1.4)) #becuase of 'instaneous' recycling
-                #if i_ == 0:
-                #    print(np.vstack((DataClass.z, dt_CMG)))
-                #    print(1-f_loss)
-                CMG_dt = np.divide(np.divide(CentralMassGrowth,1-f_loss), dt_CMG*(10**9)) #Central Mass Growth dM/dt Msun yr-1    
+                Cent_Loss_Rate = np.zeros_like(CentralMassGrowth)
+                for j, Mass in enumerate(CentralMassGrowth):
+                    if j > 1:
+                        f_loss = 0.05*np.log(1+np.divide((np.flip(np.cumsum(np.flip(dt_CMG[:j])))*(10**3)), 1.4))
+                        loss_rate = np.divide(np.insert(f_loss[1:] - f_loss[:-1], -1, 0)*Mass, dt_CMG[:j]*(10**9)) #Msun yr-1
+                        Cent_Loss_Rate[:j] = Cent_Loss_Rate[:j] + loss_rate #Msun yr-1
+                CMG_dt = np.divide(CentralMassGrowth, dt_CMG*(10**9)) - Cent_Loss_Rate #Central Mass Growth dM/dt Msun yr-1
                 CM_interp = interpolate.interp1d(DataClass.z, CentralMass)
-                CMG_dt_interp = interpolate.interp1d(DataClass.z, CMG_dt) #divide by 0.6 for instantaneous mass loss
+                CMG_dt_interp = interpolate.interp1d(DataClass.z, CMG_dt) 
                 N = 3
                 X_acc_hz, Y_acc_hz = np.convolve(DataClass.z, np.ones((N,))/N, mode='valid'), np.convolve( np.divide(Mass_Accretion_PerCentral[:,i], CentralMassGrowth), np.ones((N,))/N, mode='valid')
                 z_CE= np.concatenate((z_CE, X_acc_hz[1:]))
@@ -965,7 +974,7 @@ if __name__ == "__main__":
                 SFR_CE= np.concatenate((SFR_CE, (1-Y_acc_hz[1:])*np.convolve(CMG_dt, np.ones((N,))/N, mode='valid')[1:]))
             np.save("Scripts/CentralPostprocessing/HaloMassTrackCE", np.vstack((Mass_CE, SFR_CE, z_CE)))
             
-            for i_, i in enumerate([np.digitize(12, bins = DataClass.AvaStellarMass[0])-1, np.digitize(11.5, bins = DataClass.AvaStellarMass[0])-1, np.digitize(11, bins = DataClass.AvaStellarMass[0])-1]):#, np.digitize(10, bins = DataClass.AvaStellarMass[0])-1, np.digitize(9, bins = DataClass.AvaStellarMass[0])-1]):
+            for i_, i in enumerate([np.digitize(12, bins = DataClass.AvaStellarMass[0])-1, np.digitize(11.5, bins = DataClass.AvaStellarMass[0])-1, np.digitize(11, bins = DataClass.AvaStellarMass[0])-1, np.digitize(10, bins = DataClass.AvaStellarMass[0])-1]):#, np.digitize(10, bins = DataClass.AvaStellarMass[0])-1, np.digitize(9, bins = DataClass.AvaStellarMass[0])-1]):
                 colour = next(colourcycler)
                 
                 #Useful redshift bins
@@ -1125,7 +1134,7 @@ if __name__ == "__main__":
         colourcycler = cycle(colours)
         Redshifts = [0,1.5,3]
         f, SubPlots = plt.subplots(1, len(Redshifts), figsize = (12,4), sharex = True, sharey = 'row')
-        for i, Fit in enumerate(['G19_SE', 'G19_SE_Strip', 'G19_SE_SF_Strip']):
+        for i, Fit in enumerate(['G19_SE', 'G19_SE_DPL_NOCE_SF', 'G19_SE_DPL_NOCE_SF_Strip', 'G19_SE_DPL_NOCE_PP_SF_Strip']):
             colour = next(colourcycler)
             DataClass = Classes[FitList.index(Fit)]
             for j, z_ in enumerate(Redshifts):
@@ -1157,7 +1166,7 @@ if __name__ == "__main__":
         linecycler = cycle(lines)
         colourcycler = cycle(colours)
         x,y=0,0
-        Tdyn_Factors = ['G19_SE_SF_Strip'] #['G19_SE_SF_Strip','G19_SE_PP_SF_Strip', 'G19_cMod_PP_SF_Strip']
+        Tdyn_Factors = ['G19_SE_DPL_NOCE_PP_SF_Strip'] #['G19_SE_DPL_NOCE_SF', 'G19_SE_DPL_NOCE_SF_Strip']
         for i, Fit in enumerate(Tdyn_Factors): 
             DataClass = Classes[FitList.index(Fit)]
             Line = next(linecycler)
