@@ -124,10 +124,10 @@ def Starformation_c(double[:] M_infall, double[:] t, double[:] delta_t, double[:
                     log10MperY = s0 - c_log10(1 + c_pow(c_pow(10, (M_out[k,i] - logM0) ), Gamma))
                 #G19_DPL
                 if SFR_Model_int == 6:
-                    M_n = 10.6+ 0.38*z[i] - 0.08*(z[i]**2) #logMsun
-                    Norm = c_pow(10, 0.7 + 0.71*z[i] - 0.085*(z[i]**2)) #SFR peak
-                    Alpha = 1.05 - 0.03*z[i] + 0.008*(z[i]**2) #low mass slope 
-                    Beta = 1.2 - 0.1*z[i] - 0.05*(z[i]**2)#high mass slope
+                    M_n = 10.7+ 0.34*z[i] - 0.079*(z[i]**2) #logMsun
+                    Norm = c_pow(10, 0.74+ 0.71*z[i] - 0.087*(z[i]**2)) #SFR peak
+                    Alpha = 1.035 - 0.022*z[i] + 0.0077*(z[i]**2) #low mass slope 
+                    Beta = 1.55 - 0.35*z[i] - 0.02*(z[i]**2)#high mass slope
                     MperY = 2*Norm*c_pow( c_pow(10, -Alpha*(M_out[k,i]-M_n)) + c_pow(10, Beta*(M_out[k,i]-M_n)),-1) #SFR
                     log10MperY = c_log10(MperY) #logSFR
                 #Test
@@ -285,10 +285,10 @@ def Starformation_Centrals(double M_infall, double[:] t, double[:] delta_t, doub
                 log10MperY = s0 - c_log10(1 + c_pow(c_pow(10, (M_out[i] - logM0) ), Gamma))
             #G19_DPL
             if SFR_Model_int == 6:
-                M_n = 10.7+ 0.35*z[i] - 0.08*(z[i]**2) #logMsun
-                Norm = c_pow(10, 0.75+ 0.71*z[i] - 0.086*(z[i]**2)) #SFR peak
-                Alpha = 1.03 - 0.019*z[i] + 0.007*(z[i]**2) #low mass slope 
-                Beta = 1.5 - 0.23*z[i] - 0.045*(z[i]**2)#high mass slope
+                M_n = 10.7+ 0.34*z[i] - 0.079*(z[i]**2) #logMsun
+                Norm = c_pow(10, 0.74+ 0.71*z[i] - 0.087*(z[i]**2)) #SFR peak
+                Alpha = 1.035 - 0.022*z[i] + 0.0077*(z[i]**2) #low mass slope 
+                Beta = 1.55 - 0.35*z[i] - 0.02*(z[i]**2)#high mass slope
                 MperY = 2*Norm*c_pow( c_pow(10, -Alpha*(M_out[i]-M_n)) + c_pow(10, Beta*(M_out[i]-M_n)),-1) #SFR
                 log10MperY = c_log10(MperY) #logSFR
             #Test

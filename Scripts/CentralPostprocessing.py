@@ -924,8 +924,8 @@ if __name__ == "__main__":
         Max[Max<0] = 0
         return m-m0+a0*r-a1*np.power(Max, 2)
     if True:     
-        for k, Fit in enumerate(['G19_SE_DPL_NOCE_PP_SF_Strip']):#'G19_SE_DPL_NOCE_SF', 'G19_SE_DPL_NOCE_SF_Strip', 'G19_SE_DPL_NOCE_PP_SF_Strip', 'G19_SE_DPL_NOCE_SF_Strip_1.2_Dyn', 'G19_SE_DPL_NOCE_PP_SF_Strip_1.2_Dyn', 'G19_SE_DPL_NOCE_SF_Strip_0.8_Dyn', 'G19_SE_DPL_NOCE_PP_SF_Strip_0.8_Dyn'
-            f, SubPlots = plt.subplots(3, 1, figsize = (8,8), sharex = True, sharey = 'row')
+        for k, Fit in enumerate(['G19_SE_DPL_NOCE_SF_Strip']):#'G19_SE_DPL_NOCE_SF', 'G19_SE_DPL_NOCE_SF_Strip', 'G19_SE_DPL_NOCE_PP_SF_Strip', 'G19_SE_DPL_NOCE_SF_Strip_1.2_Dyn', 'G19_SE_DPL_NOCE_PP_SF_Strip_1.2_Dyn', 'G19_SE_DPL_NOCE_SF_Strip_0.8_Dyn', 'G19_SE_DPL_NOCE_PP_SF_Strip_0.8_Dyn'
+            f, SubPlots = plt.subplots(3, 3, figsize = (12,7), sharex = 'col', sharey = 'row')
 
             colours = ["C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "k"]
             colourcycler = cycle(colours)
@@ -974,7 +974,7 @@ if __name__ == "__main__":
                 SFR_CE= np.concatenate((SFR_CE, (1-Y_acc_hz[:-1])*np.convolve(CMG_dt, np.ones((N,))/N, mode='valid')[:-1]))
             np.save("Scripts/CentralPostprocessing/HaloMassTrackCE", np.vstack((Mass_CE, SFR_CE, z_CE)))
             
-            for i_, i in enumerate([np.digitize(12, bins = DataClass.AvaStellarMass[0])-1, np.digitize(11.5, bins = DataClass.AvaStellarMass[0])-1, np.digitize(11, bins = DataClass.AvaStellarMass[0])-1, np.digitize(10, bins = DataClass.AvaStellarMass[0])-1]):#, np.digitize(10, bins = DataClass.AvaStellarMass[0])-1, np.digitize(9, bins = DataClass.AvaStellarMass[0])-1]):
+            for i_, i in enumerate([np.digitize(12, bins = DataClass.AvaStellarMass[0])-1, np.digitize(11.5, bins = DataClass.AvaStellarMass[0])-1, np.digitize(11, bins = DataClass.AvaStellarMass[0])-1]):#, np.digitize(10.5, bins = DataClass.AvaStellarMass[0])-1, np.digitize(10, bins = DataClass.AvaStellarMass[0])-1]):
                 colour = next(colourcycler)
                 
                 #Useful redshift bins
@@ -1030,100 +1030,155 @@ if __name__ == "__main__":
                 
                 #Panel 1: Cumlative total of mass from satellite accretion or SFH
                 #Total
-                SubPlots[0].plot(DataClass.z, DataClass.AvaStellarMass[:,i], "-", color = colour)
+                SubPlots[0, i_].plot(DataClass.z, DataClass.AvaStellarMass[:,i], "-", color = colour)
                 #SFH
-                SubPlots[0].plot(z_for_SFH, np.log10(Mass), ":", color = colour)
+                SubPlots[0, i_].plot(z_for_SFH, np.log10(Mass), ":", color = colour)
                 #Accretion
-                SubPlots[0].plot(DataClass.z, np.flip(np.log10(np.cumsum(np.flip(Mass_Accretion_PerCentral[:,i], 0))), 0), "--", color = colour)
+                SubPlots[0, i_].plot(DataClass.z, np.flip(np.log10(np.cumsum(np.flip(Mass_Accretion_PerCentral[:,i], 0))), 0), "--", color = colour)
             
                 #Panel 2: Fraction of total mass from satellite accretion or SFH since z = 3                
                 #The ratio from SFH
                 SFH_zbin3 = np.digitize(3, bins = z_for_SFH)
                 Ratio_SFH = np.divide(Mass[SFH_zbin3:]-Mass[SFH_zbin3], CM_interp(z_for_SFH[SFH_zbin3:])-CM_interp(z_for_SFH[SFH_zbin3]))
-                SubPlots[1].plot(z_for_SFH[SFH_zbin3:], Ratio_SFH, ":", color = colour)                
+                SubPlots[1, i_].plot(z_for_SFH[SFH_zbin3:], Ratio_SFH, ":", color = colour)                
                 
                 #The ratio from Satellite Accretion
                 Ratio_Acc = np.divide(Accretion_Interp(z_for_SFH[SFH_zbin3:]) - Accretion_Interp(z_for_SFH[SFH_zbin3]), CM_interp(z_for_SFH[SFH_zbin3:])-CM_interp(z_for_SFH[SFH_zbin3]))
-                SubPlots[1].plot(z_for_SFH[SFH_zbin3:], Ratio_Acc, "-.", color = colour)
+                SubPlots[1, i_].plot(z_for_SFH[SFH_zbin3:], Ratio_Acc, "-.", color = colour)
                 
                 #Total
-                SubPlots[1].plot(z_for_SFH[SFH_zbin3:], Ratio_SFH+Ratio_Acc, "-", color = colour)
+                SubPlots[1, i_].plot(z_for_SFH[SFH_zbin3:], Ratio_SFH+Ratio_Acc, "-", color = colour)
                 
                 #Panel 3: Instaneous mass rates
                 #Moving averages here to smooth out the scatters in the instantaneous rates
                 N = 3
                 X_acc_hz, Y_acc_hz = np.convolve(DataClass.z, np.ones((N,))/N, mode='valid'), np.convolve( np.divide(Mass_Accretion_PerCentral[:,i], CentralMassGrowth), np.ones((N,))/N, mode='valid')
-                SubPlots[2].plot(X_acc_hz[1:], Y_acc_hz[1:], "--", color = colour)
-                SubPlots[2].plot(z_for_SFH, np.divide(M_dot_noacc, CMG_dt_interp(z_for_SFH)), ":", color = colour)
-                SubPlots[2].plot(z_for_SFH, np.divide(M_dot, CMG_dt_interp(z_for_SFH)), "-", color = colour)               
+                SubPlots[2, i_].plot(X_acc_hz[1:], Y_acc_hz[1:], "--", color = colour)
+                SubPlots[2, i_].plot(z_for_SFH, np.divide(M_dot_noacc, CMG_dt_interp(z_for_SFH)), ":", color = colour)
+                SubPlots[2, i_].plot(z_for_SFH, np.divide(M_dot, CMG_dt_interp(z_for_SFH)), "-", color = colour)               
                 
                 
 
                 
 
                 #plots off axis for labels  
-                SubPlots[2].plot([7,8,9], [0.5, 0.5, 0.5], "-",label = "$M_{*,cen} = $"+"$10^{%.3g}$"%DataClass.AvaStellarMass[0,i]+"$M_{\odot}$", color = colour)
+                SubPlots[2, i_].plot([7,8,9], [0.5, 0.5, 0.5], "-",label = "$M_{*,cen} = $"+"$10^{%.3g}$"%DataClass.AvaStellarMass[0,i]+"$M_{\odot}$", color = colour)
             
             
             
             #Unity lines
-            SubPlots[1].axhline(1, 0.001, 3, linestyle = "-", color = "k", alpha = 0.5) 
-            SubPlots[2].axhline(1, 0.001, 3, linestyle = "-", color = "k", alpha = 0.5)
+            SubPlots[1, 0].axhline(1, 0.001, 3, linestyle = "-", color = "k", alpha = 0.5) 
+            SubPlots[2, 0].axhline(1, 0.001, 3, linestyle = "-", color = "k", alpha = 0.5)
+            SubPlots[1, 1].axhline(1, 0.001, 3, linestyle = "-", color = "k", alpha = 0.5) 
+            SubPlots[2, 1].axhline(1, 0.001, 3, linestyle = "-", color = "k", alpha = 0.5)
+            SubPlots[1, 2].axhline(1, 0.001, 3, linestyle = "-", color = "k", alpha = 0.5) 
+            SubPlots[2, 2].axhline(1, 0.001, 3, linestyle = "-", color = "k", alpha = 0.5)
             
             #Adding Illustris 
             colours = ["C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "k"]
             colourcycler = cycle(colours)
-            for i in [12,11.5,11]:
+            for i_, i in enumerate([12,11.5,11]):#
                 colour = next(colourcycler)
                 z = np.load("./Data/Observational/Illustris/z_{}.npy".format(i))
                 Mcen_l, Mcen_u = np.load("./Data/Observational/Illustris/Mcen_{}.npy".format(i))
                 Macc_l, Macc_u = np.load("./Data/Observational/Illustris/Macc_Mcen_{}.npy".format(i))
                 Macc_Mcen_l, Macc_Mcen_u = np.load("./Data/Observational/Illustris/Macc_{}.npy".format(i))
 
-                SubPlots[0].fill_between(z,  Mcen_l, Mcen_u, alpha = 0.25, color = colour)
-                SubPlots[0].fill_between(z, Macc_l, Macc_u, alpha = 0.25, facecolor = "none", hatch = "X", edgecolor = colour)
-                SubPlots[1].fill_between(z, Macc_Mcen_l, Macc_Mcen_u, alpha = 0.25, color = colour)
-                SubPlots[2].plot([10, 11],[1, 1])
+                SubPlots[0, i_].fill_between(z,  Mcen_l, Mcen_u, alpha = 0.25, color = colour)
+                SubPlots[0, i_].fill_between(z, Macc_l, Macc_u, alpha = 0.25, facecolor = "none", hatch = "X", edgecolor = colour)
+                SubPlots[1, i_].fill_between(z, Macc_Mcen_l, Macc_Mcen_u, alpha = 0.25, color = colour)
+                SubPlots[2, i_].plot([10, 11],[1, 1])
 
             #Line labels
-            SubPlots[0].plot([4,5,6], [0.5, 0.5, 0.5], "--",label = "Accretion", color = "k")
-            SubPlots[0].plot([4,5,6], [0.5, 0.5, 0.5], ":", label = "SFH", color = "k")
-            SubPlots[0].plot([4,5,6], [0.5, 0.5, 0.5], "-", label = "Total", color = "k")
+            SubPlots[0,2].plot([4,5,6], [0.5, 0.5, 0.5], "--",label = "Accretion", color = "k")
+            SubPlots[0,2].plot([4,5,6], [0.5, 0.5, 0.5], ":", label = "SFH", color = "k")
+            SubPlots[0,2].plot([4,5,6], [0.5, 0.5, 0.5], "-", label = "Total", color = "k")
             
             #Legends
-            SubPlots[0].legend(ncol = 3,frameon = False)
-            SubPlots[2].legend(ncol = 3, frameon = False, loc = 2, fontsize = 12)           
+            SubPlots[0,2].legend(ncol = 2,frameon = False, loc = 9, fontsize = 12)
+            SubPlots[2,0].legend(ncol = 1, frameon = False, loc = 1, fontsize = 12)
+            SubPlots[2,1].legend(ncol = 1, frameon = False, loc = 1, fontsize = 12) 
+            SubPlots[2,2].legend(ncol = 1, frameon = False, loc = 1, fontsize = 12)
             
             #Log axis
-            SubPlots[0].set_xscale('log')
-            SubPlots[1].set_xscale('log')
-            SubPlots[2].set_xscale('log')
-            SubPlots[2].set_yscale('log')
-            
+            SubPlots[0,0].set_xscale('log')
+            SubPlots[1,0].set_xscale('log')
+            SubPlots[2,0].set_xscale('log')
+            SubPlots[1,0].set_yscale('log')
+            SubPlots[2,0].set_yscale('log')
+            SubPlots[0,1].set_xscale('log')
+            SubPlots[1,1].set_xscale('log')
+            SubPlots[2,1].set_xscale('log')
+            SubPlots[1,1].set_yscale('log')
+            SubPlots[2,2].set_yscale('log')
+            SubPlots[0,2].set_xscale('log')
+            SubPlots[1,2].set_xscale('log')
+            SubPlots[2,2].set_xscale('log')
+            SubPlots[1,2].set_yscale('log')
+            SubPlots[2,2].set_yscale('log')  
             
             #Ticks
-            SubPlots[2].set_xticks([0.1,0.5,1,2,3])
-            SubPlots[2].set_xticklabels(["0.1","0.5","1","2","3"])
-            SubPlots[0].set_yticks([8, 9, 10, 11, 12])
-            SubPlots[0].set_yticklabels(["8","9","10", "11","12"])
-            SubPlots[2].set_yticks([0.1, 1, 10])
-            SubPlots[2].set_yticklabels(["0.1","1","10"])            
+            #X
+            SubPlots[2,0].set_xticks([0.1,0.5,1,2])
+            SubPlots[2,0].set_xticklabels(["0.1","0.5","1", "2"])
+            SubPlots[2,1].set_xticks([0.1,0.5,1,2])
+            SubPlots[2,1].set_xticklabels(["0.1","0.5","1", "2"])
+            SubPlots[2,2].set_xticks([0.1,0.5,1,2,3])
+            SubPlots[2,2].set_xticklabels(["0.1","0.5","1","2","3"])
+            
+                        
+            SubPlots[0,0].set_yticks([9, 10, 11, 12])
+            SubPlots[0,0].set_yticklabels(["9","10", "11","12"])
+            SubPlots[0,1].set_yticks([9, 10, 11, 12])
+            SubPlots[0,1].set_yticklabels(["9","10", "11","12"])
+            SubPlots[0,2].set_yticks([9, 10, 11, 12])
+            SubPlots[0,2].set_yticklabels(["9","10", "11","12"])            
+            
+            Ticks = [0.1, 0.5, 1]
+            Labels = ["0.1", "0.5", "1"]
+            SubPlots[2,0].set_yticks(Ticks)
+            SubPlots[2,0].set_yticklabels(Labels)
+            SubPlots[2,1].set_yticks(Ticks)
+            SubPlots[2,1].set_yticklabels(Labels)
+            SubPlots[2,2].set_yticks(Ticks)
+            SubPlots[2,0].set_yticklabels(Labels)
+
+             
+            
+
+            
+ 
             
             #Axis Limits
-            SubPlots[2].set_xlim(0.1, 3)
-            SubPlots[0].set_ylim(6, 12.5)
-            SubPlots[1].set_ylim(0, 1.5)
-            SubPlots[2].set_ylim(0.05, 15)
+            SubPlots[2,0].set_xlim(0.1, 3)
+            SubPlots[0,0].set_ylim(9, 12.5)
+            SubPlots[1,0].set_ylim(0.02, 2)
+            SubPlots[2,0].set_ylim(0.1, 2)
+            SubPlots[2,1].set_xlim(0.1, 3)
+            SubPlots[0,1].set_ylim(9, 12.5)
+            SubPlots[1,1].set_ylim(0.02, 2)
+            SubPlots[2,1].set_ylim(0.1, 2)
+            SubPlots[2,2].set_xlim(0.1, 3)
+            SubPlots[0,2].set_ylim(9, 12.5)
+            SubPlots[1,2].set_ylim(0.02, 2)
+            SubPlots[2,2].set_ylim(0.1, 2)
 
             #Axis Labels
-            SubPlots[2].set_xlabel("z")
-            SubPlots[0].set_ylabel(r"log10 Mass $M_{\odot}$")
-            SubPlots[1].set_ylabel(r"$\frac{M_{*,acc}}{M_{*,cen}}$")
-            SubPlots[2].set_ylabel(r"$\frac{dM_{*,acc}/dt}{dM_{*,cen}/dt}$")
+            SubPlots[2,0].set_xlabel("z")
+            SubPlots[0,0].set_ylabel(r"log10 M$_*$ M$_{\odot}$")
+            SubPlots[1,0].set_ylabel(r"$\sum_{i=3}^{0}  M_{X,i} \div \sum_{i=3}^{0}  M_{cen,i}$")
+            SubPlots[2,0].set_ylabel(r"$\dot{M}_{X} \div \dot{M}_{cen}$")
+            #Axis Labels
+            SubPlots[2,1].set_xlabel("z")
+            SubPlots[2,2].set_xlabel("z")
+            #SubPlots[0,1].set_ylabel(r"log10 Mass $M_{\odot}$")
+            #SubPlots[1,1].set_ylabel(r"$\frac{M_{*,acc}}{M_{*,cen}}$")
+            #SubPlots[2,1].set_ylabel(r"$\frac{dM_{*,acc}/dt}{dM_{*,cen}/dt}$")
             
             #Adjust and Save
-            plt.tight_layout()
-            plt.subplots_adjust(hspace=0)
+            plt.subplots_adjust(hspace=0, wspace=0)
+            #plt.tight_layout()
+            
             plt.savefig("Figures/Paper2/SatelliteAccretion{}.png".format(Fit))
             plt.savefig("Figures/Paper2/SatelliteAccretion{}.pdf".format(Fit))
             plt.clf()
