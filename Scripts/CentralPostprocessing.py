@@ -814,14 +814,14 @@ if __name__ == "__main__":
         plt.clf()
         
     #Morphology Plot    
-    if False:
+    if True:
         Header=['galcount','finalflag','z','Vmaxwt','MsMendSerExp','AbsMag','logReSerExp',
                                   'BT','n_bulge','NewLCentSat','NewMCentSat'
                                   ,'MhaloL','probaE','probaEll',
                                 'probaS0','probaSab','probaScd','TType','P_S0',
                               'veldisp','veldisperr','raSDSS7','decSDSS7']
 
-        df = pd.read_csv('./Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, delim_whitespace = True)
+        df = pd.read_csv('Data/Observational/Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, delim_whitespace = True)
         goodness_cut = (df.finalflag==3 ) | (df.finalflag==5) | (df.finalflag==1)
 
         df = df[goodness_cut]
@@ -870,11 +870,11 @@ if __name__ == "__main__":
         
         MassRatio = 0.25
         
-        index = FitList.index("G19_SE")
+        index = FitList.index('G19_SE_DPL_NOCE_PP_SF_Strip')
         P_ellip = Classes[index].Return_Morph_Plot(MassRatio, 2)
         
         #Create data for lorenzo
-        if True:
+        if False:
             for i, P_Ellip in enumerate(Classes[index].Return_Morph_Plot(MassRatio, z_start = 2)):
                 Output = np.vstack((Classes[index].AvaHaloMass[i], P_Ellip)).T
                 FilePath = "./Test/Lorenzo/2/Halo_PEllip_{}.dat".format(Classes[index].z[i])
@@ -924,7 +924,7 @@ if __name__ == "__main__":
         Max[Max<0] = 0
         return m-m0+a0*r-a1*np.power(Max, 2)
     if True:     
-        for k, Fit in enumerate(['G19_SE_DPL_NOCE_SF_Strip']):#'G19_SE_DPL_NOCE_SF', 'G19_SE_DPL_NOCE_SF_Strip', 'G19_SE_DPL_NOCE_PP_SF_Strip', 'G19_SE_DPL_NOCE_SF_Strip_1.2_Dyn', 'G19_SE_DPL_NOCE_PP_SF_Strip_1.2_Dyn', 'G19_SE_DPL_NOCE_SF_Strip_0.8_Dyn', 'G19_SE_DPL_NOCE_PP_SF_Strip_0.8_Dyn'
+        for k, Fit in enumerate(['G19_SE_DPL_NOCE_PP_SF_Strip']):#'G19_SE_DPL_NOCE_SF', 'G19_SE_DPL_NOCE_SF_Strip', 'G19_SE_DPL_NOCE_PP_SF_Strip', 'G19_SE_DPL_NOCE_SF_Strip_1.2_Dyn', 'G19_SE_DPL_NOCE_PP_SF_Strip_1.2_Dyn', 'G19_SE_DPL_NOCE_SF_Strip_0.8_Dyn', 'G19_SE_DPL_NOCE_PP_SF_Strip_0.8_Dyn'
             f, SubPlots = plt.subplots(3, 3, figsize = (12,7), sharex = 'col', sharey = 'row')
 
             colours = ["C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "k"]
@@ -1223,16 +1223,32 @@ if __name__ == "__main__":
         colourcycler = cycle(colours)
         x,y=0,0
         Tdyn_Factors = ['G19_SE_DPL_NOCE_PP_SF_Strip'] #['G19_SE_DPL_NOCE_SF', 'G19_SE_DPL_NOCE_SF_Strip']
-        for i, Fit in enumerate(Tdyn_Factors): 
+        
+        MassRatio = 0.25
+        for i, Fit in enumerate(Tdyn_Factors):
+            index = FitList.index(Fit)
+            P_ellip = np.repeat(Classes[index].Return_Morph_Plot(MassRatio, 3)[0], 100)
             DataClass = Classes[FitList.index(Fit)]
+            Paramaters['SFR_Model'] = 'G19_DPL'
+            
+            Central_SM = np.repeat(DataClass.AvaStellarMass[0], 100)
+            Central_SFR = F.StarFormationRate(Central_SM, 0.1, Paramaters, ScatterOn = True, Quenching = True, P_ellip = P_ellip)
+            Central_sSFR = Central_SFR - Central_SM
+            Central_wt = HMF_fun(Central_SM, 0.1)*np.repeat(DataClass.AvaHaloMassBins[0], 100)
+            
             Line = next(linecycler)
             Colour = next(colourcycler)
             Surviving_Sat_SMF_MassRange, sSFR_Range, Satellite_sSFR = DataClass.Return_SSFR()
             bin_w = Surviving_Sat_SMF_MassRange[1]-Surviving_Sat_SMF_MassRange[0]
             x = 0
             for l,u in [(10,10.5),(10.5,11),(11,12)]:
+                #Satellites
                 Weights = np.sum(Satellite_sSFR[np.digitize(l, bins = Surviving_Sat_SMF_MassRange):np.digitize(u, bins = Surviving_Sat_SMF_MassRange)], axis = 0)
                 N_Ntot = Weights/(np.sum(Weights)*bin_w)
+                #Centrals
+                
+                N_Ntot_cen = np.histogram(Central_sSFR[np.digitize(l, bins = DataClass.AvaStellarMass[0])*100:np.digitize(u, bins = DataClass.AvaStellarMass[0])*101], bins = sSFR_Range, weights = Central_wt[np.digitize(l, bins = DataClass.AvaStellarMass[0])*100:np.digitize(u, bins = DataClass.AvaStellarMass[0])*101], density = True)[0]
+
                 SubPlots[x].set_title("{}-{}".format(l,u) + "$M_{*, sat}$")
                 if FirstPass == True:    
                     if i == 0 and x == 0:
@@ -1241,15 +1257,17 @@ if __name__ == "__main__":
                         No_Leg = True
                     A = Add_SDSS.sSFR_Plot(l, u, SubPlots[x], No_Leg = No_Leg)
                     B = Add_SDSS.sSFR_Plot_Cen(l, u, SubPlots[x], No_Leg = No_Leg)
-                if x==1:
+                if x==2:
                     if len(Tdyn_Factors) == 1:
-                        Label = "Dynamical\nQuenching"
+                        Label = "Satellites:\nDynamical Quenching"
 
                     else:
                         Label = "{}".format(Factor)
                     SubPlots[x].plot(sSFR_Range, N_Ntot, Line, color = Colour,label = Label, alpha = 0.75)
+                    SubPlots[x].plot(sSFR_Range[:-1], N_Ntot_cen, "--", color = 'k',label = "Centrals", alpha = 0.75)
                 else:
                     SubPlots[x].plot(sSFR_Range, N_Ntot, Line, color = Colour,alpha = 0.75)
+                    SubPlots[x].plot(sSFR_Range[:-1], N_Ntot_cen, "--", color = 'k', alpha = 0.75)
                 x +=1
             FirstPass = False
 
@@ -1257,7 +1275,7 @@ if __name__ == "__main__":
         SubPlots[1].set_xlim(SubPlots[0].get_xlim())
         SubPlots[2].set_xlim(SubPlots[0].get_xlim())
         SubPlots[0].legend(loc = 2, frameon = False, fontsize = 12)
-        SubPlots[1].legend(loc = 9, frameon = False, fontsize = 12)
+        SubPlots[2].legend(loc = 9, frameon = False, fontsize = 12)
 
         SubPlots[1].set_xlabel("log10(sSFR) [$yr^{-1}$]", fontproperties = mpl.font_manager.FontProperties(size = 15))
         #print(ax.get_xticks())  
