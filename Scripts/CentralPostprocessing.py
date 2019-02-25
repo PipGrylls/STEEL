@@ -152,14 +152,14 @@ PreProcessed_Factors = ['G19_SE_PP_SF_Strip','G19_SE_NOCE_PP_SF_Strip']
 class PairFractionData:
     def __init__(self, Fit_in):
         dyn, strip, SF, evo, CE = 1.0, False, False, True, 'CE' #Defaults
-        if Fit_in[-3:] == "Dyn":
-            Fit_in = Fit_in[:-3]
+        if Fit_in[-4:] == "_Dyn":
+            Fit_in = Fit_in[:-4]
             if Fit_in[-4:] == "_Alt":
                 dyn = Fit_in[-7:]
                 Fit_in = Fit_in[:-8]
             else:
                 dyn = float(Fit_in[-3:])
-                Fit_in = Fit_in[:-3]
+                Fit_in = Fit_in[:-4]
         if Fit_in[-6:] == "_Strip":
             Fit_in = Fit_in[:-6]
             strip = True
@@ -173,22 +173,28 @@ class PairFractionData:
             Fit_in = Fit_in[:-3]
             if Fit_in[-5:] == "_NOCE":
                 Fit_in = Fit_in[:-5]
-                if Fit_in[-6:] == '_S16CE':
-                    CE = 'S16CE'
+                if Fit_in[-4:] == "_DPL":
+                    CE = 'G19_DPL_PP'
+                    Fit_in = Fit_in[:-4]
+                elif Fit_in[-6:] == '_S16CE':
+                    CE = 'S16CE_PP'
                     Fit_in = Fit_in[:-6]
-                if Fit_in[-10:] == "_Illustris":
-                    CE = 'Illustris'
+                elif Fit_in[-10:] == "_Illustris":
+                    CE = 'Illustris_PP'
                     Fit_in = Fit_in[:-10]
                 else:
-                    CE = "S16"
+                    CE = "S16_PP"
             else:
                 CE = "CE_PP"    
         elif Fit_in[-5:] == "_NOCE":
             Fit_in = Fit_in[:-5]
-            if Fit_in[-6:] == '_S16CE':
+            if Fit_in[-4:] == "_DPL":
+                CE = 'G19_DPL'
+                Fit_in = Fit_in[:-4]
+            elif Fit_in[-6:] == '_S16CE':
                 CE = 'S16CE'
                 Fit_in = Fit_in[:-6]
-            if Fit_in[-10:] == "_Illustris":
+            elif Fit_in[-10:] == "_Illustris":
                 CE = 'Illustris'
                 Fit_in = Fit_in[:-10]
             else:
@@ -390,7 +396,7 @@ class PairFractionData:
     
 def MakeClass(Fit):
     Class = PairFractionData(Fit)
-    pickle.dump(Class, open("./Scripts/CentralPostprocessing/PaperTwoPlotData/PFT/"+Fit+".pkl", 'wb'))
+    pickle.dump(Class, open("./Scripts/CentralPostprocessing/"+Fit+".pkl", 'wb'))
     return [Fit, Class]   
 
 if __name__ == "__main__":
@@ -405,12 +411,13 @@ if __name__ == "__main__":
     #cMod_Factors = ['G19_cMod', 'G19_cMod_Strip', "G19_cMod_SF_Strip", "G19_cMod_PP_SF_Strip"]
     #Moster_Factors = ['Moster10', 'Moster10_Strip', 'Moster', 'Moster_Strip']
     Evo_Factors = ['G19_SE', 'G19_SE_SF', 'G19_SE_Strip', 'G19_SE_SF_Strip']#,'G19_SE_PP_SF_Strip']
+    DPL_Factors = ['G19_SE_DPL_NOCE_SF', 'G19_SE_DPL_NOCE_SF_Strip', 'G19_SE_DPL_NOCE_PP_SF_Strip', 'G19_SE_DPL_NOCE_SF_Strip_1.2_Dyn', 'G19_SE_DPL_NOCE_PP_SF_Strip_1.2_Dyn', 'G19_SE_DPL_NOCE_SF_Strip_0.8_Dyn', 'G19_SE_DPL_NOCE_PP_SF_Strip_0.8_Dyn']
     #Ill_Factors = ['Illustris_Strip', 'Illustris_Illustris_NOCE_SF_Strip', 'Illustris_Illustris_NOCE_PP_SF_Strip']
     #OtherSFR = ['G19_SE_NOCE_SF_Strip', 'G19_SE_NOCE_PP_SF_Strip','G19_SE_S16CE_NOCE_SF_Strip']
     #Alt_Dyn_Factors = ['G19_SE_Strip_1.0_AltDyn', 'G19_SE_Strip_0.8_AltDyn', 'G19_SE_S16CE_NOCE_SF_Strip_1.0_AltDyn', 'G19_SE0.1Dyn', 'G19_SE_1.0_AltDyn']
     #Override_Factors = ['Override_z']
 
-    Total_Factors = Evo_Factors #M_Factors+N_Factors+b_Factors+g_Factors+extra_g_Factors+G18_Factors+cMod_Factors+Moster_Factors+Evo_Factors+Ill_Factors+OtherSFR+Alt_Dyn_Factors+Override_Factors#
+    Total_Factors = Evo_Factors + DPL_Factors #M_Factors+N_Factors+b_Factors+g_Factors+extra_g_Factors+G18_Factors+cMod_Factors+Moster_Factors+Evo_Factors+Ill_Factors+OtherSFR+Alt_Dyn_Factors+Override_Factors#
 
     if False:
         ClassList = []
@@ -807,14 +814,14 @@ if __name__ == "__main__":
         plt.clf()
         
     #Morphology Plot    
-    if False:
+    if True:
         Header=['galcount','finalflag','z','Vmaxwt','MsMendSerExp','AbsMag','logReSerExp',
                                   'BT','n_bulge','NewLCentSat','NewMCentSat'
                                   ,'MhaloL','probaE','probaEll',
                                 'probaS0','probaSab','probaScd','TType','P_S0',
                               'veldisp','veldisperr','raSDSS7','decSDSS7']
 
-        df = pd.read_csv('./Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, delim_whitespace = True)
+        df = pd.read_csv('Data/Observational/Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, delim_whitespace = True)
         goodness_cut = (df.finalflag==3 ) | (df.finalflag==5) | (df.finalflag==1)
 
         df = df[goodness_cut]
@@ -863,11 +870,11 @@ if __name__ == "__main__":
         
         MassRatio = 0.25
         
-        index = FitList.index("G19_SE")
+        index = FitList.index('G19_SE_DPL_NOCE_PP_SF_Strip')
         P_ellip = Classes[index].Return_Morph_Plot(MassRatio, 2)
         
         #Create data for lorenzo
-        if True:
+        if False:
             for i, P_Ellip in enumerate(Classes[index].Return_Morph_Plot(MassRatio, z_start = 2)):
                 Output = np.vstack((Classes[index].AvaHaloMass[i], P_Ellip)).T
                 FilePath = "./Test/Lorenzo/2/Halo_PEllip_{}.dat".format(Classes[index].z[i])
@@ -917,8 +924,8 @@ if __name__ == "__main__":
         Max[Max<0] = 0
         return m-m0+a0*r-a1*np.power(Max, 2)
     if True:     
-        for k, Fit in enumerate(['G19_SE_SF_Strip']):#'G19_SE_SF_Strip','G19_SE_PP_SF_Strip', 'G19_cMod_PP_SF_Strip'
-            f, SubPlots = plt.subplots(3, 1, figsize = (8,8), sharex = True, sharey = 'row')
+        for k, Fit in enumerate(['G19_SE_DPL_NOCE_PP_SF_Strip']):#'G19_SE_DPL_NOCE_SF', 'G19_SE_DPL_NOCE_SF_Strip', 'G19_SE_DPL_NOCE_PP_SF_Strip', 'G19_SE_DPL_NOCE_SF_Strip_1.2_Dyn', 'G19_SE_DPL_NOCE_PP_SF_Strip_1.2_Dyn', 'G19_SE_DPL_NOCE_SF_Strip_0.8_Dyn', 'G19_SE_DPL_NOCE_PP_SF_Strip_0.8_Dyn'
+            f, SubPlots = plt.subplots(3, 3, figsize = (12,7), sharex = 'col', sharey = 'row')
 
             colours = ["C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "k"]
             colourcycler = cycle(colours)
@@ -951,21 +958,23 @@ if __name__ == "__main__":
                 CentralMassGrowth = np.insert(CentralMassGrowth, -1,CentralMassGrowth[-1])
                 dt_CMG = Cosmo.lookbackTime(DataClass.z[1:]) - Cosmo.lookbackTime(DataClass.z[:-1]) 
                 dt_CMG = np.insert(dt_CMG, len(dt_CMG)-1, dt_CMG[-1]) # timesteps in gyr
-                f_loss = 0.05*np.log(1+np.divide((dt_CMG*(10**3)), 1.4)) #becuase of 'instaneous' recycling
-                #if i_ == 0:
-                #    print(np.vstack((DataClass.z, dt_CMG)))
-                #    print(1-f_loss)
-                CMG_dt = np.divide(np.divide(CentralMassGrowth,1-f_loss), dt_CMG*(10**9)) #Central Mass Growth dM/dt Msun yr-1    
+                Cent_Loss_Rate = np.zeros_like(CentralMassGrowth)
+                for j, Mass in enumerate(CentralMassGrowth):
+                    if j > 1:
+                        f_loss = 0.05*np.log(1+np.divide((np.flip(np.cumsum(np.flip(dt_CMG[:j])))*(10**3)), 1.4)) #Moster+18
+                        loss_rate = np.divide(np.insert(f_loss[1:] - f_loss[:-1], -1, 0)*Mass, dt_CMG[:j]*(10**9)) #Msun yr-1
+                        Cent_Loss_Rate[:j] = Cent_Loss_Rate[:j] + loss_rate #Msun yr-1
+                CMG_dt = np.divide(CentralMassGrowth, dt_CMG*(10**9)) - Cent_Loss_Rate #Central Mass Growth dM/dt Msun yr-1
                 CM_interp = interpolate.interp1d(DataClass.z, CentralMass)
-                CMG_dt_interp = interpolate.interp1d(DataClass.z, CMG_dt) #divide by 0.6 for instantaneous mass loss
+                CMG_dt_interp = interpolate.interp1d(DataClass.z, CMG_dt) 
                 N = 3
                 X_acc_hz, Y_acc_hz = np.convolve(DataClass.z, np.ones((N,))/N, mode='valid'), np.convolve( np.divide(Mass_Accretion_PerCentral[:,i], CentralMassGrowth), np.ones((N,))/N, mode='valid')
-                z_CE= np.concatenate((z_CE, X_acc_hz[1:]))
+                z_CE= np.concatenate((z_CE, X_acc_hz[:-1]))
                 Mass_CE= np.concatenate((Mass_CE, np.convolve(CentralMass, np.ones((N,))/N, mode='valid')[1:]))
-                SFR_CE= np.concatenate((SFR_CE, (1-Y_acc_hz[1:])*np.convolve(CMG_dt, np.ones((N,))/N, mode='valid')[1:]))
-            np.save("./CentralPostProcessing/HaloMassTrackCE", np.vstack((Mass_CE, SFR_CE, z_CE)))
+                SFR_CE= np.concatenate((SFR_CE, (1-Y_acc_hz[:-1])*np.convolve(CMG_dt, np.ones((N,))/N, mode='valid')[:-1]))
+            np.save("Scripts/CentralPostprocessing/HaloMassTrackCE", np.vstack((Mass_CE, SFR_CE, z_CE)))
             
-            for i_, i in enumerate([np.digitize(12, bins = DataClass.AvaStellarMass[0])-1, np.digitize(11.5, bins = DataClass.AvaStellarMass[0])-1, np.digitize(11, bins = DataClass.AvaStellarMass[0])-1]):#, np.digitize(10, bins = DataClass.AvaStellarMass[0])-1, np.digitize(9, bins = DataClass.AvaStellarMass[0])-1]):
+            for i_, i in enumerate([np.digitize(12, bins = DataClass.AvaStellarMass[0])-1, np.digitize(11.5, bins = DataClass.AvaStellarMass[0])-1, np.digitize(11, bins = DataClass.AvaStellarMass[0])-1]):#, np.digitize(10.5, bins = DataClass.AvaStellarMass[0])-1, np.digitize(10, bins = DataClass.AvaStellarMass[0])-1]):
                 colour = next(colourcycler)
                 
                 #Useful redshift bins
@@ -986,7 +995,7 @@ if __name__ == "__main__":
                 CentralMassGrowth = CentralMass[:-1] - CentralMass[1:]
                 CentralMassGrowth = np.insert(CentralMassGrowth, -1,CentralMassGrowth[-1])
                 dt_CMG = Cosmo.lookbackTime(DataClass.z[1:]) - Cosmo.lookbackTime(DataClass.z[:-1]) 
-                dt_CMG = np.insert(dt_CMG, len(dt_CMG)-1, dt_CMG[-1]) # timesteps in gyr
+                dt_CMG = np.insert(dt_CMG, -1, dt_CMG[-1]) # timesteps in gyr
                 CMG_dt = np.divide(CentralMassGrowth, dt_CMG*(10**9)) #Central Mass Growth dM/dt Msun yr-1    
                 CM_interp = interpolate.interp1d(DataClass.z, CentralMass)
                 CMG_dt_interp = interpolate.interp1d(DataClass.z, CMG_dt)
@@ -1010,8 +1019,9 @@ if __name__ == "__main__":
                 M_acc_dot = Accretion_Interp_dt(z_for_SFH)
                 MaxGas, Tquench, Tau_f = 100, -1, 0
                 
-                M_out, M_dot, M_dot_noacc, SFH, GMLR = F_c.Starformation_Centrals(DataClass.AvaStellarMass[zbin5,i], t, d_t, z_for_SFH, M_acc_dot, MaxGas, Tquench, Tau_f, SFR_Model = "Test", Scatter_On = 0)
+                M_out, M_dot, M_dot_noacc, SFH, GMLR = F_c.Starformation_Centrals(DataClass.AvaStellarMass[zbin5,i], t, d_t, z_for_SFH, M_acc_dot, MaxGas, Tquench, Tau_f, SFR_Model = "G19_DPL", Scatter_On = 0)
                 M_out, M_dot, M_dot_noacc, SFH, GMLR = np.power(10, np.array(M_out)), np.array(M_dot), np.array(M_dot_noacc), np.array(SFH), np.array(GMLR)
+                np.save("Scripts/CentralPostprocessing/GalaxyTracks{}".format(round(DataClass.AvaStellarMass[0,i],1)), np.vstack((z_for_SFH, M_out, M_dot_noacc, GMLR)))
                 #Msun, Myr-1, Myr-1      , M  , Myr-1
                 #print(M_out, "\n", M_dot, "\n", M_dot_noacc, "\n", SFH, "\n", GMLR)
                 #Cumlative SFH
@@ -1020,100 +1030,155 @@ if __name__ == "__main__":
                 
                 #Panel 1: Cumlative total of mass from satellite accretion or SFH
                 #Total
-                SubPlots[0].plot(DataClass.z, DataClass.AvaStellarMass[:,i], "-", color = colour)
+                SubPlots[0, i_].plot(DataClass.z, DataClass.AvaStellarMass[:,i], "-", color = colour)
                 #SFH
-                SubPlots[0].plot(z_for_SFH, np.log10(Mass), ":", color = colour)
+                SubPlots[0, i_].plot(z_for_SFH, np.log10(Mass), ":", color = colour)
                 #Accretion
-                SubPlots[0].plot(DataClass.z, np.flip(np.log10(np.cumsum(np.flip(Mass_Accretion_PerCentral[:,i], 0))), 0), "--", color = colour)
+                SubPlots[0, i_].plot(DataClass.z, np.flip(np.log10(np.cumsum(np.flip(Mass_Accretion_PerCentral[:,i], 0))), 0), "--", color = colour)
             
                 #Panel 2: Fraction of total mass from satellite accretion or SFH since z = 3                
                 #The ratio from SFH
                 SFH_zbin3 = np.digitize(3, bins = z_for_SFH)
                 Ratio_SFH = np.divide(Mass[SFH_zbin3:]-Mass[SFH_zbin3], CM_interp(z_for_SFH[SFH_zbin3:])-CM_interp(z_for_SFH[SFH_zbin3]))
-                SubPlots[1].plot(z_for_SFH[SFH_zbin3:], Ratio_SFH, ":", color = colour)                
+                SubPlots[1, i_].plot(z_for_SFH[SFH_zbin3:], Ratio_SFH, ":", color = colour)                
                 
                 #The ratio from Satellite Accretion
                 Ratio_Acc = np.divide(Accretion_Interp(z_for_SFH[SFH_zbin3:]) - Accretion_Interp(z_for_SFH[SFH_zbin3]), CM_interp(z_for_SFH[SFH_zbin3:])-CM_interp(z_for_SFH[SFH_zbin3]))
-                SubPlots[1].plot(z_for_SFH[SFH_zbin3:], Ratio_Acc, "-.", color = colour)
+                SubPlots[1, i_].plot(z_for_SFH[SFH_zbin3:], Ratio_Acc, "-.", color = colour)
                 
                 #Total
-                SubPlots[1].plot(z_for_SFH[SFH_zbin3:], Ratio_SFH+Ratio_Acc, "-", color = colour)
+                SubPlots[1, i_].plot(z_for_SFH[SFH_zbin3:], Ratio_SFH+Ratio_Acc, "-", color = colour)
                 
                 #Panel 3: Instaneous mass rates
                 #Moving averages here to smooth out the scatters in the instantaneous rates
                 N = 3
                 X_acc_hz, Y_acc_hz = np.convolve(DataClass.z, np.ones((N,))/N, mode='valid'), np.convolve( np.divide(Mass_Accretion_PerCentral[:,i], CentralMassGrowth), np.ones((N,))/N, mode='valid')
-                SubPlots[2].plot(X_acc_hz[1:], Y_acc_hz[1:], "--", color = colour)
-                SubPlots[2].plot(z_for_SFH, np.divide(M_dot_noacc, CMG_dt_interp(z_for_SFH)), ":", color = colour)
-                SubPlots[2].plot(z_for_SFH, np.divide(M_dot, CMG_dt_interp(z_for_SFH)), "-", color = colour)               
+                SubPlots[2, i_].plot(X_acc_hz[1:], Y_acc_hz[1:], "--", color = colour)
+                SubPlots[2, i_].plot(z_for_SFH, np.divide(M_dot_noacc, CMG_dt_interp(z_for_SFH)), ":", color = colour)
+                SubPlots[2, i_].plot(z_for_SFH, np.divide(M_dot, CMG_dt_interp(z_for_SFH)), "-", color = colour)               
                 
                 
 
                 
 
                 #plots off axis for labels  
-                SubPlots[2].plot([7,8,9], [0.5, 0.5, 0.5], "-",label = "$M_{*,cen} = $"+"$10^{%.3g}$"%DataClass.AvaStellarMass[0,i]+"$M_{\odot}$", color = colour)
+                SubPlots[2, i_].plot([7,8,9], [0.5, 0.5, 0.5], "-",label = "$M_{*,cen} = $"+"$10^{%.3g}$"%DataClass.AvaStellarMass[0,i]+"$M_{\odot}$", color = colour)
             
             
             
             #Unity lines
-            SubPlots[1].axhline(1, 0.001, 3, linestyle = "-", color = "k", alpha = 0.5) 
-            SubPlots[2].axhline(1, 0.001, 3, linestyle = "-", color = "k", alpha = 0.5)
+            SubPlots[1, 0].axhline(1, 0.001, 3, linestyle = "-", color = "k", alpha = 0.5) 
+            SubPlots[2, 0].axhline(1, 0.001, 3, linestyle = "-", color = "k", alpha = 0.5)
+            SubPlots[1, 1].axhline(1, 0.001, 3, linestyle = "-", color = "k", alpha = 0.5) 
+            SubPlots[2, 1].axhline(1, 0.001, 3, linestyle = "-", color = "k", alpha = 0.5)
+            SubPlots[1, 2].axhline(1, 0.001, 3, linestyle = "-", color = "k", alpha = 0.5) 
+            SubPlots[2, 2].axhline(1, 0.001, 3, linestyle = "-", color = "k", alpha = 0.5)
             
             #Adding Illustris 
             colours = ["C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "k"]
             colourcycler = cycle(colours)
-            for i in [12,11.5,11]:
+            for i_, i in enumerate([12,11.5,11]):#
                 colour = next(colourcycler)
-                z = np.load("./PaperTwoPlotData/Illustris/z_{}.npy".format(i))
-                Mcen_l, Mcen_u = np.load("./PaperTwoPlotData/Illustris/Mcen_{}.npy".format(i))
-                Macc_l, Macc_u = np.load("./PaperTwoPlotData/Illustris/Macc_Mcen_{}.npy".format(i))
-                Macc_Mcen_l, Macc_Mcen_u = np.load("./PaperTwoPlotData/Illustris/Macc_{}.npy".format(i))
+                z = np.load("./Data/Observational/Illustris/z_{}.npy".format(i))
+                Mcen_l, Mcen_u = np.load("./Data/Observational/Illustris/Mcen_{}.npy".format(i))
+                Macc_l, Macc_u = np.load("./Data/Observational/Illustris/Macc_Mcen_{}.npy".format(i))
+                Macc_Mcen_l, Macc_Mcen_u = np.load("./Data/Observational/Illustris/Macc_{}.npy".format(i))
 
-                SubPlots[0].fill_between(z,  Mcen_l, Mcen_u, alpha = 0.25, color = colour)
-                SubPlots[0].fill_between(z, Macc_l, Macc_u, alpha = 0.25, facecolor = "none", hatch = "X", edgecolor = colour)
-                SubPlots[1].fill_between(z, Macc_Mcen_l, Macc_Mcen_u, alpha = 0.25, color = colour)
-                SubPlots[2].plot([10, 11],[1, 1])
+                SubPlots[0, i_].fill_between(z,  Mcen_l, Mcen_u, alpha = 0.25, color = colour)
+                SubPlots[0, i_].fill_between(z, Macc_l, Macc_u, alpha = 0.25, facecolor = "none", hatch = "X", edgecolor = colour)
+                SubPlots[1, i_].fill_between(z, Macc_Mcen_l, Macc_Mcen_u, alpha = 0.25, color = colour)
+                SubPlots[2, i_].plot([10, 11],[1, 1])
 
             #Line labels
-            SubPlots[0].plot([4,5,6], [0.5, 0.5, 0.5], "--",label = "Accretion", color = "k")
-            SubPlots[0].plot([4,5,6], [0.5, 0.5, 0.5], ":", label = "SFH", color = "k")
-            SubPlots[0].plot([4,5,6], [0.5, 0.5, 0.5], "-", label = "Total", color = "k")
+            SubPlots[0,2].plot([4,5,6], [0.5, 0.5, 0.5], "--",label = "Accretion", color = "k")
+            SubPlots[0,2].plot([4,5,6], [0.5, 0.5, 0.5], ":", label = "SFH", color = "k")
+            SubPlots[0,2].plot([4,5,6], [0.5, 0.5, 0.5], "-", label = "Total", color = "k")
             
             #Legends
-            SubPlots[0].legend(ncol = 3,frameon = False)
-            SubPlots[2].legend(ncol = 3, frameon = False, loc = 2, fontsize = 12)           
+            SubPlots[0,2].legend(ncol = 2,frameon = False, loc = 9, fontsize = 12)
+            SubPlots[2,0].legend(ncol = 1, frameon = False, loc = 1, fontsize = 12)
+            SubPlots[2,1].legend(ncol = 1, frameon = False, loc = 1, fontsize = 12) 
+            SubPlots[2,2].legend(ncol = 1, frameon = False, loc = 1, fontsize = 12)
             
             #Log axis
-            SubPlots[0].set_xscale('log')
-            SubPlots[1].set_xscale('log')
-            SubPlots[2].set_xscale('log')
-            SubPlots[2].set_yscale('log')
-            
+            SubPlots[0,0].set_xscale('log')
+            SubPlots[1,0].set_xscale('log')
+            SubPlots[2,0].set_xscale('log')
+            SubPlots[1,0].set_yscale('log')
+            SubPlots[2,0].set_yscale('log')
+            SubPlots[0,1].set_xscale('log')
+            SubPlots[1,1].set_xscale('log')
+            SubPlots[2,1].set_xscale('log')
+            SubPlots[1,1].set_yscale('log')
+            SubPlots[2,2].set_yscale('log')
+            SubPlots[0,2].set_xscale('log')
+            SubPlots[1,2].set_xscale('log')
+            SubPlots[2,2].set_xscale('log')
+            SubPlots[1,2].set_yscale('log')
+            SubPlots[2,2].set_yscale('log')  
             
             #Ticks
-            SubPlots[2].set_xticks([0.1,0.5,1,2,3])
-            SubPlots[2].set_xticklabels(["0.1","0.5","1","2","3"])
-            SubPlots[0].set_yticks([8, 9, 10, 11, 12])
-            SubPlots[0].set_yticklabels(["8","9","10", "11","12"])
-            SubPlots[2].set_yticks([0.1, 1, 10])
-            SubPlots[2].set_yticklabels(["0.1","1","10"])            
+            #X
+            SubPlots[2,0].set_xticks([0.1,0.5,1,2])
+            SubPlots[2,0].set_xticklabels(["0.1","0.5","1", "2"])
+            SubPlots[2,1].set_xticks([0.1,0.5,1,2])
+            SubPlots[2,1].set_xticklabels(["0.1","0.5","1", "2"])
+            SubPlots[2,2].set_xticks([0.1,0.5,1,2,3])
+            SubPlots[2,2].set_xticklabels(["0.1","0.5","1","2","3"])
+            
+                        
+            SubPlots[0,0].set_yticks([9, 10, 11, 12])
+            SubPlots[0,0].set_yticklabels(["9","10", "11","12"])
+            SubPlots[0,1].set_yticks([9, 10, 11, 12])
+            SubPlots[0,1].set_yticklabels(["9","10", "11","12"])
+            SubPlots[0,2].set_yticks([9, 10, 11, 12])
+            SubPlots[0,2].set_yticklabels(["9","10", "11","12"])            
+            
+            Ticks = [0.1, 0.5, 1]
+            Labels = ["0.1", "0.5", "1"]
+            SubPlots[2,0].set_yticks(Ticks)
+            SubPlots[2,0].set_yticklabels(Labels)
+            SubPlots[2,1].set_yticks(Ticks)
+            SubPlots[2,1].set_yticklabels(Labels)
+            SubPlots[2,2].set_yticks(Ticks)
+            SubPlots[2,0].set_yticklabels(Labels)
+
+             
+            
+
+            
+ 
             
             #Axis Limits
-            SubPlots[2].set_xlim(0.1, 3)
-            SubPlots[0].set_ylim(6, 12.5)
-            SubPlots[1].set_ylim(0, 1.5)
-            SubPlots[2].set_ylim(0.05, 15)
+            SubPlots[2,0].set_xlim(0.1, 3)
+            SubPlots[0,0].set_ylim(9, 12.5)
+            SubPlots[1,0].set_ylim(0.02, 2)
+            SubPlots[2,0].set_ylim(0.1, 2)
+            SubPlots[2,1].set_xlim(0.1, 3)
+            SubPlots[0,1].set_ylim(9, 12.5)
+            SubPlots[1,1].set_ylim(0.02, 2)
+            SubPlots[2,1].set_ylim(0.1, 2)
+            SubPlots[2,2].set_xlim(0.1, 3)
+            SubPlots[0,2].set_ylim(9, 12.5)
+            SubPlots[1,2].set_ylim(0.02, 2)
+            SubPlots[2,2].set_ylim(0.1, 2)
 
             #Axis Labels
-            SubPlots[2].set_xlabel("z")
-            SubPlots[0].set_ylabel(r"log10 Mass $M_{\odot}$")
-            SubPlots[1].set_ylabel(r"$\frac{M_{*,acc}}{M_{*,cen}}$")
-            SubPlots[2].set_ylabel(r"$\frac{dM_{*,acc}/dt}{dM_{*,cen}/dt}$")
+            SubPlots[2,0].set_xlabel("z")
+            SubPlots[0,0].set_ylabel(r"log10 M$_*$ M$_{\odot}$")
+            SubPlots[1,0].set_ylabel(r"$\sum_{i=3}^{0}  M_{X,i} \div \sum_{i=3}^{0}  M_{cen,i}$")
+            SubPlots[2,0].set_ylabel(r"$\dot{M}_{X} \div \dot{M}_{cen}$")
+            #Axis Labels
+            SubPlots[2,1].set_xlabel("z")
+            SubPlots[2,2].set_xlabel("z")
+            #SubPlots[0,1].set_ylabel(r"log10 Mass $M_{\odot}$")
+            #SubPlots[1,1].set_ylabel(r"$\frac{M_{*,acc}}{M_{*,cen}}$")
+            #SubPlots[2,1].set_ylabel(r"$\frac{dM_{*,acc}/dt}{dM_{*,cen}/dt}$")
             
             #Adjust and Save
-            plt.tight_layout()
-            plt.subplots_adjust(hspace=0)
+            plt.subplots_adjust(hspace=0, wspace=0)
+            #plt.tight_layout()
+            
             plt.savefig("Figures/Paper2/SatelliteAccretion{}.png".format(Fit))
             plt.savefig("Figures/Paper2/SatelliteAccretion{}.pdf".format(Fit))
             plt.clf()
@@ -1125,7 +1190,7 @@ if __name__ == "__main__":
         colourcycler = cycle(colours)
         Redshifts = [0,1.5,3]
         f, SubPlots = plt.subplots(1, len(Redshifts), figsize = (12,4), sharex = True, sharey = 'row')
-        for i, Fit in enumerate(['G19_SE', 'G19_SE_Strip', 'G19_SE_SF_Strip']):
+        for i, Fit in enumerate(['G19_SE', 'G19_SE_DPL_NOCE_SF', 'G19_SE_DPL_NOCE_SF_Strip', 'G19_SE_DPL_NOCE_PP_SF_Strip']):
             colour = next(colourcycler)
             DataClass = Classes[FitList.index(Fit)]
             for j, z_ in enumerate(Redshifts):
@@ -1157,17 +1222,33 @@ if __name__ == "__main__":
         linecycler = cycle(lines)
         colourcycler = cycle(colours)
         x,y=0,0
-        Tdyn_Factors = ['G19_SE_PP_SF_Strip'] #['G19_SE_SF_Strip','G19_SE_PP_SF_Strip', 'G19_cMod_PP_SF_Strip']
-        for i, Fit in enumerate(Tdyn_Factors): 
+        Tdyn_Factors = ['G19_SE_DPL_NOCE_PP_SF_Strip'] #['G19_SE_DPL_NOCE_SF', 'G19_SE_DPL_NOCE_SF_Strip']
+        
+        MassRatio = 0.25
+        for i, Fit in enumerate(Tdyn_Factors):
+            index = FitList.index(Fit)
+            P_ellip = np.repeat(Classes[index].Return_Morph_Plot(MassRatio, 3)[0], 100)
             DataClass = Classes[FitList.index(Fit)]
+            Paramaters['SFR_Model'] = 'G19_DPL'
+            
+            Central_SM = np.repeat(DataClass.AvaStellarMass[0], 100)
+            Central_SFR = F.StarFormationRate(Central_SM, 0.1, Paramaters, ScatterOn = True, Quenching = True, P_ellip = P_ellip)
+            Central_sSFR = Central_SFR - Central_SM
+            Central_wt = HMF_fun(Central_SM, 0.1)*np.repeat(DataClass.AvaHaloMassBins[0], 100)
+            
             Line = next(linecycler)
             Colour = next(colourcycler)
             Surviving_Sat_SMF_MassRange, sSFR_Range, Satellite_sSFR = DataClass.Return_SSFR()
             bin_w = Surviving_Sat_SMF_MassRange[1]-Surviving_Sat_SMF_MassRange[0]
             x = 0
-            for l,u in [(10,10.5),(10.5,11),(11,12)]:
+            for l,u in [(10,10.5),(10.5,11.3),(11.3,12.5)]:#[(10,10.5),(10.5,11),(11,12)]:
+                #Satellites
                 Weights = np.sum(Satellite_sSFR[np.digitize(l, bins = Surviving_Sat_SMF_MassRange):np.digitize(u, bins = Surviving_Sat_SMF_MassRange)], axis = 0)
                 N_Ntot = Weights/(np.sum(Weights)*bin_w)
+                #Centrals
+                
+                N_Ntot_cen = np.histogram(Central_sSFR[np.digitize(l, bins = DataClass.AvaStellarMass[0])*100:np.digitize(u, bins = DataClass.AvaStellarMass[0])*101], bins = sSFR_Range, weights = Central_wt[np.digitize(l, bins = DataClass.AvaStellarMass[0])*100:np.digitize(u, bins = DataClass.AvaStellarMass[0])*101], density = True)[0]
+
                 SubPlots[x].set_title("{}-{}".format(l,u) + "$M_{*, sat}$")
                 if FirstPass == True:    
                     if i == 0 and x == 0:
@@ -1176,15 +1257,17 @@ if __name__ == "__main__":
                         No_Leg = True
                     A = Add_SDSS.sSFR_Plot(l, u, SubPlots[x], No_Leg = No_Leg)
                     B = Add_SDSS.sSFR_Plot_Cen(l, u, SubPlots[x], No_Leg = No_Leg)
-                if x==1:
+                if x==2:
                     if len(Tdyn_Factors) == 1:
-                        Label = "Dynamical\nQuenching"
+                        Label = "Satellites:\nDynamical Quenching"
 
                     else:
                         Label = "{}".format(Factor)
                     SubPlots[x].plot(sSFR_Range, N_Ntot, Line, color = Colour,label = Label, alpha = 0.75)
+                    SubPlots[x].plot(sSFR_Range[:-1], N_Ntot_cen, "--", color = 'k',label = "Centrals", alpha = 0.75)
                 else:
                     SubPlots[x].plot(sSFR_Range, N_Ntot, Line, color = Colour,alpha = 0.75)
+                    SubPlots[x].plot(sSFR_Range[:-1], N_Ntot_cen, "--", color = 'k', alpha = 0.75)
                 x +=1
             FirstPass = False
 
@@ -1192,7 +1275,7 @@ if __name__ == "__main__":
         SubPlots[1].set_xlim(SubPlots[0].get_xlim())
         SubPlots[2].set_xlim(SubPlots[0].get_xlim())
         SubPlots[0].legend(loc = 2, frameon = False, fontsize = 12)
-        SubPlots[1].legend(loc = 9, frameon = False, fontsize = 12)
+        SubPlots[2].legend(loc = 9, frameon = False, fontsize = 12)
 
         SubPlots[1].set_xlabel("log10(sSFR) [$yr^{-1}$]", fontproperties = mpl.font_manager.FontProperties(size = 15))
         #print(ax.get_xticks())  

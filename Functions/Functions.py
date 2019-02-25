@@ -26,7 +26,7 @@ h = Cosmo.h
 
 AbsFP = str(__file__)[:-len("/Functions.py")]
 
-def StarFormationRate(SM, z, Parameters, ScatterOn =True):
+def StarFormationRate(SM, z, Parameters, ScatterOn =True, Quenching = False, P_ellip = None):
     """
     Calculates Starformation rate
     Args:
@@ -64,14 +64,23 @@ def StarFormationRate(SM, z, Parameters, ScatterOn =True):
         logM0 = 10.7 + 0.5*(z) - 0.09*(z**2)
         Gamma = -(1.6 - 0.25*(z) + 0.01*(z**2))#including -ve here to avoid it later
         log10MperY = s0 - np.log10(1 + np.power(np.power(10, (SM - logM0) ), Gamma))
-        
+    elif Parameters['SFR_Model'] == 'G19_DPL':
+        M_n = np.power(10, 10.7 + 0.34*z - 0.079*(z**2))
+        Norm = 0.74 + 0.71*z - 0.087*(z**2)
+        Alpha = 1.035 - 0.022*z + 0.0077*(z**2)#
+        Beta = 1.55 - 0.35*z - 0.02*(z**2)
+        MperY = 2*(10**Norm)*np.power( np.power(np.divide(10**SM, M_n), -Alpha) + np.power(np.divide(10**SM, M_n), Beta), -1)
+        log10MperY = np.log10(MperY)    
     else:
         #Default to Grylls19 continuity fit
         s0 = 0.6 + 1.22*(z) - 0.2*(z**2)
         logM0 = 10.3 + 0.753*(z) - 0.15*(z**2)
         Gamma = -(1.3 - 0.1*(z))# - 0.03*(z[i]**2))#including -ve here to avoid it later
         log10MperY = s0 - np.log10(1 +np.power(np.power(10, (SM - logM0) ), Gamma))
-
+    
+    if Quenching:
+        randints = np.random.random(size = np.shape(SM)) 
+        log10MperY[randints<P_ellip] = SM[randints<P_ellip] - 12 
     if ScatterOn:
         log10MperY = np.random.normal(log10MperY,0.2) # scatter in the MS
 
@@ -174,7 +183,7 @@ def Get_HM_History(AnalyticHaloMass, AnalyticHaloMass_min, AnalyticHaloMass_max,
         plt.xlabel("log[1+z]")
         plt.ylabel("log[M(z)/$M_0$]")
         plt.legend()
-        plt.savefig(AbsFP+"/../Figures/Calabration/HaloGrowth.png")
+        plt.savefig(AbsFP+"/../Calabration/HaloGrowth.png")
         plt.clf()
         #We now have a sorted halmass growth 2d array
 
@@ -265,15 +274,15 @@ def Halogrowth(log_M_h, FullReturn = False):
     1                                            ! median (0) or averages (1)\n\
     %s.dat                                       !Output File\n\
     " %(10**log_M_h, PID))
-    with open(AbsFP+"/../Functions/Othermodels/VDB13/%s.in" %(PID), "w") as f:
+    with open(AbsFP+"/../Functions/OtherModels/VDB13/%s.in" %(PID), "w") as f:
         f.write(Input_Str)
     #starts the system command to run VDB14
-    os.system(AbsFP+"/../Functions/Othermodels/VDB13/getPWGH < ./VDB13/%s.in" %(PID))
+    os.system(AbsFP+"/../Functions/OtherModels/VDB13/getPWGH < "+AbsFP+"/../Functions/OtherModels/VDB13/%s.in" %(PID))
     #Loads the output of VDB14
-    log_Mz_M0 = np.loadtxt("./%s.dat" %(PID))
+    log_Mz_M0 = np.loadtxt(AbsFP+"/../%s.dat" %(PID))
     #Removes the file we made to run VDB14 and the file created by VDB14
-    os.remove(AbsFP+"/../Functions/Othermodels/VDB13/%s.in"%(PID))
-    os.remove(AbsFP+"/./%s.dat" %(PID))
+    os.remove(AbsFP+"/../Functions/OtherModels/VDB13/%s.in"%(PID))
+    os.remove(AbsFP+"/../%s.dat" %(PID))
 
 
     if FullReturn:

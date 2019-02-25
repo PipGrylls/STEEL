@@ -15,3 +15,11 @@ Functions/build/
 Functions/Functions_c.c
 Functions/__pycache__/
 Functions/Functions_c.cpython*
+Scripts/__pycache__/
+Scripts/CentralPostprocessing/*.pkl
+Scripts/CentralPostprocessing/*.npy
+Scripts/Plots/__pycache__/
+Figures/Paper2/*.png
+Figures/Paper2/*.pdf
+*.so
+*.o
