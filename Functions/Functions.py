@@ -183,7 +183,7 @@ def Get_HM_History(AnalyticHaloMass, AnalyticHaloMass_min, AnalyticHaloMass_max,
         plt.xlabel("log[1+z]")
         plt.ylabel("log[M(z)/$M_0$]")
         plt.legend()
-        plt.savefig(AbsFP+"/../Figures/Calabration/HaloGrowth.png")
+        plt.savefig(AbsFP+"/../Calabration/HaloGrowth.png")
         plt.clf()
         #We now have a sorted halmass growth 2d array
 
@@ -274,15 +274,15 @@ def Halogrowth(log_M_h, FullReturn = False):
     1                                            ! median (0) or averages (1)\n\
     %s.dat                                       !Output File\n\
     " %(10**log_M_h, PID))
-    with open(AbsFP+"/../Functions/Othermodels/VDB13/%s.in" %(PID), "w") as f:
+    with open(AbsFP+"/../Functions/OtherModels/VDB13/%s.in" %(PID), "w") as f:
         f.write(Input_Str)
     #starts the system command to run VDB14
-    os.system(AbsFP+"/../Functions/Othermodels/VDB13/getPWGH < ./VDB13/%s.in" %(PID))
+    os.system(AbsFP+"/../Functions/OtherModels/VDB13/getPWGH < "+AbsFP+"/../Functions/OtherModels/VDB13/%s.in" %(PID))
     #Loads the output of VDB14
-    log_Mz_M0 = np.loadtxt("./%s.dat" %(PID))
+    log_Mz_M0 = np.loadtxt(AbsFP+"/../%s.dat" %(PID))
     #Removes the file we made to run VDB14 and the file created by VDB14
-    os.remove(AbsFP+"/../Functions/Othermodels/VDB13/%s.in"%(PID))
-    os.remove(AbsFP+"/./%s.dat" %(PID))
+    os.remove(AbsFP+"/../Functions/OtherModels/VDB13/%s.in"%(PID))
+    os.remove(AbsFP+"/../%s.dat" %(PID))
 
 
     if FullReturn:

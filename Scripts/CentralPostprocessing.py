@@ -1241,7 +1241,7 @@ if __name__ == "__main__":
             Surviving_Sat_SMF_MassRange, sSFR_Range, Satellite_sSFR = DataClass.Return_SSFR()
             bin_w = Surviving_Sat_SMF_MassRange[1]-Surviving_Sat_SMF_MassRange[0]
             x = 0
-            for l,u in [(10,10.5),(10.5,11),(11,12)]:
+            for l,u in [(10,10.5),(10.5,11.3),(11.3,12.5)]:#[(10,10.5),(10.5,11),(11,12)]:
                 #Satellites
                 Weights = np.sum(Satellite_sSFR[np.digitize(l, bins = Surviving_Sat_SMF_MassRange):np.digitize(u, bins = Surviving_Sat_SMF_MassRange)], axis = 0)
                 N_Ntot = Weights/(np.sum(Weights)*bin_w)
