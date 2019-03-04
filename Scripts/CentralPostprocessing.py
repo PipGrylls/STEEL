@@ -151,57 +151,9 @@ PreProcessed_Factors = ['G19_SE_PP_SF_Strip','G19_SE_NOCE_PP_SF_Strip']
 
 class PairFractionData:
     def __init__(self, Fit_in):
-        dyn, strip, SF, evo, CE = 1.0, False, False, True, 'CE' #Defaults
-        if Fit_in[-4:] == "_Dyn":
-            Fit_in = Fit_in[:-4]
-            if Fit_in[-4:] == "_Alt":
-                dyn = Fit_in[-7:]
-                Fit_in = Fit_in[:-8]
-            else:
-                dyn = float(Fit_in[-3:])
-                Fit_in = Fit_in[:-4]
-        if Fit_in[-6:] == "_Strip":
-            Fit_in = Fit_in[:-6]
-            strip = True
-        if Fit_in[-3:] == "_SF":
-            SF = True
-            Fit_in = Fit_in[:-3]
-        if Fit_in[-2:] == "_noevo":
-            evo = False
-            Fit_in = Fit_in[:-3]
-        if Fit_in[-3:] == "_PP":
-            Fit_in = Fit_in[:-3]
-            if Fit_in[-5:] == "_NOCE":
-                Fit_in = Fit_in[:-5]
-                if Fit_in[-4:] == "_DPL":
-                    CE = 'G19_DPL_PP'
-                    Fit_in = Fit_in[:-4]
-                elif Fit_in[-6:] == '_S16CE':
-                    CE = 'S16CE_PP'
-                    Fit_in = Fit_in[:-6]
-                elif Fit_in[-10:] == "_Illustris":
-                    CE = 'Illustris_PP'
-                    Fit_in = Fit_in[:-10]
-                else:
-                    CE = "S16_PP"
-            else:
-                CE = "CE_PP"    
-        elif Fit_in[-5:] == "_NOCE":
-            Fit_in = Fit_in[:-5]
-            if Fit_in[-4:] == "_DPL":
-                CE = 'G19_DPL'
-                Fit_in = Fit_in[:-4]
-            elif Fit_in[-6:] == '_S16CE':
-                CE = 'S16CE'
-                Fit_in = Fit_in[:-6]
-            elif Fit_in[-10:] == "_Illustris":
-                CE = 'Illustris'
-                Fit_in = Fit_in[:-10]
-            else:
-                CE = "S16"
-        self.Fit = Fit_in #Set the Fit
-        print("Tuple = ", (dyn, strip, SF, evo, CE, self.Fit))
-        self.RunParam = (dyn, strip, SF, evo, CE, self.Fit)
+        self.Fit = Fit_in[5]
+        print("Tuple = ", Fit_in)
+        self.RunParam = Fit_in
         self.Data_AC = F.LoadData_Mergers((dyn, strip, SF, evo, CE, self.Fit))
         self.Data_PF = F.LoadData_Pair_Frac((dyn, strip, SF, evo, CE, self.Fit))
         
@@ -391,7 +343,11 @@ class PairFractionData:
         
         
 
-
+def Fit_to_Str(Fit):
+    Str_Out = ""
+    for i in Fit:
+        Str_Out += str(i)+"_"
+    return Str_Out
 
     
 def MakeClass(Fit):
@@ -423,11 +379,12 @@ if __name__ == "__main__":
         ClassList = []
         SucessfulData = os.listdir("./Scripts/CentralPostprocessing/")
         for Fit in Total_Factors:
-            if Fit+".pkl" in SucessfulData:
-                ClassList.append([Fit, pickle.load(open("./Scripts/CentralPostprocessing/"+Fit+".pkl", 'rb'))])
+            FitName = Fit_to_Str(Fit)
+            if FitName+".pkl" in SucessfulData:
+                ClassList.append([Fit, pickle.load(open("./Scripts/CentralPostprocessing/"+FitName+".pkl", 'rb'))])
             else:
                 try:
-                    pickle.dump(PairFractionData(Fit), open("./Scripts/CentralPostprocessing/"+Fit+".pkl", 'wb'))
+                    pickle.dump(PairFractionData(Fit), open("./Scripts/CentralPostprocessing/"+FitName+".pkl", 'wb'))
                 except Exception as e:
                     print(Fit + "excepted with:", e)
     else:
@@ -435,10 +392,11 @@ if __name__ == "__main__":
         FitToRun = []
         SucessfulData = os.listdir("./Scripts/CentralPostprocessing/")
         for Fit in Total_Factors:
-            if Fit+".pkl" in SucessfulData:
-                ClassList.append([Fit, pickle.load(open("./Scripts/CentralPostprocessing/"+Fit+".pkl", 'rb'))])
+            FitName = Fit_to_Str(Fit)
+            if FitName+".pkl" in SucessfulData:
+                ClassList.append([Fit, pickle.load(open("./Scripts/CentralPostprocessing/"+FitName+".pkl", 'rb'))])
             else:
-                if Fit not in FitToRun:
+                if FitName not in FitToRun:
                     FitToRun.append(Fit)
         if len(FitToRun) > 0:
             print(FitToRun)
