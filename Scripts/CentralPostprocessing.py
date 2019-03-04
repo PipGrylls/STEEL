@@ -154,8 +154,8 @@ class PairFractionData:
         self.Fit = Fit_in[5]
         print("Tuple = ", Fit_in)
         self.RunParam = Fit_in
-        self.Data_AC = F.LoadData_Mergers((dyn, strip, SF, evo, CE, self.Fit))
-        self.Data_PF = F.LoadData_Pair_Frac((dyn, strip, SF, evo, CE, self.Fit))
+        self.Data_AC = F.LoadData_Mergers(Fit_in)
+        self.Data_PF = F.LoadData_Pair_Frac(Fit_in)
         
         self.Accretion_History, self.z, self.AvaHaloMass, self.Surviving_Sat_SMF_MassRange = self.Data_AC       
         self.Pair_Frac, self.z, self.AvaHaloMass, self.Surviving_Sat_SMF_MassRange = self.Data_PF
@@ -352,7 +352,8 @@ def Fit_to_Str(Fit):
     
 def MakeClass(Fit):
     Class = PairFractionData(Fit)
-    pickle.dump(Class, open("./Scripts/CentralPostprocessing/"+Fit+".pkl", 'wb'))
+    FitName = Fit_to_Str(Fit)
+    pickle.dump(Class, open("./Scripts/CentralPostprocessing/"+FitName+".pkl", 'wb'))
     return [Fit, Class]   
 
 if __name__ == "__main__":
@@ -363,17 +364,10 @@ if __name__ == "__main__":
     #b_Factors = ['G19_SE', 'b_PFT1', 'b_PFT2', 'b_PFT3']
     #g_Factors = ['G19_SE', 'g_PFT1', 'g_PFT2', 'g_PFT3']
     #extra_g_Factors = ['g_PFT4', 'g_PFT4_Strip']
-    #G18_Factors = ['G18','G18_Strip']
-    cMod_Factors = ['G19_cMod', 'G19_cMod_Strip']#, "G19_cMod_SF_Strip", "G19_cMod_PP_SF_Strip"]
-    #Moster_Factors = ['Moster10', 'Moster10_Strip', 'Moster', 'Moster_Strip']
-    Evo_Factors = ['G19_SE', 'G19_SE_SF', 'G19_SE_Strip', 'G19_SE_SF_Strip']#,'G19_SE_PP_SF_Strip']
-    DPL_Factors = ['G19_SE_DPL_NOCE_SF', 'G19_SE_DPL_NOCE_SF_Strip', 'G19_SE_DPL_NOCE_PP_SF_Strip', 'G19_SE_DPL_NOCE_SF_Strip_1.2_Dyn', 'G19_SE_DPL_NOCE_PP_SF_Strip_1.2_Dyn', 'G19_SE_DPL_NOCE_SF_Strip_0.8_Dyn', 'G19_SE_DPL_NOCE_PP_SF_Strip_0.8_Dyn']
-    #Ill_Factors = ['Illustris_Strip', 'Illustris_Illustris_NOCE_SF_Strip', 'Illustris_Illustris_NOCE_PP_SF_Strip']
-    #OtherSFR = ['G19_SE_NOCE_SF_Strip', 'G19_SE_NOCE_PP_SF_Strip','G19_SE_S16CE_NOCE_SF_Strip']
-    #Alt_Dyn_Factors = ['G19_SE_Strip_1.0_AltDyn', 'G19_SE_Strip_0.8_AltDyn', 'G19_SE_S16CE_NOCE_SF_Strip_1.0_AltDyn', 'G19_SE0.1Dyn', 'G19_SE_1.0_AltDyn']
-    #Override_Factors = ['Override_z']
-
-    Total_Factors = Evo_Factors + DPL_Factors + cMod_Factors #M_Factors+N_Factors+b_Factors+g_Factors+extra_g_Factors+G18_Factors+cMod_Factors+Moster_Factors+Evo_Factors+Ill_Factors+OtherSFR+Alt_Dyn_Factors+Override_Factors#
+    cMod_Factors = [('1.0', False, False, True, 'CE', 'G19_cMod'), ('1.0', False, True, True, 'CE_PP', 'G19_cMod'), ('1.0', True, False, True, 'CE', 'G19_cMod'), ('1.0', True, True, True, 'CE_PP', 'G19_cMod')]
+    Evo_Factors = [('1.0', False, False, True, 'CE', 'G19_SE'), ('1.0', False, True, True, 'CE', 'G19_SE'), ('1.0', True, True, True, 'CE', 'G19_SE')]
+    DPL_Factors = [('1.0', False, False, True, 'G19_DPL', 'G19_SE'), ('1.0', False, True, True, 'G19_DPL', 'G19_SE'), ('1.0', True, True, True, 'G19_DPL', 'G19_SE'), ('0.8', True, True, True, 'G19_DPL', 'G19_SE'), ('0.8', True, True, True, 'G19_DPL_PP', 'G19_SE'), ('1.2', True, True, True, 'G19_DPL', 'G19_SE'), ('1.2', True, True, True, 'G19_DPL_PP', 'G19_SE')]
+    Total_Factors = Evo_Factors #+ DPL_Factors + cMod_Factors 
 
     if False:
         ClassList = []
@@ -828,7 +822,7 @@ if __name__ == "__main__":
         
         MassRatio = 0.25
         
-        index = FitList.index('G19_SE_DPL_NOCE_PP_SF_Strip')
+        index = FitList.index(('1.0', False, False, True, 'CE', 'G19_SE'))
         P_ellip = Classes[index].Return_Morph_Plot(MassRatio, 2)
         
         #Create data for lorenzo
@@ -882,7 +876,7 @@ if __name__ == "__main__":
         Max[Max<0] = 0
         return m-m0+a0*r-a1*np.power(Max, 2)
     if True:     
-        for k, Fit in enumerate(['G19_SE_DPL_NOCE_PP_SF_Strip_0.8_Dyn']):#'G19_SE_DPL_NOCE_SF', 'G19_SE_DPL_NOCE_SF_Strip', 'G19_SE_DPL_NOCE_PP_SF_Strip', 'G19_SE_DPL_NOCE_SF_Strip_1.2_Dyn', 'G19_SE_DPL_NOCE_PP_SF_Strip_1.2_Dyn', 'G19_SE_DPL_NOCE_SF_Strip_0.8_Dyn', 'G19_SE_DPL_NOCE_PP_SF_Strip_0.8_Dyn' 'G19_cMod', 'G19_cMod_Strip'
+        for k, Fit in enumerate([('1.0', False, False, True, 'CE', 'G19_SE')]):#'G19_SE_DPL_NOCE_SF', 'G19_SE_DPL_NOCE_SF_Strip', 'G19_SE_DPL_NOCE_PP_SF_Strip', 'G19_SE_DPL_NOCE_SF_Strip_1.2_Dyn', 'G19_SE_DPL_NOCE_PP_SF_Strip_1.2_Dyn', 'G19_SE_DPL_NOCE_SF_Strip_0.8_Dyn', 'G19_SE_DPL_NOCE_PP_SF_Strip_0.8_Dyn' 'G19_cMod', 'G19_cMod_Strip'
             f, SubPlots = plt.subplots(3, 3, figsize = (12,7), sharex = 'col', sharey = 'row')
 
             colours = ["C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "k"]
