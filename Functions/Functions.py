@@ -515,7 +515,7 @@ def DarkMatterToStellarMass(DM, z, Paramaters, ScatterOn = False, Scatter = 0.00
                             Containing Parameters: 'M10', 'SHMnorm10', 'beta10', 'gamma10', 'M11', 'SHMnorm11', 'beta11', 'gamma11' 
         ScatterOn: Bool to switch scatter on/off
         Scatter: Scatter set low should be set in parameter section or sent via Scatter in dictonary.
-        Pairwise: Bool. If true and N==M n and M will not be calculated Pairwise
+        Pairwise: Bool. If true and N==M N and M will not be calculated Pairwise
     Returns:
         Stellar mass array in log10 Msun. Shape will be (1,), (N,), or (N, M) depending on the sape of inputs.
     Raises: 
@@ -951,7 +951,7 @@ def LoadData_Sat_SMHM(RunParam):
     z = np.load(OutputFolder +"RunParam_{}/Sat_SMHM_z.npy".format("".join(("{}_".format(i) for i in RunParam))))
     SatHaloMass = np.load(OutputFolder +"RunParam_{}/Sat_SMHM_SatHaloMass.npy".format("".join(("{}_".format(i) for i in RunParam))))
     AvaHaloMass = np.load(OutputFolder +"RunParam_{}/Sat_SMHM_AvaHaloMass.npy".format("".join(("{}_".format(i) for i in RunParam))))
-    Surviving_Sat_SMF_MassRange = np.load("./DataOutput/RunParam_{}/Sat_SMHM_Surviving_Sat_SMF_MassRange.npy".format("".join(("{}_".format(i) for i in RunParam))))
+    Surviving_Sat_SMF_MassRange = np.load(OutputFolder +"RunParam_{}/Sat_SMHM_Surviving_Sat_SMF_MassRange.npy".format("".join(("{}_".format(i) for i in RunParam))))
     Sat_SMHM = np.load(OutputFolder +"RunParam_{}/Sat_SMHM_Sat_SMHM.npy".format("".join(("{}_".format(i) for i in RunParam))))
     Sat_SMHM_Host = np.load(OutputFolder +"RunParam_{}/Sat_SMHM_Sat_SMHM_Host.npy".format("".join(("{}_".format(i) for i in RunParam))))
     return z, SatHaloMass, AvaHaloMass, Surviving_Sat_SMF_MassRange, Sat_SMHM, Sat_SMHM_Host

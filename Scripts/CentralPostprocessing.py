@@ -151,59 +151,11 @@ PreProcessed_Factors = ['G19_SE_PP_SF_Strip','G19_SE_NOCE_PP_SF_Strip']
 
 class PairFractionData:
     def __init__(self, Fit_in):
-        dyn, strip, SF, evo, CE = 1.0, False, False, True, 'CE' #Defaults
-        if Fit_in[-4:] == "_Dyn":
-            Fit_in = Fit_in[:-4]
-            if Fit_in[-4:] == "_Alt":
-                dyn = Fit_in[-7:]
-                Fit_in = Fit_in[:-8]
-            else:
-                dyn = float(Fit_in[-3:])
-                Fit_in = Fit_in[:-4]
-        if Fit_in[-6:] == "_Strip":
-            Fit_in = Fit_in[:-6]
-            strip = True
-        if Fit_in[-3:] == "_SF":
-            SF = True
-            Fit_in = Fit_in[:-3]
-        if Fit_in[-2:] == "_noevo":
-            evo = False
-            Fit_in = Fit_in[:-3]
-        if Fit_in[-3:] == "_PP":
-            Fit_in = Fit_in[:-3]
-            if Fit_in[-5:] == "_NOCE":
-                Fit_in = Fit_in[:-5]
-                if Fit_in[-4:] == "_DPL":
-                    CE = 'G19_DPL_PP'
-                    Fit_in = Fit_in[:-4]
-                elif Fit_in[-6:] == '_S16CE':
-                    CE = 'S16CE_PP'
-                    Fit_in = Fit_in[:-6]
-                elif Fit_in[-10:] == "_Illustris":
-                    CE = 'Illustris_PP'
-                    Fit_in = Fit_in[:-10]
-                else:
-                    CE = "S16_PP"
-            else:
-                CE = "CE_PP"    
-        elif Fit_in[-5:] == "_NOCE":
-            Fit_in = Fit_in[:-5]
-            if Fit_in[-4:] == "_DPL":
-                CE = 'G19_DPL'
-                Fit_in = Fit_in[:-4]
-            elif Fit_in[-6:] == '_S16CE':
-                CE = 'S16CE'
-                Fit_in = Fit_in[:-6]
-            elif Fit_in[-10:] == "_Illustris":
-                CE = 'Illustris'
-                Fit_in = Fit_in[:-10]
-            else:
-                CE = "S16"
-        self.Fit = Fit_in #Set the Fit
-        print("Tuple = ", (dyn, strip, SF, evo, CE, self.Fit))
-        self.RunParam = (dyn, strip, SF, evo, CE, self.Fit)
-        self.Data_AC = F.LoadData_Mergers((dyn, strip, SF, evo, CE, self.Fit))
-        self.Data_PF = F.LoadData_Pair_Frac((dyn, strip, SF, evo, CE, self.Fit))
+        self.Fit = Fit_in[5]
+        print("Tuple = ", Fit_in)
+        self.RunParam = Fit_in
+        self.Data_AC = F.LoadData_Mergers(Fit_in)
+        self.Data_PF = F.LoadData_Pair_Frac(Fit_in)
         
         self.Accretion_History, self.z, self.AvaHaloMass, self.Surviving_Sat_SMF_MassRange = self.Data_AC       
         self.Pair_Frac, self.z, self.AvaHaloMass, self.Surviving_Sat_SMF_MassRange = self.Data_PF
@@ -375,7 +327,7 @@ class PairFractionData:
                 if FirstAddition and (z_start > self.z[i]):
                     P_ellip[i,j] = Major_Frac #if this is the first step then the number turned is just the fraction
                 elif (z_start > self.z[i]):
-                    P_ellip[i,j] = P_ellip[i+1,j] + Major_Frac*(1 - P_ellip[i+1,j]) #otherwise a major merger with a prexisting elliptical population is disconted
+                    P_ellip[i,j] = P_ellip[i+1,j] + Major_Frac*(1 - P_ellip[i+1,j]) #otherwise correct for the prexisting elliptical population
             if (z_start > self.z[i]):
                 FirstAddition = False
         return P_ellip
@@ -391,12 +343,17 @@ class PairFractionData:
         
         
 
-
+def Fit_to_Str(Fit):
+    Str_Out = ""
+    for i in Fit:
+        Str_Out += str(i)+"_"
+    return Str_Out
 
     
 def MakeClass(Fit):
     Class = PairFractionData(Fit)
-    pickle.dump(Class, open("./Scripts/CentralPostprocessing/"+Fit+".pkl", 'wb'))
+    FitName = Fit_to_Str(Fit)
+    pickle.dump(Class, open("./Scripts/CentralPostprocessing/"+FitName+".pkl", 'wb'))
     return [Fit, Class]   
 
 if __name__ == "__main__":
@@ -407,27 +364,21 @@ if __name__ == "__main__":
     #b_Factors = ['G19_SE', 'b_PFT1', 'b_PFT2', 'b_PFT3']
     #g_Factors = ['G19_SE', 'g_PFT1', 'g_PFT2', 'g_PFT3']
     #extra_g_Factors = ['g_PFT4', 'g_PFT4_Strip']
-    #G18_Factors = ['G18','G18_Strip']
-    #cMod_Factors = ['G19_cMod', 'G19_cMod_Strip', "G19_cMod_SF_Strip", "G19_cMod_PP_SF_Strip"]
-    #Moster_Factors = ['Moster10', 'Moster10_Strip', 'Moster', 'Moster_Strip']
-    Evo_Factors = ['G19_SE', 'G19_SE_SF', 'G19_SE_Strip', 'G19_SE_SF_Strip']#,'G19_SE_PP_SF_Strip']
-    DPL_Factors = ['G19_SE_DPL_NOCE_SF', 'G19_SE_DPL_NOCE_SF_Strip', 'G19_SE_DPL_NOCE_PP_SF_Strip', 'G19_SE_DPL_NOCE_SF_Strip_1.2_Dyn', 'G19_SE_DPL_NOCE_PP_SF_Strip_1.2_Dyn', 'G19_SE_DPL_NOCE_SF_Strip_0.8_Dyn', 'G19_SE_DPL_NOCE_PP_SF_Strip_0.8_Dyn']
-    #Ill_Factors = ['Illustris_Strip', 'Illustris_Illustris_NOCE_SF_Strip', 'Illustris_Illustris_NOCE_PP_SF_Strip']
-    #OtherSFR = ['G19_SE_NOCE_SF_Strip', 'G19_SE_NOCE_PP_SF_Strip','G19_SE_S16CE_NOCE_SF_Strip']
-    #Alt_Dyn_Factors = ['G19_SE_Strip_1.0_AltDyn', 'G19_SE_Strip_0.8_AltDyn', 'G19_SE_S16CE_NOCE_SF_Strip_1.0_AltDyn', 'G19_SE0.1Dyn', 'G19_SE_1.0_AltDyn']
-    #Override_Factors = ['Override_z']
-
-    Total_Factors = Evo_Factors + DPL_Factors #M_Factors+N_Factors+b_Factors+g_Factors+extra_g_Factors+G18_Factors+cMod_Factors+Moster_Factors+Evo_Factors+Ill_Factors+OtherSFR+Alt_Dyn_Factors+Override_Factors#
+    cMod_Factors = [('1.0', False, False, True, 'CE', 'G19_cMod'), ('1.0', False, True, True, 'CE_PP', 'G19_cMod'), ('1.0', True, False, True, 'CE', 'G19_cMod'), ('1.0', True, True, True, 'CE_PP', 'G19_cMod')]
+    Evo_Factors = [('1.0', False, False, True, 'CE', 'G19_SE'), ('1.0', False, True, True, 'CE', 'G19_SE'), ('1.0', True, True, True, 'CE', 'G19_SE')]
+    DPL_Factors = [('1.0', False, False, True, 'G19_DPL', 'G19_SE'), ('1.0', False, True, True, 'G19_DPL', 'G19_SE'), ('1.0', True, True, True, 'G19_DPL', 'G19_SE'), ('0.8', True, True, True, 'G19_DPL', 'G19_SE'), ('0.8', True, True, True, 'G19_DPL_PP', 'G19_SE'), ('1.2', True, True, True, 'G19_DPL', 'G19_SE'), ('1.2', True, True, True, 'G19_DPL_PP', 'G19_SE')]
+    Total_Factors = Evo_Factors #+ DPL_Factors + cMod_Factors 
 
     if False:
         ClassList = []
         SucessfulData = os.listdir("./Scripts/CentralPostprocessing/")
         for Fit in Total_Factors:
-            if Fit+".pkl" in SucessfulData:
-                ClassList.append([Fit, pickle.load(open("./Scripts/CentralPostprocessing/"+Fit+".pkl", 'rb'))])
+            FitName = Fit_to_Str(Fit)
+            if FitName+".pkl" in SucessfulData:
+                ClassList.append([Fit, pickle.load(open("./Scripts/CentralPostprocessing/"+FitName+".pkl", 'rb'))])
             else:
                 try:
-                    pickle.dump(PairFractionData(Fit), open("./Scripts/CentralPostprocessing/"+Fit+".pkl", 'wb'))
+                    pickle.dump(PairFractionData(Fit), open("./Scripts/CentralPostprocessing/"+FitName+".pkl", 'wb'))
                 except Exception as e:
                     print(Fit + "excepted with:", e)
     else:
@@ -435,10 +386,11 @@ if __name__ == "__main__":
         FitToRun = []
         SucessfulData = os.listdir("./Scripts/CentralPostprocessing/")
         for Fit in Total_Factors:
-            if Fit+".pkl" in SucessfulData:
-                ClassList.append([Fit, pickle.load(open("./Scripts/CentralPostprocessing/"+Fit+".pkl", 'rb'))])
+            FitName = Fit_to_Str(Fit)
+            if FitName+".pkl" in SucessfulData:
+                ClassList.append([Fit, pickle.load(open("./Scripts/CentralPostprocessing/"+FitName+".pkl", 'rb'))])
             else:
-                if Fit not in FitToRun:
+                if FitName not in FitToRun:
                     FitToRun.append(Fit)
         if len(FitToRun) > 0:
             print(FitToRun)
@@ -870,7 +822,7 @@ if __name__ == "__main__":
         
         MassRatio = 0.25
         
-        index = FitList.index('G19_SE_DPL_NOCE_PP_SF_Strip')
+        index = FitList.index(('1.0', False, False, True, 'CE', 'G19_SE'))
         P_ellip = Classes[index].Return_Morph_Plot(MassRatio, 2)
         
         #Create data for lorenzo
@@ -924,7 +876,7 @@ if __name__ == "__main__":
         Max[Max<0] = 0
         return m-m0+a0*r-a1*np.power(Max, 2)
     if True:     
-        for k, Fit in enumerate(['G19_SE_DPL_NOCE_PP_SF_Strip']):#'G19_SE_DPL_NOCE_SF', 'G19_SE_DPL_NOCE_SF_Strip', 'G19_SE_DPL_NOCE_PP_SF_Strip', 'G19_SE_DPL_NOCE_SF_Strip_1.2_Dyn', 'G19_SE_DPL_NOCE_PP_SF_Strip_1.2_Dyn', 'G19_SE_DPL_NOCE_SF_Strip_0.8_Dyn', 'G19_SE_DPL_NOCE_PP_SF_Strip_0.8_Dyn'
+        for k, Fit in enumerate([('1.0', False, False, True, 'CE', 'G19_SE')]):#'G19_SE_DPL_NOCE_SF', 'G19_SE_DPL_NOCE_SF_Strip', 'G19_SE_DPL_NOCE_PP_SF_Strip', 'G19_SE_DPL_NOCE_SF_Strip_1.2_Dyn', 'G19_SE_DPL_NOCE_PP_SF_Strip_1.2_Dyn', 'G19_SE_DPL_NOCE_SF_Strip_0.8_Dyn', 'G19_SE_DPL_NOCE_PP_SF_Strip_0.8_Dyn' 'G19_cMod', 'G19_cMod_Strip'
             f, SubPlots = plt.subplots(3, 3, figsize = (12,7), sharex = 'col', sharey = 'row')
 
             colours = ["C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "k"]
@@ -948,6 +900,7 @@ if __name__ == "__main__":
             
             Mass_CE = np.array([])
             SFR_CE = np.array([])
+            AccRt = np.array([])
             z_CE = np.array([])
             #Output the CE from the diffrence between unity and the galaxy accretion rate
             Masses_for_CE = [np.digitize(i, bins = DataClass.AvaStellarMass[0])-1 for i in np.arange(9, np.max(DataClass.AvaStellarMass[0]), 0.1)]
@@ -972,7 +925,8 @@ if __name__ == "__main__":
                 z_CE= np.concatenate((z_CE, X_acc_hz[:-1]))
                 Mass_CE= np.concatenate((Mass_CE, np.convolve(CentralMass, np.ones((N,))/N, mode='valid')[1:]))
                 SFR_CE= np.concatenate((SFR_CE, (1-Y_acc_hz[:-1])*np.convolve(CMG_dt, np.ones((N,))/N, mode='valid')[:-1]))
-            np.save("Scripts/CentralPostprocessing/HaloMassTrackCE", np.vstack((Mass_CE, SFR_CE, z_CE)))
+                AccRt = np.concatenate((AccRt , (Y_acc_hz[:-1])*np.convolve(np.divide(CentralMassGrowth, dt_CMG*(10**9)), np.ones((N,))/N, mode='valid')[:-1]))
+            np.save("Scripts/CentralPostprocessing/HaloMassTrackCE", np.vstack((Mass_CE, SFR_CE, z_CE, AccRt)))
             
             for i_, i in enumerate([np.digitize(12, bins = DataClass.AvaStellarMass[0])-1, np.digitize(11.5, bins = DataClass.AvaStellarMass[0])-1, np.digitize(11, bins = DataClass.AvaStellarMass[0])-1]):#, np.digitize(10.5, bins = DataClass.AvaStellarMass[0])-1, np.digitize(10, bins = DataClass.AvaStellarMass[0])-1]):
                 colour = next(colourcycler)
@@ -1019,7 +973,7 @@ if __name__ == "__main__":
                 M_acc_dot = Accretion_Interp_dt(z_for_SFH)
                 MaxGas, Tquench, Tau_f = 100, -1, 0
                 
-                M_out, M_dot, M_dot_noacc, SFH, GMLR = F_c.Starformation_Centrals(DataClass.AvaStellarMass[zbin5,i], t, d_t, z_for_SFH, M_acc_dot, MaxGas, Tquench, Tau_f, SFR_Model = "G19_DPL", Scatter_On = 0)
+                M_out, M_dot, M_dot_noacc, SFH, GMLR = F_c.Starformation_Centrals(DataClass.AvaStellarMass[zbin5,i], t, d_t, z_for_SFH, M_acc_dot, MaxGas, Tquench, Tau_f, SFR_Model = "G19_DPL", Scatter_On = 0)#"G19_DPL"
                 M_out, M_dot, M_dot_noacc, SFH, GMLR = np.power(10, np.array(M_out)), np.array(M_dot), np.array(M_dot_noacc), np.array(SFH), np.array(GMLR)
                 np.save("Scripts/CentralPostprocessing/GalaxyTracks{}".format(round(DataClass.AvaStellarMass[0,i],1)), np.vstack((z_for_SFH, M_out, M_dot_noacc, GMLR)))
                 #Msun, Myr-1, Myr-1      , M  , Myr-1
@@ -1044,7 +998,7 @@ if __name__ == "__main__":
                 
                 #The ratio from Satellite Accretion
                 Ratio_Acc = np.divide(Accretion_Interp(z_for_SFH[SFH_zbin3:]) - Accretion_Interp(z_for_SFH[SFH_zbin3]), CM_interp(z_for_SFH[SFH_zbin3:])-CM_interp(z_for_SFH[SFH_zbin3]))
-                SubPlots[1, i_].plot(z_for_SFH[SFH_zbin3:], Ratio_Acc, "-.", color = colour)
+                SubPlots[1, i_].plot(z_for_SFH[SFH_zbin3:], Ratio_Acc, "--", color = colour)
                 
                 #Total
                 SubPlots[1, i_].plot(z_for_SFH[SFH_zbin3:], Ratio_SFH+Ratio_Acc, "-", color = colour)
@@ -1053,7 +1007,7 @@ if __name__ == "__main__":
                 #Moving averages here to smooth out the scatters in the instantaneous rates
                 N = 3
                 X_acc_hz, Y_acc_hz = np.convolve(DataClass.z, np.ones((N,))/N, mode='valid'), np.convolve( np.divide(Mass_Accretion_PerCentral[:,i], CentralMassGrowth), np.ones((N,))/N, mode='valid')
-                SubPlots[2, i_].plot(X_acc_hz[1:], Y_acc_hz[1:], "--", color = colour)
+                SubPlots[2, i_].plot(X_acc_hz[4:], Y_acc_hz[4:], "--", color = colour)
                 SubPlots[2, i_].plot(z_for_SFH, np.divide(M_dot_noacc, CMG_dt_interp(z_for_SFH)), ":", color = colour)
                 SubPlots[2, i_].plot(z_for_SFH, np.divide(M_dot, CMG_dt_interp(z_for_SFH)), "-", color = colour)               
                 
@@ -1257,7 +1211,7 @@ if __name__ == "__main__":
                         No_Leg = True
                     A = Add_SDSS.sSFR_Plot(l, u, SubPlots[x], No_Leg = No_Leg)
                     B = Add_SDSS.sSFR_Plot_Cen(l, u, SubPlots[x], No_Leg = No_Leg)
-                if x==2:
+                if x==1:
                     if len(Tdyn_Factors) == 1:
                         Label = "Satellites:\nDynamical Quenching"
 
@@ -1275,7 +1229,7 @@ if __name__ == "__main__":
         SubPlots[1].set_xlim(SubPlots[0].get_xlim())
         SubPlots[2].set_xlim(SubPlots[0].get_xlim())
         SubPlots[0].legend(loc = 2, frameon = False, fontsize = 12)
-        SubPlots[2].legend(loc = 9, frameon = False, fontsize = 12)
+        SubPlots[1].legend(loc = 9, frameon = False, fontsize = 12)
 
         SubPlots[1].set_xlabel("log10(sSFR) [$yr^{-1}$]", fontproperties = mpl.font_manager.FontProperties(size = 15))
         #print(ax.get_xticks())  

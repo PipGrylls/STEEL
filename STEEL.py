@@ -34,7 +34,7 @@ HMF_fun = F.Make_HMF_Interp()
 HighRes = False #set to True for better HM/SM resolution, takes MUCH longer
 
 #Cuts in Satilitemass
-SM_Cuts = [9, 9.5, 10, 10.5, 11]#[9,10,11]#
+SM_Cuts = [9, 9.5, 10, 10.5, 11, 11.45]#[9,10,11]#
 #When using Abundance matching do N realisations to capture upscatter effects
 N = 5
 
@@ -535,15 +535,16 @@ if __name__ == "__main__":
     #Tdyn_Factors += [('1.0', True, False, True, 'CE', 'G19_SE')]
     #Tdyn_Factors += [('1.0', False, True, True, 'CE', 'G19_SE')]
     #Tdyn_Factors += [('1.0', True, True, True, 'CE', 'G19_SE')]
-    Tdyn_Factors += [('1.0', False, True, True, 'G19_DPL', 'G19_SE')]
-    Tdyn_Factors += [('1.0', True, True, True, 'G19_DPL', 'G19_SE')]
-    Tdyn_Factors += [('1.0', True, True, True, 'G19_DPL_PP', 'G19_SE')]
-    Tdyn_Factors += [('1.2', True, True, True, 'G19_DPL_PP', 'G19_SE')]
-    Tdyn_Factors += [('0.8', True, True, True, 'G19_DPL_PP', 'G19_SE')]
-    Tdyn_Factors += [('1.2', True, True, True, 'G19_DPL', 'G19_SE')]
-    Tdyn_Factors += [('0.8', True, True, True, 'G19_DPL', 'G19_SE')]
+    #Tdyn_Factors += [('1.0', False, True, True, 'G19_DPL', 'G19_SE')]
+    #Tdyn_Factors += [('1.0', True, True, True, 'G19_DPL', 'G19_SE')]
+    #Tdyn_Factors += [('1.0', True, True, True, 'G19_DPL_PP', 'G19_SE')]
+    #Tdyn_Factors += [('1.2', True, True, True, 'G19_DPL_PP', 'G19_SE')]
+    #Tdyn_Factors += [('0.8', True, True, True, 'G19_DPL_PP', 'G19_SE')]
+    #Tdyn_Factors += [('1.2', True, True, True, 'G19_DPL', 'G19_SE')]
+    #Tdyn_Factors += [('0.8', True, True, True, 'G19_DPL', 'G19_SE')]
     #Tdyn_Factors += [('1.0', False, False, True, 'CE', 'Override_z')]
-    #Tdyn_Factors += [('1.0', True, True, True, 'CE', 'G19_cMod')]
+    Tdyn_Factors += [('1.0', False, False, True, 'G19_DPL', 'Moster')]
+    #Tdyn_Factors += [('1.0', True, True, True, 'G19_DPL', 'G19_SE')]
     #Tdyn_Factors += [('1.0', False, True, True, 'CE_PP', 'G19_cMod')]
     #Tdyn_Factors += [('1.0', True, True, True, 'CE_PP', 'G19_cMod')]
     #Tdyn_Factors += [('1.0', True, True, True, 'CE_PP', 'G19_SE')]

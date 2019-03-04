@@ -238,7 +238,7 @@ def Starformation_Centrals(double M_infall, double[:] t, double[:] delta_t, doub
     #keeping stringformat checks out of loop (minor python interaction)
     if SFR_Model == "T16": SFR_Model_int = 1  
     if SFR_Model == "CE": SFR_Model_int = 2  
-    if SFR_Model == "S16": SFR_Model_int = 3    
+    if SFR_Model == "S15": SFR_Model_int = 3    
     if SFR_Model == "S16CE": SFR_Model_int = 4
     if SFR_Model == "Illustris": SFR_Model_int = 5
     if SFR_Model == "G19_DPL": SFR_Model_int = 6
@@ -272,7 +272,7 @@ def Starformation_Centrals(double M_infall, double[:] t, double[:] delta_t, doub
             if SFR_Model_int == 4:
                 m = M_out[i]-9
                 r = c_log10(1+z[i])
-                m0, a0, a1, m1, a2 = 0.75, 1.75, 0.3, 0.36, 1.75
+                m0, a0, a1, m1, a2 = 0.5, 1.5, 0.3, 0.36, 2.5
                 Max = m-m1-a2*r
                 if Max > 0:
                     Max = 0
