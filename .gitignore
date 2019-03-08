@@ -23,3 +23,7 @@ Figures/Paper2/*.png
 Figures/Paper2/*.pdf
 *.so
 *.o
+Figures/SMHM_Fit/*.png
+Figures/SMHM_Fit/*.pdf
+Figures/Gamma_v_Scatter/*.png
+Figures/Gamma_v_Scatter/*.pdf

@@ -364,10 +364,22 @@ if __name__ == "__main__":
     #b_Factors = ['G19_SE', 'b_PFT1', 'b_PFT2', 'b_PFT3']
     #g_Factors = ['G19_SE', 'g_PFT1', 'g_PFT2', 'g_PFT3']
     #extra_g_Factors = ['g_PFT4', 'g_PFT4_Strip']
-    cMod_Factors = [('1.0', False, False, True, 'CE', 'G19_cMod'), ('1.0', False, True, True, 'CE_PP', 'G19_cMod'), ('1.0', True, False, True, 'CE', 'G19_cMod'), ('1.0', True, True, True, 'CE_PP', 'G19_cMod')]
-    Evo_Factors = [('1.0', False, False, True, 'CE', 'G19_SE'), ('1.0', False, True, True, 'CE', 'G19_SE'), ('1.0', True, True, True, 'CE', 'G19_SE')]
-    DPL_Factors = [('1.0', False, False, True, 'G19_DPL', 'G19_SE'), ('1.0', False, True, True, 'G19_DPL', 'G19_SE'), ('1.0', True, True, True, 'G19_DPL', 'G19_SE'), ('0.8', True, True, True, 'G19_DPL', 'G19_SE'), ('0.8', True, True, True, 'G19_DPL_PP', 'G19_SE'), ('1.2', True, True, True, 'G19_DPL', 'G19_SE'), ('1.2', True, True, True, 'G19_DPL_PP', 'G19_SE')]
-    Total_Factors = Evo_Factors #+ DPL_Factors + cMod_Factors 
+    cMod_Factors = [('1.0', False, False, True, 'CE', 'G19_cMod'),\
+                    ('1.0', False, True, True, 'CE_PP', 'G19_cMod'),\
+                    ('1.0', True, False, True, 'CE', 'G19_cMod'),\
+                    ('1.0', True, True, True, 'CE_PP', 'G19_cMod')]
+    Evo_Factors = [('1.0', False, False, True, 'CE', 'G19_SE'),\
+                   ('1.0', False, True, True, 'CE', 'G19_SE'),\
+                   ('1.0', True, True, True, 'CE', 'G19_SE')]
+    DPL_Factors = [('1.0', False, False, True, 'G19_DPL', 'G19_SE'),\
+                   ('1.0', False, True, True, 'G19_DPL', 'G19_SE'),\
+                   ('1.0', True, True, True, 'G19_DPL', 'G19_SE'),\
+                   ('1.0', True, True, True, 'G19_DPL_PP', 'G19_SE'),\
+                   ('0.8', True, True, True, 'G19_DPL', 'G19_SE'),\
+                   ('0.8', True, True, True, 'G19_DPL_PP', 'G19_SE'),\
+                   ('1.2', True, True, True, 'G19_DPL', 'G19_SE'),\
+                   ('1.2', True, True, True, 'G19_DPL_PP', 'G19_SE')]
+    Total_Factors = Evo_Factors + DPL_Factors# + cMod_Factors 
 
     if False:
         ClassList = []
@@ -1133,8 +1145,8 @@ if __name__ == "__main__":
             plt.subplots_adjust(hspace=0, wspace=0)
             #plt.tight_layout()
             
-            plt.savefig("Figures/Paper2/SatelliteAccretion{}.png".format(Fit))
-            plt.savefig("Figures/Paper2/SatelliteAccretion{}.pdf".format(Fit))
+            plt.savefig("Figures/Paper2/SatelliteAccretion{}.png".format(Fit_to_Str(Fit)))
+            plt.savefig("Figures/Paper2/SatelliteAccretion{}.pdf".format(Fit_to_Str(Fit)))
             plt.clf()
     
     
@@ -1144,7 +1156,7 @@ if __name__ == "__main__":
         colourcycler = cycle(colours)
         Redshifts = [0,1.5,3]
         f, SubPlots = plt.subplots(1, len(Redshifts), figsize = (12,4), sharex = True, sharey = 'row')
-        for i, Fit in enumerate(['G19_SE', 'G19_SE_DPL_NOCE_SF', 'G19_SE_DPL_NOCE_SF_Strip', 'G19_SE_DPL_NOCE_PP_SF_Strip']):
+        for i, Fit in enumerate([('1.0', True, True, True, 'G19_DPL', 'G19_SE')]):
             colour = next(colourcycler)
             DataClass = Classes[FitList.index(Fit)]
             for j, z_ in enumerate(Redshifts):

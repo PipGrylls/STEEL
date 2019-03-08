@@ -533,7 +533,7 @@ def DarkMatterToStellarMass(DM, z, Paramaters, ScatterOn = False, Scatter = 0.00
     else:
         zparameter = 0
 
-    if ScatterOn == True:
+    if ScatterOn:
         Scatter = Paramaters['Scatter']
     
     if Paramaters['Override_0'] or Paramaters['Override_z']:
@@ -564,7 +564,8 @@ def DarkMatterToStellarMass(DM, z, Paramaters, ScatterOn = False, Scatter = 0.00
     if(Paramaters['Illustris']):
         M10, SHMnorm10, beta10, gamma10, Scatter = 11.8,0.018,1.5,0.31,0.15 
         M11, SHMnorm11, beta11, gamma11 = 0.0,-0.01,0,-0.12
-    #allows user to sent in their own abundance matching parameters either fixed at redshift 0/0.1 or evolving 
+    #allows user to sent in their own abundance matching parameters either fixed at redshift 0/0.1 or evolving
+    
     if(Paramaters['Override_0']):
         M10, SHMnorm10, beta10, gamma10 = Override['M10'], Override['SHMnorm10'], Override['beta10'], Override['gamma10']
         M11, SHMnorm11, beta11, gamma11 = 0.4, -0.02, -0.6, -0.1 #1.195, -0.0247, -0.826, 0.329

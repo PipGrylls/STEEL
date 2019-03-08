@@ -543,7 +543,7 @@ if __name__ == "__main__":
     #Tdyn_Factors += [('1.2', True, True, True, 'G19_DPL', 'G19_SE')]
     #Tdyn_Factors += [('0.8', True, True, True, 'G19_DPL', 'G19_SE')]
     #Tdyn_Factors += [('1.0', False, False, True, 'CE', 'Override_z')]
-    Tdyn_Factors += [('1.0', False, False, True, 'G19_DPL', 'Moster')]
+    Tdyn_Factors += [('1.0', False, False, True, 'G19_DPL', 'G19_cMod')]
     #Tdyn_Factors += [('1.0', True, True, True, 'G19_DPL', 'G19_SE')]
     #Tdyn_Factors += [('1.0', False, True, True, 'CE_PP', 'G19_cMod')]
     #Tdyn_Factors += [('1.0', True, True, True, 'CE_PP', 'G19_cMod')]
