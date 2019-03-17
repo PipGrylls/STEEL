@@ -555,8 +555,8 @@ def DarkMatterToStellarMass(DM, z, Paramaters, ScatterOn = False, Scatter = 0.00
         M10, SHMnorm10, beta10, gamma10, Scatter = 11.95, 0.032, 1.61, 0.62, 0.11 #12.00, 0.022, 1.56, 0.55, 0.15
         M11, SHMnorm11, beta11, gamma11 = 0.4, -0.02, -0.6, 0.0 #0.4, 0.0, -0.5, 0.1
     if(Paramaters['G19_SE']):
-        M10, SHMnorm10, beta10, gamma10, Scatter = 12.0,0.032,1.5,0.56,0.15 #12.00, 0.022, 1.56, 0.55, 0.15
-        M11, SHMnorm11, beta11, gamma11 = 0.6,-0.014,-0.7,0.08 #0.4, 0.0, -0.5, 0.1
+        M10, SHMnorm10, beta10, gamma10, Scatter = 11.925, 0.032,1.639,0.532,0.15 #12.00, 0.022, 1.56, 0.55, 0.15
+        M11, SHMnorm11, beta11, gamma11 = 0.576,-0.014,-0.693,0.03 #0.4, 0.0, -0.5, 0.1
     if(Paramaters['G19_cMod']):
         M10, SHMnorm10, beta10, gamma10, Scatter = 12,0.032,1.74,0.66,0.15 #12.0,0.032,1.74,0.66,0.15 #12.00, 0.022, 1.56, 0.55, 0.15
         M11, SHMnorm11, beta11, gamma11 = 0.4,-0.024,-0.74,-0.12 #0.4, 0.0, -0.5, 0.1
@@ -754,7 +754,7 @@ def DM_to_SM(SMF_X, HMF, Halo_MR, HMF_Bin, SMF_Bin, Paramaters, Redshift = 0, N 
     else:
         SM = DarkMatterToStellarMass(DM_In, Redshift, Paramaters, ScatterOn = True) #log M* [Msun]
     
-    SMF_Y, Bin_Edge = np.histogram(SM, bins = np.append(SMF_X, SMF_X[-1]+SMF_Bin), weights = Wt) #Phi [Mpc^-3], M* [Msun]
+    SMF_Y, Bin_Edge = np.histogram(SM, bins = np.append(SMF_X, SMF_X[-1]+SMF_Bin)-(SMF_Bin/2), weights = Wt, density = False) #Phi [Mpc^-3], M* [Msun]
     
     return SMF_X, np.log10(np.divide(SMF_Y, SMF_Bin)) #M* [Msun], Phi [Mpc^-3] 
 
@@ -780,9 +780,10 @@ def Gauss_Scatt(X, Y, Scatt = 0.1):
 
 #==========================Saving Output========================================
 OutputFolder = AbsFP+"/../Data/Model/Output/RunFiles/"
+
 def PrepareToSave(RunParam_List): 
     for RunParam in RunParam_List:
-        os.system("rm -r" + OutputFolder +"RunParam_{}".format("".join(("{}_".format(i) for i in RunParam))))
+        os.system("rm -r " + OutputFolder +"RunParam_{}".format("".join(("{}_".format(i) for i in RunParam))))
     for RunParam in RunParam_List:
         os.system("mkdir " + OutputFolder +"RunParam_{}".format("".join(("{}_".format(i) for i in RunParam))))
 def SaveData_3(AvaHaloMass, AnalyticalModel_SMF, Surviving_Sat_SMF_MassRange, RunParam):

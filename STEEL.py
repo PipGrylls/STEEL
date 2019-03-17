@@ -117,7 +117,7 @@ AHB_2 = AnalyticHaloBin*AnalyticHaloBin
 AnalyticHaloMass = np.arange(AnalyticHaloMass_min + np.log10(h), AnalyticHaloMass_max + np.log10(h), AnalyticHaloBin)
 #Units are Mvir h-1
 
-#This is the Halomass groWth history
+#This is the Halomass growth history
 #Generates redshfit steps that are small enough to avoid systematics.
 z, AvaHaloMass_wz = F.Get_HM_History(AnalyticHaloMass, AnalyticHaloMass_min, AnalyticHaloMass_max, AnalyticHaloBin)
 AvaHaloMass = AvaHaloMass_wz[:, 1:]
@@ -543,8 +543,8 @@ if __name__ == "__main__":
     #Tdyn_Factors += [('1.2', True, True, True, 'G19_DPL', 'G19_SE')]
     #Tdyn_Factors += [('0.8', True, True, True, 'G19_DPL', 'G19_SE')]
     #Tdyn_Factors += [('1.0', False, False, True, 'CE', 'Override_z')]
-    Tdyn_Factors += [('1.0', False, False, True, 'G19_DPL', 'G19_cMod')]
-    #Tdyn_Factors += [('1.0', True, True, True, 'G19_DPL', 'G19_SE')]
+    Tdyn_Factors += [('1.0', True, True, True, 'G19_DPL', 'G19_SE')]
+    Tdyn_Factors += [('1.0', True, True, True, 'G19_DPL_PP', 'G19_SE')]
     #Tdyn_Factors += [('1.0', False, True, True, 'CE_PP', 'G19_cMod')]
     #Tdyn_Factors += [('1.0', True, True, True, 'CE_PP', 'G19_cMod')]
     #Tdyn_Factors += [('1.0', True, True, True, 'CE_PP', 'G19_SE')]

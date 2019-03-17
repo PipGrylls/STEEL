@@ -332,6 +332,24 @@ class PairFractionData:
                 FirstAddition = False
         return P_ellip
     
+    
+        def Return_Lentic_Plot(self, MassRatio = 0.3, z_start = 10):
+            FirstAddition = True
+            P_ellip = np.zeros_like(self.AvaStellarMass)
+            MMR = np.log10(MassRatio) #mergermass ratio in log10
+            print(np.shape(self.AvaStellarMass)[0], np.shape(self.AvaStellarMass)[1], np.shape(self.z))
+            for i in range(np.shape(self.AvaStellarMass)[0]-1, -1, -1):
+                for j in range(np.shape(self.AvaStellarMass)[1]-1, -1, -1):
+                    Maj_Merge_Bin = np.digitize(self.AvaStellarMass[i,j]+MMR, bins = self.Surviving_Sat_SMF_MassRange) #find the bin of the Surviving_Sat_SMF_MassRange above which is major mergers
+                    Major_Frac = np.sum(self.Accretion_History[i,j,Maj_Merge_Bin:])*self.SM_Bin #sums the numberdensity of satellites causing major mergers
+                    if FirstAddition and (z_start < self.z[i]):
+                        P_ellip[i,j] = Major_Frac #if this is the first step then the number turned is just the fraction
+                    elif (z_start < self.z[i]):
+                        P_ellip[i,j] = P_ellip[i+1,j] + Major_Frac*(1 - P_ellip[i+1,j]) #otherwise correct for the prexisting elliptical population
+                if (z_start < self.z[i]):
+                    FirstAddition = False
+            return P_ellip
+    
     def Return_satSMF(self, Redshift):
         AvaHaloMass, AnalyticalModel_SMF, Surviving_Sat_SMF_MassRange, z = F.LoadData_SMFhz([self.RunParam])
         z_bins = np.digitize(Redshift, bins = z)
@@ -737,17 +755,17 @@ if __name__ == "__main__":
             else:
                 return R*np.power(1+z, m)*np.exp(-c*z)
             
-        MassRatio = 0.25    
+        MassRatio = 0.3   
         
         fig = plt.figure()
         ax = fig.add_subplot(111)
         ax2 = ax.twiny()#add time axis on top
-        for Fit in ["G19_SE"]:#, 'G18_0.8Dyn']:
+        for Fit in [('1.0', True, True, True, 'G19_DPL', 'G19_SE')]:#, 'G18_0.8Dyn']:
             lines = ["--","-", "-.", ":"]
             linecycler = cycle(lines)
             colours = ["C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "k"]
             colourcycler = cycle(colours)
-            index = FitList.index("G19_SE")
+            index = FitList.index(('1.0', True, True, True, 'G19_DPL', 'G19_SE'))
             for j, M0 in enumerate([10.0, 11.0]):
                 colour = next(colourcycler)
                 line = next(linecycler)           
@@ -832,9 +850,9 @@ if __name__ == "__main__":
         plt.xlabel("$log_{10}$ $M_*$ [$M_\odot$]", fontproperties = mpl.font_manager.FontProperties(size = 15))
         plt.ylabel("$f_{elliptical}$", fontproperties = mpl.font_manager.FontProperties(size = 15))
         
-        MassRatio = 0.25
+        MassRatio = 0.2
         
-        index = FitList.index(('1.0', False, False, True, 'CE', 'G19_SE'))
+        index = FitList.index(('1.0', True, True, True, 'G19_DPL', 'G19_SE'))
         P_ellip = Classes[index].Return_Morph_Plot(MassRatio, 2)
         
         #Create data for lorenzo
@@ -850,9 +868,9 @@ if __name__ == "__main__":
         
         
         plt.plot(Classes[index].AvaStellarMass[0], P_ellip[0], "-k",label = "STEEL, z = 0.1")
-        z_plot = 0.65
+        z_plot = 1.0
         plt.plot(Classes[index].AvaStellarMass[np.digitize(z_plot, bins = Classes[index].z)], P_ellip[np.digitize(z_plot, bins = Classes[index].z)], "--C0", alpha = 0.9,label = "STEEL, z = {}".format(z_plot))
-        z_plot = 1.75
+        z_plot = 2.0
         plt.plot(Classes[index].AvaStellarMass[np.digitize(z_plot, bins = Classes[index].z)], P_ellip[np.digitize(z_plot, bins = Classes[index].z)], "-.C3", alpha = 0.9,label = "STEEL, z = {}".format(z_plot))
         plt.xlim(10, 12.3)
 
@@ -862,6 +880,83 @@ if __name__ == "__main__":
         plt.savefig("Figures/Paper2/GalaxyMorphologies.png")
         plt.savefig("Figures/Paper2/GalaxyMorphologies.pdf")
         plt.clf()
+    
+    
+    
+    
+    #Morphology Plot    
+    if False:
+        Header=['galcount','finalflag','z','Vmaxwt','MsMendSerExp','AbsMag','logReSerExp',
+                                  'BT','n_bulge','NewLCentSat','NewMCentSat'
+                                  ,'MhaloL','probaE','probaEll',
+                                'probaS0','probaSab','probaScd','TType','P_S0',
+                              'veldisp','veldisperr','raSDSS7','decSDSS7']
+
+        df = pd.read_csv('Data/Observational/Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, delim_whitespace = True)
+        goodness_cut = (df.finalflag==3 ) | (df.finalflag==5) | (df.finalflag==1)
+
+        df = df[goodness_cut]
+
+        df = df[df.Vmaxwt>0]
+        df.loc[df.finalflag==5,'BT']=0
+        df.loc[df.finalflag==1,'BT']=1
+
+        fracper=len(df)/670722
+        skycov=8000.
+        fracsky=(skycov*fracper)/(4*np.pi*(180./np.pi)**2.)
+
+        df_cent = df[df.NewLCentSat == 1.0]
+        #Add SDSS Data to plot
+        sm_binwidth = 0.2
+        sm_bins = np.arange(9, 12.5, sm_binwidth)
+
+        #Total Population
+        SM_All = np.array(df_cent.MsMendSerExp)
+        Vmax_All = np.array(df_cent.Vmaxwt)
+
+        Weights_All = Vmax_All
+        Weightsum_All = np.sum(Vmax_All)
+        totVmax_All = Weightsum_All/fracsky
+
+        hist_cent_All, edges_All = np.histogram(SM_All, bins = sm_bins, weights = Vmax_All)
+
+        Y_All = np.log10(np.divide(hist_cent_All, fracsky*sm_binwidth)*0.9195) #0.9195 correction of volume to Planck15
+
+        #Ellipticals Only
+        SM_Ell = np.array(df_cent.MsMendSerExp[(df_cent.TType<=0)&(df_cent.P_S0<0.5)])
+        Vmax_Ell = np.array(df_cent.Vmaxwt[(df_cent.TType<=0)&(df_cent.P_S0<0.5)])
+
+        Weights_Ell = Vmax_Ell
+        Weightsum_Ell = np.sum(Vmax_Ell)
+        totVmax_Ell = Weightsum_Ell/fracsky
+
+        hist_cent_Ell, edges = np.histogram(SM_Ell, bins = sm_bins, weights = Vmax_Ell)
+
+        Y_Ell = np.log10(np.divide(hist_cent_Ell, fracsky*sm_binwidth)*0.9195) #0.9195 correction of volume to Planck15
+
+        F_Ell = np.power(10, Y_Ell - Y_All)
+        plt.plot(sm_bins[1:], F_Ell, "k^", label = "SDSS", fillstyle = "none")
+        plt.xlabel("$log_{10}$ $M_*$ [$M_\odot$]", fontproperties = mpl.font_manager.FontProperties(size = 15))
+        plt.ylabel("$f_{elliptical}$", fontproperties = mpl.font_manager.FontProperties(size = 15))
+        
+        MassRatio = 0.3
+        
+        index = FitList.index(('1.0', True, True, True, 'G19_DPL', 'G19_SE'))
+        P_ellip = Classes[index].Return_Lentic_Plot(MassRatio, 2)
+
+        plt.plot(Classes[index].AvaStellarMass[0], P_ellip[0], "-k",label = "STEEL, z = 0.1")
+        z_plot = 1.0
+        plt.plot(Classes[index].AvaStellarMass[np.digitize(z_plot, bins = Classes[index].z)], P_ellip[np.digitize(z_plot, bins = Classes[index].z)], "--C0", alpha = 0.9,label = "STEEL, z = {}".format(z_plot))
+        z_plot = 2.0
+        plt.plot(Classes[index].AvaStellarMass[np.digitize(z_plot, bins = Classes[index].z)], P_ellip[np.digitize(z_plot, bins = Classes[index].z)], "-.C3", alpha = 0.9,label = "STEEL, z = {}".format(z_plot))
+        plt.xlim(10, 12.3)
+
+        plt.text(11.60, 0.05, r"$\frac{M_{*, sat}}{M_{*,cen}} >$" + "{}".format(MassRatio))
+        plt.legend(frameon = False)
+        plt.tight_layout()
+        plt.savefig("Figures/Paper2/GalaxyMorphologies_Lenticular.png")
+        plt.savefig("Figures/Paper2/GalaxyMorphologies_Lenticular.pdf")
+        plt.clf()    
     
     
     #Satellite Accretion plot
@@ -887,8 +982,8 @@ if __name__ == "__main__":
         Max = m-m1-a2*r
         Max[Max<0] = 0
         return m-m0+a0*r-a1*np.power(Max, 2)
-    if True:     
-        for k, Fit in enumerate([('1.0', False, False, True, 'CE', 'G19_SE')]):#'G19_SE_DPL_NOCE_SF', 'G19_SE_DPL_NOCE_SF_Strip', 'G19_SE_DPL_NOCE_PP_SF_Strip', 'G19_SE_DPL_NOCE_SF_Strip_1.2_Dyn', 'G19_SE_DPL_NOCE_PP_SF_Strip_1.2_Dyn', 'G19_SE_DPL_NOCE_SF_Strip_0.8_Dyn', 'G19_SE_DPL_NOCE_PP_SF_Strip_0.8_Dyn' 'G19_cMod', 'G19_cMod_Strip'
+    if False:     
+        for k, Fit in enumerate([('1.0', True, True, True, 'G19_DPL_PP', 'G19_SE')]):
             f, SubPlots = plt.subplots(3, 3, figsize = (12,7), sharex = 'col', sharey = 'row')
 
             colours = ["C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "k"]
@@ -897,23 +992,42 @@ if __name__ == "__main__":
             z_intp = DataClass.z[DataClass.z < 4]
             SatelliteMasses = np.power(10, DataClass.Surviving_Sat_SMF_MassRange)
             Mass_Accretion_PerCentral = np.zeros_like(DataClass.AvaStellarMass)
+            Mass_Accretion_PerCentral_Minor = np.zeros_like(DataClass.AvaStellarMass)
+            Mass_Accretion_PerCentral_Major = np.zeros_like(DataClass.AvaStellarMass)
             for i in range(np.shape(DataClass.AvaStellarMass)[0]-1, -1, -1):
                 for j in range(np.shape(DataClass.AvaStellarMass)[1]-1, -1, -1): 
-                    MassAcc = np.sum(DataClass.Accretion_History[i,j]*SatelliteMasses)*DataClass.SM_Bin*0.612 #Calculates the total acreted stellar mass per central mass     factor of 0.612 from moster 2018 assuming in any given merger ~40% of the mass of the satellite is distributed to the ICM
+                    #CutOff = np.digitize(DataClass.AvaStellarMass[i,j] - 4, DataClass.Surviving_Sat_SMF_MassRange)-1#set a mass ratio limit 
+                    CutOff = np.digitize(9, DataClass.Surviving_Sat_SMF_MassRange)-1#set a mass ratio limit 
+                    if CutOff<0:CutOff = 0  
+                    MassAcc = np.sum(DataClass.Accretion_History[i,j,CutOff:]*SatelliteMasses[CutOff:])*DataClass.SM_Bin*0.612 #Calculates the total acreted stellar mass per central mass factor of 0.612 from moster 2018 assuming in any given merger ~40% of the mass of the satellite is distributed to the ICM
                     if (j == None):
                         print(MassAcc)
                     if MassAcc > 0:
                         Mass_Accretion_PerCentral[i,j] = MassAcc
                     else:
                         Mass_Accretion_PerCentral[i,j] = 0
+                        
+                        
+            for i in range(np.shape(DataClass.AvaStellarMass)[0]-1, -1, -1):
+                for j in range(np.shape(DataClass.AvaStellarMass)[1]-1, -1, -1): 
+                    MergerThreshold = np.digitize(DataClass.AvaStellarMass[i,j]+np.log10(0.3), bins = DataClass.Surviving_Sat_SMF_MassRange)-1
+                    MassAcc_Minor = np.sum(DataClass.Accretion_History[i,j,:MergerThreshold]*SatelliteMasses[:MergerThreshold])*DataClass.SM_Bin*0.612 #Calculates the total acreted stellar mass per central mass     factor of 0.612 from moster 2018 assuming in any given merger ~40% of the mass of the satellite is distributed to the ICM
+                    MassAcc_Major = np.sum(DataClass.Accretion_History[i,j,MergerThreshold:]*SatelliteMasses[MergerThreshold:])*DataClass.SM_Bin*0.612 #Calculates the total acreted stellar mass per central mass     factor of 0.612 from moster 2018 assuming in any given merger ~40% of the mass of the satellite is distributed to the ICM
+                    if (j == None):
+                        print(MassAcc)
+                    if MassAcc_Minor > 0:
+                        Mass_Accretion_PerCentral_Minor[i,j] = MassAcc_Minor
+                    else:
+                        Mass_Accretion_PerCentral_Minor[i,j] = 0
+                    if MassAcc_Major > 0:
+                        Mass_Accretion_PerCentral_Major[i,j] = MassAcc_Major
+                    else:
+                        Mass_Accretion_PerCentral_Major[i,j] = 0
+                        
+                        
             colours = ["C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "k"]
             colourcycler = cycle(colours)
             
-            
-            Mass_CE = np.array([])
-            SFR_CE = np.array([])
-            AccRt = np.array([])
-            z_CE = np.array([])
             #Output the CE from the diffrence between unity and the galaxy accretion rate
             Masses_for_CE = [np.digitize(i, bins = DataClass.AvaStellarMass[0])-1 for i in np.arange(9, np.max(DataClass.AvaStellarMass[0]), 0.1)]
             for i_, i in enumerate(Masses_for_CE):
@@ -934,24 +1048,42 @@ if __name__ == "__main__":
                 CMG_dt_interp = interpolate.interp1d(DataClass.z, CMG_dt) 
                 N = 3
                 X_acc_hz, Y_acc_hz = np.convolve(DataClass.z, np.ones((N,))/N, mode='valid'), np.convolve( np.divide(Mass_Accretion_PerCentral[:,i], CentralMassGrowth), np.ones((N,))/N, mode='valid')
-                z_CE= np.concatenate((z_CE, X_acc_hz[:-1]))
-                Mass_CE= np.concatenate((Mass_CE, np.convolve(CentralMass, np.ones((N,))/N, mode='valid')[1:]))
-                SFR_CE= np.concatenate((SFR_CE, (1-Y_acc_hz[:-1])*np.convolve(CMG_dt, np.ones((N,))/N, mode='valid')[:-1]))
-                AccRt = np.concatenate((AccRt , (Y_acc_hz[:-1])*np.convolve(np.divide(CentralMassGrowth, dt_CMG*(10**9)), np.ones((N,))/N, mode='valid')[:-1]))
-            np.save("Scripts/CentralPostprocessing/HaloMassTrackCE", np.vstack((Mass_CE, SFR_CE, z_CE, AccRt)))
+                if i_ > 0:
+                    z_CE= np.vstack((z_CE, X_acc_hz[:-1]))
+                    Mass_CE= np.vstack((Mass_CE, np.convolve(CentralMass, np.ones((N,))/N, mode='valid')[1:]))
+                    SFR_CE= np.vstack((SFR_CE, (1-Y_acc_hz[:-1])*np.convolve(CMG_dt, np.ones((N,))/N, mode='valid')[:-1]))
+                    AccRt = np.vstack((AccRt , (Y_acc_hz[:-1])*np.convolve(np.divide(CentralMassGrowth, dt_CMG*(10**9)), np.ones((N,))/N, mode='valid')[:-1]))
+                else:
+                    z_CE=X_acc_hz[:-1]
+                    Mass_CE=np.convolve(CentralMass, np.ones((N,))/N, mode='valid')[1:]
+                    SFR_CE=(1-Y_acc_hz[:-1])*np.convolve(CMG_dt, np.ones((N,))/N, mode='valid')[:-1]
+                    AccRt =(Y_acc_hz[:-1])*np.convolve(np.divide(CentralMassGrowth, dt_CMG*(10**9)), np.ones((N,))/N, mode='valid')[:-1]
+            np.save("Scripts/CentralPostprocessing/HaloMassTrackCE", np.vstack((Mass_CE.flatten(), SFR_CE.flatten(), z_CE.flatten(), AccRt.flatten())))
+            np.save("Scripts/CentralPostprocessing/HaloMassTrackCE_M", Mass_CE)
+            np.save("Scripts/CentralPostprocessing/HaloMassTrackCE_SFR", SFR_CE)
+            np.save("Scripts/CentralPostprocessing/HaloMassTrackCE_Z", z_CE)
+            np.save("Scripts/CentralPostprocessing/HaloMassTrackCE_AccRt", AccRt)
             
-            for i_, i in enumerate([np.digitize(12, bins = DataClass.AvaStellarMass[0])-1, np.digitize(11.5, bins = DataClass.AvaStellarMass[0])-1, np.digitize(11, bins = DataClass.AvaStellarMass[0])-1]):#, np.digitize(10.5, bins = DataClass.AvaStellarMass[0])-1, np.digitize(10, bins = DataClass.AvaStellarMass[0])-1]):
+            #Useful redshift bins
+            zbinpt5 = np.digitize(0.5, bins = DataClass.z)
+            zbin1 = np.digitize(1, bins = DataClass.z)
+            zbin2 = np.digitize(2, bins = DataClass.z)
+            zbin3 = np.digitize(3, bins = DataClass.z)
+            zbin4 = np.digitize(4, bins = DataClass.z)
+            zbin5 = np.digitize(5, bins = DataClass.z)
+            
+            for i_, i in enumerate([np.digitize(12, bins = DataClass.AvaStellarMass[0])-1, np.digitize(11.5, bins = DataClass.AvaStellarMass[0])-1, np.digitize(11, bins = DataClass.AvaStellarMass[0])-1]):
                 colour = next(colourcycler)
                 
-                #Useful redshift bins
-                zbin3 = np.digitize(3, bins = DataClass.z)
-                zbin4 = np.digitize(4, bins = DataClass.z)
-                zbin5 = np.digitize(5, bins = DataClass.z)
+
                 
                 #for printing masses of the MPB at diffrent redhsifts
                 if True:
                     print(" z0 Mass:", DataClass.AvaStellarMass[0,i])
-                    print(" z3:", round(DataClass.AvaStellarMass[zbin3,i], 2),\
+                    print(" z0.5:", round(DataClass.AvaStellarMass[zbinpt5,i], 2),\
+                          " z1:", round(DataClass.AvaStellarMass[zbin1,i], 2),\
+                          " z2:", round(DataClass.AvaStellarMass[zbin2,i], 2),\
+                          " z3:", round(DataClass.AvaStellarMass[zbin3,i], 2),\
                           " z4:", round(DataClass.AvaStellarMass[zbin4,i], 2),\
                           " z5:", round(DataClass.AvaStellarMass[zbin5,i], 2))
                     print("\n")
@@ -985,7 +1117,7 @@ if __name__ == "__main__":
                 M_acc_dot = Accretion_Interp_dt(z_for_SFH)
                 MaxGas, Tquench, Tau_f = 100, -1, 0
                 
-                M_out, M_dot, M_dot_noacc, SFH, GMLR = F_c.Starformation_Centrals(DataClass.AvaStellarMass[zbin5,i], t, d_t, z_for_SFH, M_acc_dot, MaxGas, Tquench, Tau_f, SFR_Model = "G19_DPL", Scatter_On = 0)#"G19_DPL"
+                M_out, M_dot, M_dot_noacc, SFH, GMLR = F_c.Starformation_Centrals(DataClass.AvaStellarMass[zbin5,i], t, d_t, z_for_SFH, M_acc_dot, MaxGas, Tquench, Tau_f, SFR_Model = "G19_DPL", Scatter_On = 0)
                 M_out, M_dot, M_dot_noacc, SFH, GMLR = np.power(10, np.array(M_out)), np.array(M_dot), np.array(M_dot_noacc), np.array(SFH), np.array(GMLR)
                 np.save("Scripts/CentralPostprocessing/GalaxyTracks{}".format(round(DataClass.AvaStellarMass[0,i],1)), np.vstack((z_for_SFH, M_out, M_dot_noacc, GMLR)))
                 #Msun, Myr-1, Myr-1      , M  , Myr-1
@@ -1001,6 +1133,8 @@ if __name__ == "__main__":
                 SubPlots[0, i_].plot(z_for_SFH, np.log10(Mass), ":", color = colour)
                 #Accretion
                 SubPlots[0, i_].plot(DataClass.z, np.flip(np.log10(np.cumsum(np.flip(Mass_Accretion_PerCentral[:,i], 0))), 0), "--", color = colour)
+                #SubPlots[0, i_].plot(DataClass.z, np.flip(np.log10(np.cumsum(np.flip(Mass_Accretion_PerCentral_Minor[:,i], 0))), 0), "-.", color = colour)
+                #SubPlots[0, i_].plot(DataClass.z, np.flip(np.log10(np.cumsum(np.flip(Mass_Accretion_PerCentral_Major[:,i], 0))), 0), "-.", color = colour)
             
                 #Panel 2: Fraction of total mass from satellite accretion or SFH since z = 3                
                 #The ratio from SFH
@@ -1023,10 +1157,6 @@ if __name__ == "__main__":
                 SubPlots[2, i_].plot(z_for_SFH, np.divide(M_dot_noacc, CMG_dt_interp(z_for_SFH)), ":", color = colour)
                 SubPlots[2, i_].plot(z_for_SFH, np.divide(M_dot, CMG_dt_interp(z_for_SFH)), "-", color = colour)               
                 
-                
-
-                
-
                 #plots off axis for labels  
                 SubPlots[2, i_].plot([7,8,9], [0.5, 0.5, 0.5], "-",label = "$M_{*,cen} = $"+"$10^{%.3g}$"%DataClass.AvaStellarMass[0,i]+"$M_{\odot}$", color = colour)
             
@@ -1040,7 +1170,8 @@ if __name__ == "__main__":
             SubPlots[1, 2].axhline(1, 0.001, 3, linestyle = "-", color = "k", alpha = 0.5) 
             SubPlots[2, 2].axhline(1, 0.001, 3, linestyle = "-", color = "k", alpha = 0.5)
             
-            #Adding Illustris 
+            #Adding Illustris
+            """
             colours = ["C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "k"]
             colourcycler = cycle(colours)
             for i_, i in enumerate([12,11.5,11]):#
@@ -1054,7 +1185,7 @@ if __name__ == "__main__":
                 SubPlots[0, i_].fill_between(z, Macc_l, Macc_u, alpha = 0.25, facecolor = "none", hatch = "X", edgecolor = colour)
                 SubPlots[1, i_].fill_between(z, Macc_Mcen_l, Macc_Mcen_u, alpha = 0.25, color = colour)
                 SubPlots[2, i_].plot([10, 11],[1, 1])
-
+            """
             #Line labels
             SubPlots[0,2].plot([4,5,6], [0.5, 0.5, 0.5], "--",label = "Accretion", color = "k")
             SubPlots[0,2].plot([4,5,6], [0.5, 0.5, 0.5], ":", label = "SFH", color = "k")
@@ -1109,12 +1240,7 @@ if __name__ == "__main__":
             SubPlots[2,2].set_yticks(Ticks)
             SubPlots[2,0].set_yticklabels(Labels)
 
-             
-            
 
-            
- 
-            
             #Axis Limits
             SubPlots[2,0].set_xlim(0.1, 3)
             SubPlots[0,0].set_ylim(9, 12.5)
@@ -1151,7 +1277,7 @@ if __name__ == "__main__":
     
     
     #Make the SMF
-    if True:
+    if False:
         colours = ["C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "k"]
         colourcycler = cycle(colours)
         Redshifts = [0,1.5,3]
@@ -1179,7 +1305,7 @@ if __name__ == "__main__":
         plt.clf()
         
     #Make the sSFR distribution
-    if True:
+    if False:
         f, SubPlots = plt.subplots(1, 3, figsize = (10,3), sharey = True)
         FirstPass = True
         No_Leg = False

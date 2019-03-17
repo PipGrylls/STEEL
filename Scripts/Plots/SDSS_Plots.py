@@ -565,8 +565,8 @@ class SDSS_Plots:
         Weightsum = np.sum(Vmax)
         totVmax = Weightsum/self.fracsky
 
-        hist_cent, edges = np.histogram(SM, bins = SMF_Bins, weights = Vmax)
-        hist_cent_raw, edges = np.histogram(SM, bins = SMF_Bins, density  = False)
+        hist_cent, edges = np.histogram(SM, bins = np.append(SMF_Bins, np.max(SMF_Bins)+SMF_BinWidth)-(SMF_BinWidth/2), weights = Vmax)
+        hist_cent_raw, edges = np.histogram(SM, bins = np.append(SMF_Bins, np.max(SMF_Bins)+SMF_BinWidth)-(SMF_BinWidth/2), density  = False)
         Poss_Err_cen = np.vstack(((hist_cent)*((np.sqrt(hist_cent_raw)-1)/np.sqrt(hist_cent_raw)),(hist_cent)*((np.sqrt(hist_cent_raw)+1)/np.sqrt(hist_cent_raw))))
         Y_cen = np.log10(np.divide(hist_cent, self.fracsky*SMF_BinWidth)*0.9195) #0.9195 correction of volume to Planck15
         Y_cen_e = np.log10(np.divide(Poss_Err_cen, self.fracsky*SMF_BinWidth)*0.9195) #0.9195 correction of volume to Planck15
@@ -580,8 +580,8 @@ class SDSS_Plots:
         Weightsum = np.sum(Vmax)
         totVmax = Weightsum/self.fracsky
 
-        hist_sat, edges = np.histogram(SM, bins = SMF_Bins, weights = Vmax)
-        hist_sat_raw, edges = np.histogram(SM, bins = SMF_Bins, density  = False)
+        hist_sat, edges = np.histogram(SM, bins = np.append(SMF_Bins, np.max(SMF_Bins)+SMF_BinWidth)-(SMF_BinWidth/2), weights = Vmax)
+        hist_sat_raw, edges = np.histogram(SM, bins = np.append(SMF_Bins, np.max(SMF_Bins)+SMF_BinWidth)-(SMF_BinWidth/2), density  = False)
         Poss_Err_sat = np.vstack(((hist_sat)*((np.sqrt(hist_sat_raw)-1)/np.sqrt(hist_sat_raw)),(hist_sat)*((np.sqrt(hist_sat_raw)+1)/np.sqrt(hist_sat_raw))))
         Y_sat = np.log10(np.divide(hist_sat, self.fracsky*SMF_BinWidth)*0.9195)#0.9195 correction of volume to Planck15
         Y_sat_e = np.log10(np.divide(Poss_Err_sat, self.fracsky*SMF_BinWidth)*0.9195)#0.9195 correction of volume to Planck15
@@ -596,8 +596,8 @@ class SDSS_Plots:
         Weightsum = np.sum(Vmax)
         totVmax = Weightsum/self.fracsky
 
-        hist_tot, edges = np.histogram(SM, bins = SMF_Bins, weights = Vmax)
-        hist_tot_raw, edges = np.histogram(SM, bins = SMF_Bins, density  = False)
+        hist_tot, edges = np.histogram(SM, bins = np.append(SMF_Bins, np.max(SMF_Bins)+SMF_BinWidth)-(SMF_BinWidth/2), weights = Vmax)
+        hist_tot_raw, edges = np.histogram(SM, bins = np.append(SMF_Bins, np.max(SMF_Bins)+SMF_BinWidth)-(SMF_BinWidth/2), density  = False)
         Poss_Err_tot = np.vstack(((hist_tot)*((np.sqrt(hist_tot_raw)-1)/np.sqrt(hist_tot_raw)),(hist_tot)*((np.sqrt(hist_tot_raw)+1)/np.sqrt(hist_tot_raw))))
         Y_t = np.log10(np.divide(hist_tot, self.fracsky*SMF_BinWidth)*0.9195) #0.9195 correction of volume to Planck15
         Y_t_e = np.log10(np.divide(Poss_Err_tot, self.fracsky*SMF_BinWidth)*0.9195) #0.9195 correction of volume to Planck15

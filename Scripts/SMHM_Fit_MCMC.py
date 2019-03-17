@@ -129,7 +129,7 @@ class StellarMassFunction:
             Y_cen_e: Error on Central SMF
         """
         SMR = self.StellarMassRange
-        SMF_Bins, Y_t, Y_t_e, Y_sat, Y_sat_e, Y_cen, Y_cen_e = Add_SDSS.SMF_Data(SMF_Bins = np.insert(SMR, 0,np.min(SMR) - self.SMR_BW)-0.05)
+        SMF_Bins, Y_t, Y_t_e, Y_sat, Y_sat_e, Y_cen, Y_cen_e = Add_SDSS.SMF_Data(SMF_Bins = SMR)
         Redshifts = [0.1]
         return Y_t, Y_t_e, Y_sat, Y_sat_e, Y_cen, Y_cen_e, Redshifts
     
@@ -147,7 +147,7 @@ class StellarMassFunction:
             Y_cen_e: Error on Central SMF
         """
         SMR = self.StellarMassRange
-        SMF_Bins, Y_t, Y_t_e, Y_sat, Y_sat_e, Y_cen, Y_cen_e = Add_SDSS.SMF_Data(SMF_Bins = np.insert(SMR, 0,np.min(SMR) - self.SMR_BW)-0.05, OverridePhoto = "MsMendCmodel")
+        SMF_Bins, Y_t, Y_t_e, Y_sat, Y_sat_e, Y_cen, Y_cen_e = Add_SDSS.SMF_Data(SMF_Bins = SMR, OverridePhoto = "MsMendCmodel")
         Redshifts = [0.1]
         return Y_t, Y_t_e, Y_sat, Y_sat_e, Y_cen, Y_cen_e, Redshifts
     
@@ -229,7 +229,7 @@ def DM_to_SM(SMF_X, SMF_Bin, Halo_MR, HMF_Bin, HMF, Paramaters, Redshift, SMHM_M
     """   
     Args:
         SMF_X: Stellar Mass Function Mass Range log10[$M_\odot$]
-        HMF: Halo Mass Function Weights log10[$\Phi$ Mpc^{-3} h^3]
+        HMF: Halo Mass Function Weights [$\Phi$ Mpc^{-3} h^3]
         Halo_MR: Halo Mass Function Mass Range log10[$M_\odot$ h^{-1}]
         HMF_Bin: Binwidth of Halo_MR
         SMF_Bin: Binwidth of SMF_X
@@ -248,7 +248,7 @@ def DM_to_SM(SMF_X, SMF_Bin, Halo_MR, HMF_Bin, HMF, Paramaters, Redshift, SMHM_M
 
     SM = SMHM_Model(DM_In, Paramaters, Redshift, Pairwise = Pairwise) #log M* [Msun]
     
-    SMF_Y, Bin_Edge = np.histogram(SM, bins = np.append(SMF_X, SMF_X[-1]+SMF_Bin)-0.05, weights = Wt, density = False) #Phi [Mpc^-3], M* [Msun]
+    SMF_Y, Bin_Edge = np.histogram(SM, bins = np.append(SMF_X, SMF_X[-1]+SMF_Bin)-(SMF_Bin/2), weights = Wt, density = False) #Phi [Mpc^-3], M* [Msun]
     
     return np.log10(np.divide(SMF_Y, SMF_Bin)) #M* [Msun], Phi [Mpc^-3]
 
@@ -346,7 +346,7 @@ def lnlike_lz(Params, Inputs):
     """
     z, HMR, HM_Bin, CHMF_0, SMR, SM_Bin, CSMF_0, SMHM_Model = Inputs
     Params = [Params[0], 0, Params[1], 0, Params[2], 0, Params[3], 0, 0.15]#Params[4]]
-    SMF_From_SMHM = DM_to_SM(SMR, SM_Bin, HMR, HM_Bin, CHMF_0, Params, z, SMHM_Model)
+    SMF_From_SMHM = DM_to_SM(SMR, SM_Bin, HMR, HM_Bin, CHMF_0, Params, z, SMHM_Model, N = 2500)
     mask = np.logical_and(np.isfinite(SMF_From_SMHM), np.isfinite(CSMF_0))
     if len(SMF_From_SMHM[mask])/len(SMF_From_SMHM) > 0.9:
         return -0.5*np.sum(np.power(SMF_From_SMHM[mask] - CSMF_0[mask], 2))
@@ -355,7 +355,7 @@ def lnlike_lz(Params, Inputs):
     
 def lnprior_lz(theta):
     M,N,b,g = theta
-    if (11.0<M<13) and (0.01<N<0.05) and (1.0<b<2.0) and (0.4<g<0.8):
+    if (11.0<M<13) and (0.01<N<0.06) and (0.2<b<3.0) and (0.3<g<0.8):
         return 0.0
     else:
         return -np.inf
@@ -393,7 +393,7 @@ def lnlike_hz(Params, Inputs):
        
 def lnprior_hz(theta):
     M,N,b,g = theta
-    if (0.5<M<0.7) and (-0.02<N<-0.01) and (-0.9<b<-0.5) and (-0.2<g<0.2):
+    if (0.2<M<1.2) and (-0.03<N<0.01) and (-1.5<b<-0.2) and (-0.2<g<0.3):
         return 0.0
     else:
         return -np.inf
@@ -421,7 +421,7 @@ if __name__ == "__main__":
     SMHM_Model = FittingClass.SMHM_Model
     Input = [z, HMR, HM_bin, CHMF_0, SMR, SM_bin, CSMF_0, SMHM_Model]
     #set up initial conditions
-    ndim, nwalkers = 4, 100
+    ndim, nwalkers = 4, 20
     pos = [[12.0,0.03,1.5,0.6] + 1e-4*np.random.randn(ndim) for i in range(nwalkers)]
     sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob_lz, args=(Input), threads = 20)
     sampler.run_mcmc(pos, 1000)
@@ -433,8 +433,19 @@ if __name__ == "__main__":
     print("N:",N)
     print("b:",b)
     print("g:",g)
-    fig = corner.corner(samples, labels=["M", "N", "beta", "gamma"], truths = [M[0], N[0], b[0], g[0]], color = "C0", truth_color = "k", smooth = True)
+    fig = corner.corner(samples, labels=[r"$M_z$", r"$N_z$", r"$\beta_z$", r"$\gamma_z$"], truths = [M[0], N[0], b[0], g[0]],\
+                        color = "C0", truth_color = "k", smooth = True, quantiles=[0.16, 0.84],\
+                        show_titles = True, title_fmt= ".3f")
     fig.savefig("./Figures/SMHM_Fit/MCMC_plot_lz.png")
+    fig.clf()
+    
+    plt.plot(SMR, CSMF_0, "x")
+    SMF = DM_to_SM(SMR, SM_bin, HMR, HM_bin, CHMF_0, [M[0], 0, N[0], 0, b[0], 0, g[0], 0, 0.15], 0.1, SMHM_Model)
+    plt.plot(SMR, SMF, "o")
+    plt.xlabel("$\mathrm{log_{10}}$ $\mathrm{M_*}$ $\mathrm{[M_\odot]}$")
+    plt.ylabel("$\mathrm{log_{10}}$ $\mathrm{\phi}$ $\mathrm{[Mpc^{-3}dex^{-1}]}$")
+    plt.savefig("./Figures/SMHM_Fit/SMF_lz.png")
+    plt.clf()
     
     Params_lz = M[0], N[0], b[0], g[0]
     
@@ -462,10 +473,10 @@ if __name__ == "__main__":
     
     Input = [Params_lz, HaloRed, HaloMasses, HM_bin, HaloWts, SMR, SM_bin, FittingClass.SMF_Total, SMHM_Model]
     #set up initial conditions
-    ndim, nwalkers = 4, 100
+    ndim, nwalkers = 4, 24
     pos = [[0.6,-0.014,-0.7,0.08] + 1e-4*np.random.randn(ndim) for i in range(nwalkers)]
     sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob_hz, args=(Input), threads = 20)
-    sampler.run_mcmc(pos, 1000)
+    sampler.run_mcmc(pos, 500)
     samples = sampler.chain[:, 50:, :].reshape((-1, ndim))
     
     Mz, Nz, bz, gz = map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),zip(*np.percentile(samples, [16, 50, 84],axis=0)))
@@ -474,9 +485,11 @@ if __name__ == "__main__":
     print("Nz:",Nz)
     print("bz:",bz)
     print("gz:",gz)
-    fig = corner.corner(samples, labels=["M", "N", "beta", "gamma"], truths = [Mz[0], Nz[0], bz[0], gz[0]], color = "C0", truth_color = "k", smooth = True)
+    fig = corner.corner(samples, labels=[r"$M_z$", r"$N_z$", r"$\beta_z$", r"$\gamma_z$"], truths = [Mz[0], Nz[0], bz[0], gz[0]],\
+                        color = "C0", truth_color = "k", smooth = True, quantiles=[0.16, 0.84],\
+                        show_titles = True, title_fmt= ".3f")
     fig.savefig("./Figures/SMHM_Fit/MCMC_plot_hz.png")
-    
+    fig.clf()
     """
     f, SubPlots = plt.subplots(3, 3, figsize = (12,12), sharex = True, sharey = True)
     k = 0
