@@ -25,6 +25,8 @@ from itertools import cycle
 from copy import copy
 from colossus.cosmology import cosmology
 from math import isclose
+import warnings
+from DistroLib import *
 cosmology.setCosmology("planck15")
 Cosmo =cosmology.getCurrent()
 HMF_fun = F.Make_HMF_Interp() #N Mpc^-3 h^3 dex^-1, Args are (Mass, Redshift)
@@ -148,131 +150,6 @@ def JitLoop2(SHMF_Entering, Mass_Ratio_Bins, SatHaloMass, z_step, t_step, Bin):
             Accreted_Above_Ratio_dz[i,j] = np.sum(SHMF_Entering[i,j,Mass_Ratio_Bins[i,j]:]*SatHaloMass[Mass_Ratio_Bins[i,j]:])*Bin/z_step[i]
             Accreted_Above_Ratio_dt[i,j] = np.sum(SHMF_Entering[i,j,Mass_Ratio_Bins[i,j]:]*SatHaloMass[Mass_Ratio_Bins[i,j]:])*Bin/t_step[i]
     return Accreted_Above_Ratio, Accreted_Above_Ratio_dz, Accreted_Above_Ratio_dt
-
-# ========== Chris' Probability distribution class =====================
-spec = [('count', int32), ('length', float32), ('big', float32[double[:, :, :]])]
-
-@jitclass(spec)
-class testClass:
-    def __init__(self, length, count):
-        self.count = count
-        self.length = length
-        self.big = []
-        self.big.append(np.zeros((3, 3, 3)))
-
-test = testClass(1.4, 3)
-
-
-
-
-
-class ProbabilityDistribution:
-    def __init__(self, zsteps, msteps, resolution):
-        self.zsteps = zsteps
-        self.msteps = msteps
-        self.resolution = resolution
-
-        self.distributionComponents = []
-        self.distributionComponentFractions = []
-   
-        self.distributionOverflows = []
-        self.distributionOverflowFractions = []
-
-        self.remainder_store = []
-
-        self.testAccuracy = 10**-7
-    
-    def addDistributionComponents(self, n = 1):
-        self.distributionComponentsCount = n
-        for i in range(n):
-            # Vector per distribution
-            self.distributionComponents.append(np.zeros((self.zsteps, self.msteps, self.resolution)))
-            # Single Element per distribution
-            self.distributionComponentFractions.append(np.zeros((self.zsteps, self.msteps)))
-            self.remainder_store.append(np.zeros((self.zsteps, self.msteps)))
-            self.distributionOverflows.append(np.zeros((self.zsteps, self.msteps)))
-            self.distributionOverflowFractions.append(np.zeros((self.zsteps, self.msteps)))
-    
-    def addScale(self, start, stop):
-        self.Scale, self.ScaleStep = np.linspace(start, stop, self.resolution + 1, retstep = True)
-
-    def syncFractions(self, j, k):
-        fracTotal = 0
-        for i in range(self.distributionComponentsCount):
-            self.distributionComponentFractions[i][j, k] = np.sum(self.distributionComponents[i][j, k, :]) * self.ScaleStep 
-            self.distributionOverflowFractions[i][j, k] = self.distributionOverflows[i][j, k] * self.ScaleStep
-            fracTotal += self.distributionComponentFractions[i][j, k] + self.distributionOverflowFractions[i][j, k]
-        assert isclose(fracTotal, 1, abs_tol = self.testAccuracy),\
-                "fraction sync failed, total is %f != 1, z iteration %i of %i"\
-                % (fracTotal, self.zsteps-1-i, self.zsteps-1)
-
-    def fullCheck(self, j, k):
-        total = 0
-        for i in range(self.distributionComponentsCount):
-            total += np.sum(self.distributionComponents[i][j, k, :]) 
-            total += self.distributionOverflows[i][j, k]
-        total *= self.ScaleStep
-        assert isclose(total, 1, abs_tol = self.testAccuracy),\
-                "fullCheck failed, integral is %f != 1. z iteration %i of %i"\
-                % (total, self.zsteps-j, self.zsteps)
-        
-    def initializeGaussian(self, i, j, k, location, scale, magnitude):
-        assert magnitude <= 1, "initializing a gaussian with magnitude > 1 will necessarily violate probabilities summing to one "
-        gaussian = np.random.normal(loc = location, scale = scale, size = 10000)
-        hist = np.histogram(gaussian, self.Scale)[0]
-        hist_norm = magnitude * hist/(np.sum(hist) * self.ScaleStep) # this is normalized by bin width too - not sure about this
-        self.distributionComponents[i][j, k, :] += hist_norm
-        self.syncFractions(j, k)
-
-    def copyFromPreviousStep(self, j, k):
-        increment = 1
-        self.fullCheck(j + increment, k)
-        for i in range(self.distributionComponentsCount):
-            self.distributionComponents[i][j, k] = self.distributionComponents[i][j + increment, k, :]
-            self.distributionComponentFractions[i][j, k] = self.distributionComponentFractions[i][j + increment, k]  
-            self.remainder_store[i][j, k] = self.remainder_store[i][j + increment, k]
-            self.distributionOverflows[i][j, k] = self.distributionOverflows[i][j + increment, k] 
-            self.distributionOverflowFractions[i][j, k] = self.distributionOverflowFractions[i][j + increment, k]
-    
-    def scaleDistributionByFraction(self, i, j, k, Fraction):
-        self.distributionComponents[i][j, k, :] *= Fraction
-        self.distributionComponentFractions[i][j, k] *= Fraction
-        total = np.sum(self.distributionComponents[i][j, k]) * self.ScaleStep
-        assert isclose(total, self.distributionComponentFractions[i][j, k], abs_tol = self.testAccuracy),\
-                "Distibution scaling failed, integral %f != %f. z iteration %i of %i"\
-                %(total, self.distributionComponentFractions[i][j, k], self.zsteps-j, self.zsteps)
-
-    def moveDistribution(self, i, j, k, delta):
-
-        self.fullCheck(j, k)
-
-        # Remainder Management
-        assert self.remainder_store[i][j, k] < self.ScaleStep, "Remainder store is larger than step"
-        delta += self.remainder_store[i][j, k]
-        
-        # Bin shifting
-        self.shift_n_bins = int(np.floor(delta/self.ScaleStep)) # Number of bins to move up the nearest integer
-        self.remainder_store[i][j, k] = delta - self.shift_n_bins * self.ScaleStep # Store any remainder
-        
-        # Overflow
-        index_shift = self.resolution - self.shift_n_bins
-        self.distributionOverflows[i][j, k] += np.sum(self.distributionComponents[i][j, k, index_shift:])
-        self.distributionComponentFractions[i][j, k] -=  np.sum(self.distributionComponents[i][j, k, index_shift:]) * self.ScaleStep
-        self.distributionOverflowFractions[i][j, k]  = self.distributionOverflows[i][j, k] * self.ScaleStep
-        self.distributionComponents[i][j, k, index_shift:] = 0
-            
-        self.fullCheck(j, k)
-        self.distributionComponents[i][j, k, :] = np.roll(self.distributionComponents[i][j, k, :], self.shift_n_bins)
-        self.fullCheck(j, k)
-
-
-    def extractCombinedDistribution(self):
-        master = np.zeros_like(self.distributionComponents[0][:, :, :])
-        for k in range(self.distributionComponentsCount):
-            master = np.add(master, self.distributionComponents[k][:, :, :])
-        return master
-
-
 
 #PairFractions Systematics Plot======================================
 PreProcessed_Factors = ['G19_SE_PP_SF_Strip','G19_SE_NOCE_PP_SF_Strip']
@@ -460,9 +337,8 @@ class PairFractionData:
                 FirstAddition = False
         return P_ellip
 
-    def Sersic_Index_Evolution_Classy(self, MassRatio = 0.3, z_start = 10):
-        '''
-        Alternative Sersic Index evolution
+    def CalculateSersicIndex(self, MassRatio = 0.3):
+        ''' Function to evolve Sersic Index evolution
         '''
         # Test Accuracy 
         test_acc = 10**-7
@@ -479,38 +355,44 @@ class PairFractionData:
         Gaussian_Scatter = 0.2
 
         # Lower Limit ratio
-        lowLimitRatio = 0.1
+        lowLimitRatio = np.log10(0.1)
 
         # Extract array sizes
         self.Accretion_History.shape[0]
 
+
+        print("AccHist Shape:", self.Accretion_History.shape)
         # Create distro
-        SersicIndex = ProbabilityDistribution(self.Accretion_History.shape[0], self.Accretion_History.shape[0], 500)    
+        SersicIndex = ProbabilityDistribution(self.Accretion_History.shape[0], self.Accretion_History.shape[1], 500)    
         SersicIndex.addDistributionComponents(2)
         SersicIndex.addScale(1, 8)
+        self.Ser_Scale = SersicIndex.Scale
 
-        MMR = np.log(MassRatio) # Merger Mass in log10
-
+        MMR = np.log10(MassRatio) # Merger Mass in log10
+       
+        print(self.Surviving_Sat_SMF_MassRange)
+         
         for i in range(np.shape(self.AvaStellarMass)[0]-1, -1, -1): # Redshift step - go from highest index back to zero
             for j in range(np.shape(self.AvaStellarMass)[1]-1, -1, -1): # Mass bin step - go from highest index back to zero
 
                     Maj_Merge_Bin = np.digitize(self.AvaStellarMass[i, j] + MMR, bins = self.Surviving_Sat_SMF_MassRange)
                     lowLimitBin = np.digitize(self.AvaStellarMass[i, j] + lowLimitRatio, bins = self.Surviving_Sat_SMF_MassRange) 
+                   
+                    # print(self.AvaStellarMass[i, j])
                     
                     if i == np.shape(self.AvaStellarMass)[0]-1: # If we are in the first redshift bin
                         SersicIndex.initializeGaussian(0, i, j, Start_n, Gaussian_Scatter, 1)
                         SersicIndex.fullCheck(i, j)
                     else:
                         SersicIndex.copyFromPreviousStep(i, j)
-
+                        
                         # ----------------------------------
                         # Major Mergers happening to Spirals
                         # ----------------------------------
                         if True:
                             #   Calculate number and reduce spiral array by approprate quantity
-                            Major_Frac = np.sum(self.Accretion_History[i, j, Maj_Merge_Bin:]) * self.SM_Bin # Frac that are maj mergers
+                            Major_Frac = (np.sum(self.Accretion_History[i, j, Maj_Merge_Bin:]) * self.SM_Bin) #/ total # Frac maj mergers
                             Major_Frac_Spirals = Major_Frac * SersicIndex.distributionComponentFractions[0][i, j] # Fraction MM that apply to spirals
-                             
                             SersicIndex.scaleDistributionByFraction(0, i, j, (1 - Major_Frac)) 
                             SersicIndex.initializeGaussian(1, i, j, Elliptical_n, Gaussian_Scatter, Major_Frac_Spirals)
                             SersicIndex.fullCheck(i, j)
@@ -519,300 +401,94 @@ class PairFractionData:
                         # MAJOR mergers happening to ellipticalls
                         # ---------------------------------------
                         if True:
-
                             #   Integral for Major Mergers
                             delta_n = (k_maj/self.AvaStellarMass[i,j]) * np.sum(self.Accretion_History[i, j, Maj_Merge_Bin:]\
-                                    * self.Surviving_Sat_SMF_MassRange[Maj_Merge_Bin:]) * self.SM_Bin
+                                * self.Surviving_Sat_SMF_MassRange[Maj_Merge_Bin:]) * self.SM_Bin
                            
                             SersicIndex.moveDistribution(1, i, j, delta_n)
                         
                         # ------------------------------
                         # MINOR mergers - happen to both
                         # ------------------------------
-                        if False:
+                        if True:
                             #   Integral for Minor Mergers
                             delta_n =  (k_min/self.AvaStellarMass[i,j]) * np.sum(self.Accretion_History[i, j, lowLimitBin:Maj_Merge_Bin]\
-                                    * self.Surviving_Sat_SMF_MassRange[lowLimitBin:Maj_Merge_Bin]) * self.SM_Bin
+                                * self.Surviving_Sat_SMF_MassRange[lowLimitBin:Maj_Merge_Bin]) * self.SM_Bin
                          
                             SersicIndex.moveDistribution(0, i, j, delta_n)
                             SersicIndex.moveDistribution(1, i, j, delta_n)
+                                                                                          
+        self.SersicIndex = SersicIndex
+        
+        #return SersicIndex.extractCombinedDistribution(), VDistro.extractCombinedDistribution() 
+    
+    def CalculateSizes(self):
 
-        return SersicIndex.extractCombinedDistribution()
-        #return np.add(SersicIndex.distributionComponents[0], SersicIndex.distributionComponents[1])
-                                
-                          
-    def Sersic_Index_Evolution(self, MassRatio = 0.3, z_start = 10):
-        '''
-        Sersic_Index_Evoltion
-        ---------------------
-        Chris' function to evolve Sersic Index over cosmic time
-
-        TODO: Add parameters/returns.
-        '''
-        # Test Accuracy
-        test_acc = 10**-7
-
-        # Initialized Sersic Index Choice
-        Start_Sersic_Index = 1.5
-        Elliptical_move_index = 2.5
-
-        # Scatter magnitude
-        Gaussian_Scatter = 0.2
-
-        # Low Limit ratio
-        lowLimitRatio = 0.1
-
-        P_ellip = np.zeros_like(self.AvaStellarMass)
-
-        k_min = 1  # k for when we integrate for non-major mergers
-        k_maj = 0.99 # k for when we integrate for major mergers
-
-        res = 500
-        P_sersic_Elliptical = np.zeros((self.Accretion_History.shape[0], self.Accretion_History.shape[1], res))
-        P_sersic_Spiral = np.zeros((self.Accretion_History.shape[0], self.Accretion_History.shape[1], res))
-
-        sersic_range, sersic_step = np.linspace(1, 8, len(P_sersic_Elliptical[0, 0, :]) + 1, retstep = True) # Hold the values of the sersic index.
-
-        remainder_store_Major = np.zeros(len(self.AvaStellarMass[0, :])) # One remainder store for each halo. Using this to track remainders when shifting the arrays
-        remainder_store_Minor = np.zeros(len(self.AvaStellarMass[0, :]))
-
-        Overflow_store_Elliptical = np.zeros_like(self.AvaStellarMass)
-        Overflow_store_Spiral = np.zeros_like(self.AvaStellarMass)
-
-        average = np.zeros_like(self.AvaStellarMass)
-
-        MMR = np.log(MassRatio) # Merger Mass in log10
+        SizeDistro = ProbabilityDistribution(self.Accretion_History.shape[0], self.Accretion_History.shape[1], 500)
+        SizeDistro.addDistributionComponents(1)
+        SizeDistro.addScale(0, 50)
+        # Size constants
+        r_R_0 = 0.1
+        r_k = 0.14
+        r_p = 0.39
 
         for i in range(np.shape(self.AvaStellarMass)[0]-1, -1, -1): # Redshift step - go from highest index back to zero
             for j in range(np.shape(self.AvaStellarMass)[1]-1, -1, -1): # Mass bin step - go from highest index back to zero
 
-                    Maj_Merge_Bin = np.digitize(self.AvaStellarMass[i, j] + MMR, bins = self.Surviving_Sat_SMF_MassRange) # Find the bin of the Satilite mass range (beyond which) there will be major mergers
-                    lowLimitBin = np.digitize(self.AvaStellarMass[i, j] + lowLimitRatio, bins = self.Surviving_Sat_SMF_MassRange) 
+                # ---------------------
+                # Quick and dirty sizes
+                # ---------------------
+                if True:
+                    Mass_z0 = self.AvaStellarMass[0, j]
+                    Mass_now = self.AvaStellarMass[i, j]
+                            
+                    Redshift = self.z[i]
+                    
+                    term2 = (1 + (10**Mass_z0)/(3.98e10))**(r_p - r_k)
+                    term1 = r_R_0 * ((10**Mass_z0)**r_k) / ((1 + Redshift)**0.4) 
+                    Radius = term1 * term2
+                    
+                    Gaussian_Scatter = 2
+                    SizeDistro.initializeGaussian(0, i, j, Radius, Gaussian_Scatter, 1)
 
-                    if i == np.shape(self.AvaStellarMass)[0]-1: # If we are in the first redshift bin
-                        gaussian = np.random.normal(loc = Start_Sersic_Index, scale = Gaussian_Scatter, size = 10000)
-                        hist = np.histogram(gaussian, sersic_range)[0]
-                        hist_norm = hist/(np.sum(hist) * sersic_step) # this is normalized by bin width too - not sure about this
-                        P_sersic_Spiral[i, j, :] += hist_norm
-                        total = (np.sum(P_sersic_Spiral[i, j, :]) + Overflow_store_Spiral[i, j]) * sersic_step
-                        assert isclose(total, 1, abs_tol=test_acc), "Total sersic Probability density does not integrate to one, it integrates to %f. This check was perfomed at the first (highest) refshift step, so the error is in the initialization" % (total)
+        self.Sizes = SizeDistro
 
-                    else: # when not the first redshift bin
+    def CalculateVelocityDispersion(self):
+        
+        def Bernardi_k(n):
+            k = np.zeros_like(n)
+            k[n > 10] = 2.95
+            k[n < 2] = 7.30
+ 
+            n_data = np.arange(2, 10.5, 0.5)
+            k_data = np.array([7.30, 6.97, 6.62, 6.27, 5.93, 5.60, 5.29, 4.99, 4.71, 4.44, 4.19, 3.95, 3.73, 3.52, 3.32, 3.13, 2.95])
+            f = interpolate.interp1d(n_data, k_data)
+  
+            n_rel = n[k == 0]
+            k[k == 0] = f(n_rel)
+            return k
 
-                        # Initialize as identical to previous redshift step
-                        P_sersic_Spiral[i, j, :] = P_sersic_Spiral[i+1, j, :] # +1 because we are counting DOWN
-                        P_sersic_Elliptical[i, j, :] = P_sersic_Elliptical[i+1, j, :]
-                        Overflow_store_Elliptical[i, j] = Overflow_store_Elliptical[i+1, j]
-                        Overflow_store_Spiral[i, j] = Overflow_store_Spiral[i+1, j]
+        VDistro = ProbabilityDistribution(self.Accretion_History.shape[0], self.Accretion_History.shape[1], 500)
+        VDistro.addDistributionComponents(1)
+        VDistro.addScale(0, 300) 
+       
+        assert hasattr(self, 'Sizes'), "Velocity Dispersion requires Sizes - call CalculateSizes() first"
+        assert hasattr(self, 'SersicIndex'), "Velocity Dispersion requires Sersic Index - call CalculateSersicIndex() first"
+        
+        for i in range(np.shape(self.AvaStellarMass)[0]-1, -1, -1): # Redshift step - go from highest index back to zero
+            for j in range(np.shape(self.AvaStellarMass)[1]-1, -1, -1): # Mass bin step - go from highest index back to zero
+                sample = self.Sizes.Catalogue(i, j, 10**4)
 
-                        # Ratio Management -  spirals, ellipticals and overflows
-                        Spiral_Frac = np.sum(P_sersic_Spiral[i, j, :]) * sersic_step
-                        Ellip_Frac = np.sum(P_sersic_Elliptical[i, j, :]) * sersic_step
-                        Overflow_Frac = (Overflow_store_Elliptical[i, j] + Overflow_store_Spiral[i, j]) * sersic_step
-                        total = Spiral_Frac + Ellip_Frac + Overflow_Frac
-
-
-                        ############### Test sum of probabilty is 1 ################
-                        assert isclose(total, 1, abs_tol=test_acc),\
-                                "start prob denisty integrates to %f, not 1. this check was performed at redshift iteration %i of %i"\
-                                % (total, np.shape(self.avastellarmass)[0]-1-i, np.shape(self.avastellarmass)[0]-1)
-                        ############################################################
-
-                        # ==================================
-                        # MAJOR mergers happening to spirals
-                        # ==================================
-                        if True:
-                            #   Calculate number and reduce spiral array by approprate quantity
-                            Major_Frac = np.sum(self.Accretion_History[i, j, Maj_Merge_Bin:]) * self.SM_Bin # Frac that are maj mergers
-                            Major_Frac_Spirals = Major_Frac * Spiral_Frac # Fraction of Major Mergers that apply to spirals
-                            P_sersic_Spiral[i, j, :] *= (1 - Major_Frac) # Reduce spiral density uniformly by fraction lost
-                            Spiral_Frac *= (1 - Major_Frac)
-                            total = np.sum(P_sersic_Spiral[i, j, :]) * sersic_step
-
-                            #   Test for internal validity
-                            assert isclose(total, Spiral_Frac, abs_tol=test_acc),\
-                                    "Spiral Array integral %f != expected fraction %f, iteration %i of %i"\
-                                % (total, Spiral_Frac, np.shape(self.AvaStellarMass)[0]-1-i, np.shape(self.AvaStellarMass)[0]-1)
-
-                            #   Redistribute these galaxies as gaussians, ready to go to the elliptical array
-                            gaussian = np.random.normal(loc = Elliptical_move_index, scale = Gaussian_Scatter, size = 10000)
-                            hist = np.histogram(gaussian, sersic_range)[0]
-                            hist_norm = Major_Frac_Spirals * hist/(np.sum(hist)*sersic_step) # Normalized to correct proportion
-                            total = np.sum(hist_norm) * sersic_step
-
-                            #   Test for internal validity
-                            assert isclose(total, Major_Frac_Spirals, abs_tol=test_acc),\
-                                "Gaussian array Integral %f != expected fraction %f, iteration %i of %i"\
-                                % (total, Major_Frac_Spirals, np.shape(self.AvaStellarMass)[0]-1-i, np.shape(self.AvaStellarMass)[0]-1)
-
-                            #   Place in Elliptical array
-                            P_sersic_Elliptical[i, j, :] += hist_norm # Place the values 'atop' the Elliptical array
-                            Ellip_Frac += Major_Frac_Spirals
-
-                            # Check total of Elliptical array is what is expected.
-                            total = np.sum(P_sersic_Elliptical[i, j, :]) * sersic_step
-                            assert isclose(total, Ellip_Frac, abs_tol=test_acc),\
-                                "Elliptical array Integral %f != expected fraction %f, iteration %i of %i"\
-                                % (total, Ellip_Frac,  np.shape(self.AvaStellarMass)[0]-1-i, np.shape(self.AvaStellarMass)[0]-1)
-
-                            # Full Test
-                            total = Ellip_Frac + Spiral_Frac + Overflow_Frac
-                            assert isclose(total, 1, abs_tol=test_acc),\
-                                "Total fraction %f != 1. Iteration %i of %i"\
-                                %  (total, np.shape(self.AvaStellarMass)[0]-1-i, np.shape(self.AvaStellarMass)[0]-1)
-                            check = (np.sum(P_sersic_Elliptical[i, j, :]) +\
-                                np.sum(P_sersic_Spiral[i, j, :]) +\
-                                Overflow_store_Elliptical[i, j]+\
-                                Overflow_store_Spiral[i, j] ) * sersic_step
-                            assert isclose(check, 1, abs_tol=test_acc), "Total integration %f != 1, step %i of %i"\
-                                % (check, np.shape(self.AvaStellarMass)[0]-1-i, np.shape(self.AvaStellarMass)[0]-1)
-
-
-                        # =======================================
-                        # MAJOR mergers happening to ellipticalls
-                        # =======================================
-                        if True:
-                            #   Integral for Major Mergers
-                            delta_n = (k_maj/self.AvaStellarMass[i,j]) * np.sum(self.Accretion_History[i, j, Maj_Merge_Bin:]\
-                                    * self.Surviving_Sat_SMF_MassRange[Maj_Merge_Bin:]) * self.SM_Bin
-                            #   Check remainder validity.
-                            assert remainder_store_Major[j] < sersic_step, "Major remainder store is larger than sersic step"
-                            #   Increment any remainder from last time.
-                            delta_n += remainder_store_Major[j]
-                            #   Bin shifting calculations
-                            shift_n_bins = int(np.floor(delta_n/sersic_step)) # Number of bins to move up the nearest integer
-                            remainder_store_Major[j] = delta_n - shift_n_bins*sersic_step # Store any remainder
-
-                            #   Overflow
-                            index_shift = len(P_sersic_Elliptical[i, j, :]) - shift_n_bins
-                            Overflow_store_Elliptical[i, j] += np.sum(P_sersic_Elliptical[i, j, index_shift:])
-                            Ellip_Frac -= np.sum(P_sersic_Elliptical[i, j, (index_shift):]) * sersic_step
-                            Overflow_Frac = (Overflow_store_Elliptical[i, j] + Overflow_store_Spiral[i, j]) * sersic_step
-                            P_sersic_Elliptical[i, j, index_shift:] = 0
-
-                            #   Overflow tests
-                            total = Ellip_Frac + Spiral_Frac + Overflow_Frac #  Fraction check
-                            assert isclose(total, 1, abs_tol=test_acc), "Total Fraction %f != 1, step %i of %i"\
-                                % (total, np.shape(self.AvaStellarMass)[0]-1-i, np.shape(self.AvaStellarMass)[0]-1)
-                            check = (np.sum(P_sersic_Elliptical[i, j, :]) +\
-                                np.sum(P_sersic_Spiral[i, j, :]) +\
-                                Overflow_store_Elliptical[i, j]+\
-                                Overflow_store_Spiral[i, j] ) * sersic_step # Full integral check
-                            assert isclose(check, 1, abs_tol=test_acc), "Total integration %f != 1, step %i of %i"\
-                                % (check, np.shape(self.AvaStellarMass)[0]-1-i, np.shape(self.AvaStellarMass)[0]-1)
-
-                            # Preshift test
-                            total_pre = np.sum(P_sersic_Elliptical[i, j, :]) * sersic_step
-                            # Advance
-                            P_sersic_Elliptical[i, j, :] = np.roll(P_sersic_Elliptical[i, j, :], shift_n_bins)
-                            total_post = np.sum(P_sersic_Elliptical[i, j, :]) * sersic_step
-                            assert isclose(total_pre, total_post, abs_tol=test_acc), "Normalization may be required %f, %f"\
-                                    % (total_pre, total_post)
-
-                            total = np.sum(P_sersic_Elliptical[i, j, :]) * sersic_step
-
-                            assert isclose(total, Ellip_Frac, abs_tol=test_acc),\
-                                "Integral of Elliptical array %f != expected fraction %f. step %i of %i "\
-                                % (total, Ellip_Frac, np.shape(self.AvaStellarMass)[0]-1-i, np.shape(self.AvaStellarMass)[0]-1)
-
-                        # ==============================
-                        # MINOR mergers - happen to both
-                        # ==============================
-                        if True:
-                            #   Integral for Minor Mergers
-                            delta_n =  (k_min/self.AvaStellarMass[i,j]) * np.sum(self.Accretion_History[i, j, lowLimitBin:Maj_Merge_Bin]\
-                                    * self.Surviving_Sat_SMF_MassRange[lowLimitBin:Maj_Merge_Bin]) * self.SM_Bin
-                            assert remainder_store_Minor[j] < sersic_step, "Minor remainder store is larger than sersic step"
-                            delta_n += remainder_store_Minor[j]
-                            #   Bin shifting calculation
-                            shift_n_bins = int(np.floor(delta_n/sersic_step))
-                            remainder_store_Minor [j] = delta_n - shift_n_bins*sersic_step
-
-                            #   Overflow Ellipticals
-                            index_shift = len(P_sersic_Elliptical[i, j, :]) - shift_n_bins
-                            Overflow_store_Elliptical[i, j] += np.sum(P_sersic_Elliptical[i, j, index_shift:])
-                            Ellip_Frac -= np.sum(P_sersic_Elliptical[i, j, index_shift:]) * sersic_step
-                            Overflow_Frac = (Overflow_store_Elliptical[i, j] + Overflow_store_Spiral[i, j]) * sersic_step
-                            P_sersic_Elliptical[i, j, index_shift:] = 0
-
-                            #   Post Overflow Checks
-                            total = Ellip_Frac + Spiral_Frac + Overflow_Frac #  Fraction check
-                            assert isclose(total, 1, abs_tol=test_acc), "Total Fraction %f != 1, step %i of %i"\
-                                % (total, np.shape(self.AvaStellarMass)[0]-1-i, np.shape(self.AvaStellarMass)[0]-1)
-                            check = (np.sum(P_sersic_Elliptical[i, j, :]) +\
-                                np.sum(P_sersic_Spiral[i, j, :]) +\
-                                Overflow_store_Elliptical[i, j]+\
-                                Overflow_store_Spiral[i, j] ) * sersic_step # Full integral check
-                            assert isclose(check, 1, abs_tol=test_acc), "Total integration %f != 1, step %i of %i"\
-                                % (check, np.shape(self.AvaStellarMass)[0]-1-i, np.shape(self.AvaStellarMass)[0]-1)
-
-
-                            #   Overflow Spirals
-                            index_shift = len(P_sersic_Elliptical[i, j, :]) - shift_n_bins
-                            #   Roll in Spirial Sersic Probabilty Array will overflow,
-                            Overflow_store_Spiral[i, j] += np.sum(P_sersic_Spiral[i, j, index_shift:])
-                            Spiral_Frac -= np.sum(P_sersic_Spiral[i, j, index_shift:]) * sersic_step
-                            Overflow_Frac = (Overflow_store_Elliptical[i, j] + Overflow_store_Spiral[i, j]) * sersic_step
-                            P_sersic_Spiral[i, j, index_shift:] = 0
-                            # Post Overflow Checks
-                            total = Ellip_Frac + Spiral_Frac + Overflow_Frac #  Fraction check
-                            assert isclose(total, 1, abs_tol=test_acc), "Total Fraction %f != 1, step %i of %i"\
-                                % (total, np.shape(self.AvaStellarMass)[0]-1-i, np.shape(self.AvaStellarMass)[0]-1)
-                            check = (np.sum(P_sersic_Elliptical[i, j, :]) +\
-                                np.sum(P_sersic_Spiral[i, j, :]) +\
-                                Overflow_store_Elliptical[i, j]+\
-                                Overflow_store_Spiral[i, j] ) * sersic_step # Full integral check
-                            assert isclose(check, 1, abs_tol=test_acc), "Total integration %f != 1, step %i of %i"\
-                                % (check, np.shape(self.AvaStellarMass)[0]-1-i, np.shape(self.AvaStellarMass)[0]-1)
-
-                            # Checks
-                            total = Ellip_Frac + Spiral_Frac + Overflow_Frac
-                            assert isclose(total, 1, abs_tol=test_acc), "Total Fraction %f != 1, step %i of %i"\
-                                    % (total, np.shape(self.AvaStellarMass)[0]-1-i, np.shape(self.AvaStellarMass)[0]-1)
-                            check = (np.sum(P_sersic_Elliptical[i, j, :]) +\
-                                np.sum(P_sersic_Spiral[i, j, :]) +\
-                                Overflow_store_Elliptical[i, j]+\
-                                Overflow_store_Spiral[i, j] ) * sersic_step
-                            assert isclose(check, 1, abs_tol=test_acc), "Total integration %f != 1, step %i of %i"\
-                                % (check, np.shape(self.AvaStellarMass)[0]-1-i, np.shape(self.AvaStellarMass)[0]-1)
-
-
-                            P_sersic_Elliptical[i, j, :] = np.roll(P_sersic_Elliptical[i, j, :], shift_n_bins)
-                            P_sersic_Spiral[i, j, :] = np.roll(P_sersic_Spiral[i, j, :], shift_n_bins)
-                            total = np.sum(P_sersic_Elliptical[i, j, :]) * sersic_step
-                            assert isclose(total, Ellip_Frac, abs_tol=test_acc),\
-                                    "Integral of Elliptical array %f != expected fraction %f, iteration %i of %i "\
-                                    % (total, Ellip_Frac, np.shape(self.AvaStellarMass)[0]-1-i, np.shape(self.AvaStellarMass)[0]-1)
-
-                            total = np.sum(P_sersic_Spiral[i, j, :]) * sersic_step
-                            assert isclose(total, Spiral_Frac, abs_tol = test_acc),\
-                                    "Integral of Spiral array %f != expected fraction %f, iteration %i of %i"\
-                                    % (total, Spiral_Frac, np.shape(self.AvaStellarMass)[0]-1-i, np.shape(self.AvaStellarMass)[0]-1)
-
-                            # Checks
-                            total = Ellip_Frac + Spiral_Frac + Overflow_Frac
-                            assert isclose(total, 1, abs_tol=test_acc), "Total Fraction %f != 1, step %i of %i"\
-                                    % (total, np.shape(self.AvaStellarMass)[0]-1-i, np.shape(self.AvaStellarMass)[0]-1)
-                            check = (np.sum(P_sersic_Elliptical[i, j, :]) +\
-                                np.sum(P_sersic_Spiral[i, j, :]) +\
-                                Overflow_store_Elliptical[i, j]+\
-                                Overflow_store_Spiral[i, j] ) * sersic_step
-                            assert isclose(check, 1, abs_tol=test_acc), "Total integration %f != 1, step %i of %i"\
-                                % (check, np.shape(self.AvaStellarMass)[0]-1-i, np.shape(self.AvaStellarMass)[0]-1)
-
-                        # Pips sh*t
-                        weights = np.add(P_sersic_Elliptical[i, j, :], P_sersic_Spiral[i, j, :])
-                        if np.sum(weights) > 0:
-                            average[i, j] = np.average(sersic_range[0:-1], weights = weights)
-
-
-        # Add the two arrays for the postprocessing
-        P_sersic_total = np.add(P_sersic_Elliptical, P_sersic_Spiral)
-
-
-
-        # P_sersic_total = P_sersic_Spiral
-        return P_sersic_total, sersic_range, average
+                Gravitational_const = 4.30091e-3
+                Mass_now = self.AvaStellarMass[i, j]
+                res = 10**4
+                VD2 = np.sqrt((Gravitational_const * 10**Mass_now)/(Bernardi_k(self.SersicIndex.Catalogue(i, j, res)) \
+                        * self.Sizes.Catalogue(i, j, res) * 10**3))
+                
+                hist = np.histogram(VD2, VDistro.Scale)[0]/res
+                VDistro.distributionComponents[0][i, j, :] = hist
+                             
+        self.VelocityDispersion = VDistro
 
     def Return_satSMF(self, Redshift):
         AvaHaloMass, AnalyticalModel_SMF, Surviving_Sat_SMF_MassRange, z = F.LoadData_SMFhz([self.RunParam])
@@ -1250,7 +926,7 @@ if __name__ == "__main__":
         plt.clf()
 
     #Morphology Plot
-    if True:
+    if False:
         Header=['galcount','finalflag','z','Vmaxwt','MsMendSerExp','AbsMag','logReSerExp',
                                   'BT','n_bulge','NewLCentSat','NewMCentSat'
                                   ,'MhaloL','probaE','probaEll',
@@ -1623,7 +1299,7 @@ if __name__ == "__main__":
 
 
     #Make the SMF
-    if True:
+    if False:
         colours = ["C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "k"]
         colourcycler = cycle(colours)
         Redshifts = [0,1.5,3]
@@ -1662,6 +1338,9 @@ if __name__ == "__main__":
         x,y=0,0
         #Tdyn_Factors = ['G19_SE_DPL_NOCE_PP_SF_Strip'] #['G19_SE_DPL_NOCE_SF', 'G19_SE_DPL_NOCE_SF_Strip']
         Tdyn_Factors = [('1.0', False, True, True, 'G19_DPL', 'G19_SE')] #['G19_SE_DPL_NOCE_SF', 'G19_SE_DPL_NOCE_SF_Strip']
+
+        test = np.load("/Data/Model/Output/RunFiles/RunParam_{}_{}_{}_{}_{}_{}_/MultiEpoch_SubHaloes_z.npy".format(Tdyn_Factors[0][0], \
+               Tdyn_Factors[0][1], Tdyn_Factors[0][2], Tdyn_Factors[0][3], Tdyn_Factors[0][4], Tdyn_Factors[0][5] ))
 
         MassRatio = 0.25
         for i, Fit in enumerate(Tdyn_Factors):
@@ -1736,6 +1415,27 @@ if __name__ == "__main__":
     if True:
         Tdyn_Factors = [('1.0', False, True, True, 'G19_DPL', 'G19_SE')] #['G19_SE_DPL_NOCE_SF', 'G19_SE_DPL_NOCE_SF_Strip']
 
+        #run = "RunParam_{}_{}_{}_{}_{}_{}_".format(Tdyn_Factors[0][0], \
+        #   Tdyn_Factors[0][1], Tdyn_Factors[0][2], Tdyn_Factors[0][3], Tdyn_Factors[0][4], Tdyn_Factors[0][5]) 
+    
+        #files = ('MultiEpoch_SatHaloMass.npy', 'MultiEpoch_SubHalos_z.npy', 'MultiEpoch_SurvivingSubhalos_z_z.npy') 
+    
+        #loc = "Data/Model/Output/RunFiles"
+
+        #for i in range(len(files)):
+        #    string = "{}/{}/{}".format(loc, run, files[i])
+        #    test = np.load(string)
+        #    print(files[i], test.shape)
+
+        '''
+        string1 = 'Data/Model/Output/RunFiles/RunParam_1.0_False_True_True_G19_DPL_G19_SE_/MultiEpoch_SurvivingSubhalos_z_z.npy'
+        string2 = 'Data/Model/Output/RunFiles/RunParam_{}_{}_{}_{}_{}_{}_/MultiEpoch_SubHaloes_z.npy'.format(Tdyn_Factors[0][0], \
+               Tdyn_Factors[0][1], Tdyn_Factors[0][2], Tdyn_Factors[0][3], Tdyn_Factors[0][4], Tdyn_Factors[0][5]) 
+
+        print("String Comparison:", string1 == string2)
+        test = np.load(string1)
+        print("Test:", test.shape)
+        '''
         MassRatio = 0.25
 
         hillxCircle   = np.array([0.34, 0.75, 1.25, 2.24, 2.75, 3.24])
@@ -1766,20 +1466,25 @@ if __name__ == "__main__":
 
         for i, Fit in enumerate(Tdyn_Factors):
             index = FitList.index(Fit)
-            start = time.clock()
-            P_ser, ser_range, average = Classes[index].Sersic_Index_Evolution(MassRatio, 10)
-            stop = time.clock()
-            print("Original Process:", stop-start)
-            P_ser = Classes[index].Sersic_Index_Evolution_Classy(MassRatio, 10)
-            start = time.clock()
-            print("New process:", start - stop)
+            tic = time.process_time()
+            Classes[index].CalculateSersicIndex()
+            Classes[index].CalculateSizes() 
+            Classes[index].SersicIndex.extractCombinedDistribution()
+            P_ser = Classes[index].SersicIndex.extractCombinedDistribution()
+            Classes[index].CalculateVelocityDispersion() 
+            toc = time.process_time()
+            print("Process:", toc - tic)
+   
+            a = Classes[index].Accretion_History_Halo
+
             z = Classes[index].z
             binIn = 27
             Map = P_ser[:, binIn, :]
+            ser_range = Classes[index].SersicIndex.Scale
+            VD = Classes[index].VelocityDispersion.extractCombinedDistribution()
 
             mass_up = Classes[index].AvaStellarMass[0, binIn]
             mass_down = Classes[index].AvaStellarMass[0, binIn - 1]
-
 
             zshow = np.array([0.1, 0.5, 1, 2, 4, 6])
             digits = np.digitize(zshow, z)
@@ -1787,8 +1492,10 @@ if __name__ == "__main__":
             sershow = np.array([2, 4, 6, 8])
             sdigits = np.digitize(sershow, ser_range)
 
-            scaled_av = np.digitize(average[:, binIn], ser_range)
+            VDShow = np.array([0, 50, 100, 150, 200, 250, 300])
+            VDigits = np.digitize(VDShow, Classes[index].VelocityDispersion.Scale)
 
+            # Hill scaling
             hill_circle_x_scaled = np.digitize(hillxCircle, z)
             hill_circle_y_scaled = np.digitize(hillyCircle, ser_range)
             hill_circle_scaledEu = np.digitize(hillyCircle + hillyCircleEu, ser_range) - hill_circle_y_scaled
@@ -1836,3 +1543,51 @@ if __name__ == "__main__":
             plt.xlabel("Redshift", fontsize = 10)
             plt.ylabel("Sersic Index", fontsize = 10)
             plt.savefig('test.png')
+
+            #fig2, ax2 = plt.subplots()
+            #y = Classes[index].rad_store[0, :]
+            #plt.plot(Classes[index].AvaStellarMass[0, :], np.log10(y))
+            #plt.savefig('test2.png')
+
+            fig3, ax3 = plt.subplots()
+            Map = VD[:, binIn, :]
+            plt.imshow(Map.T, aspect = 1/4, interpolation = 'bilinear', origin = 'lower', cmap = 'Greys')
+           
+            ax.tick_params(axis='both', which='major', labelsize=10)
+            ax3.set_xticks(digits)
+            ax3.set_xticklabels(zshow)
+            ax3.set_yticks(VDigits)
+            ax3.set_yticklabels(VDShow)
+
+            plt.xlabel("Redshift", fontsize = 10)
+            plt.ylabel("Velocity Dispersion ($kms^{-1}$)", fontsize = 10)
+
+            plt.title("Velocity Dispersion probability distribution\nfor galaxies of mass %.2f < $logM_\odot$ < %.2f (at $z = 0)$" % (mass_down, mass_up), fontsize=10)
+            plt.savefig('test3.png')
+            
+
+            fig4, ax4 = plt.subplots()
+
+            selection_bins = np.array([5, 10, 15, 20, 25, 30, 40, 50])
+            
+            for j in selection_bins:
+
+                mass_up = Classes[index].AvaStellarMass[0, j]
+                mass_down = Classes[index].AvaStellarMass[0, j - 1]
+                
+                Map = VD[:, j, :].T
+                length = Map.shape[1]
+                av_store = np.zeros(length)
+                for i in range(length):
+                    VD_Range = Classes[index].VelocityDispersion.Scale[0:-1]
+                    weights = Map[:, i]
+                    if np.sum(weights != 0):
+                        av_store[i] = np.average(VD_Range, weights = weights)
+
+                plt.plot(z[av_store != 0], av_store[av_store != 0], label = "{:.2f} < $M_\odot$ < {:.2f}".format(mass_up, mass_down))
+            plt.legend(fontsize = 7)
+            plt.tick_params(labelsize=10)
+            plt.xlabel("redshift", fontsize = 10)
+            plt.ylabel("Velocity Dispersion $kms^{-1}$", fontsize = 10)
+            plt.savefig('test4.png', dpi = 200)
+            
