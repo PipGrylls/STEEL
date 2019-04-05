@@ -21,6 +21,8 @@ Scripts/CentralPostprocessing/*.npy
 Scripts/Plots/__pycache__/
 Figures/Paper2/*.png
 Figures/Paper2/*.pdf
+Figures/Paper3/*.png
+Figures/paper3/*.pdf
 *.so
 *.o
 Figures/SMHM_Fit/*.png

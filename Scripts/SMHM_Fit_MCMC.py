@@ -1,7 +1,7 @@
 import os
 import sys
-AbsPath = str(__file__)[:-len("/SMHM_Fit_MCMC.py")]
-sys.path.append(AbsPath+"/..")
+AbsPath = str(__file__)[:-len("/SMHM_Fit_MCMC.py")]+"/.."
+sys.path.append(AbsPath)
 import numpy as np
 import pandas as pd
 import pickle
@@ -12,11 +12,11 @@ import matplotlib.pyplot as plt
 from Functions import Functions as F
 from colossus.cosmology import cosmology
 from Scripts.Plots import SDSS_Plots #imports the SDSS file
-if "SDSS_Plots.pkl" in os.listdir("./Data/Observational/Bernardi_SDSS"):
-    Add_SDSS = pickle.load(open("./Data/Observational/Bernardi_SDSS/SDSS_Plots.pkl", 'rb'))
+if "SDSS_Plots.pkl" in os.listdir(AbsPath+"/Data/Observational/Bernardi_SDSS"):
+    Add_SDSS = pickle.load(open(AbsPath+"/Data/Observational/Bernardi_SDSS/SDSS_Plots.pkl", 'rb'))
 else:
     Add_SDSS = SDSS_Plots.SDSS_Plots(11.5,15,0.1) #pass this halomass:min, max, and binwidth for amting 
-    pickle.dump(Add_SDSS, open("./Data/Observational/Bernardi_SDSS/SDSS_Plots.pkl", 'wb'))
+    pickle.dump(Add_SDSS, open(AbsPath+"/Data/Observational/Bernardi_SDSS/SDSS_Plots.pkl", 'wb'))
 
 
 
@@ -346,16 +346,17 @@ def lnlike_lz(Params, Inputs):
     """
     z, HMR, HM_Bin, CHMF_0, SMR, SM_Bin, CSMF_0, SMHM_Model = Inputs
     Params = [Params[0], 0, Params[1], 0, Params[2], 0, Params[3], 0, 0.15]#Params[4]]
-    SMF_From_SMHM = DM_to_SM(SMR, SM_Bin, HMR, HM_Bin, CHMF_0, Params, z, SMHM_Model, N = 2500)
-    mask = np.logical_and(np.isfinite(SMF_From_SMHM), np.isfinite(CSMF_0))
+    CSMF_0_edge = CSMF_0[1:-1] #do this to avoid the edge effects of histogram
+    SMF_From_SMHM = DM_to_SM(SMR[1:-1], SM_Bin, HMR, HM_Bin, CHMF_0, Params, z, SMHM_Model, N = 2500)
+    mask = np.logical_and(np.isfinite(SMF_From_SMHM), np.isfinite(CSMF_0_edge))
     if len(SMF_From_SMHM[mask])/len(SMF_From_SMHM) > 0.9:
-        return -0.5*np.sum(np.power(SMF_From_SMHM[mask] - CSMF_0[mask], 2))
+        return -0.5*np.sum(np.power(SMF_From_SMHM[mask] - CSMF_0_edge[mask], 2))
     else:
         return -np.inf
     
 def lnprior_lz(theta):
     M,N,b,g = theta
-    if (11.0<M<13) and (0.01<N<0.06) and (0.2<b<3.0) and (0.3<g<0.8):
+    if (11.0<M<13) and (0.0<N<0.06) and (0.2<b<4.0) and (0.3<g<1.2):
         return 0.0
     else:
         return -np.inf
@@ -393,7 +394,7 @@ def lnlike_hz(Params, Inputs):
        
 def lnprior_hz(theta):
     M,N,b,g = theta
-    if (0.2<M<1.2) and (-0.03<N<0.01) and (-1.5<b<-0.2) and (-0.2<g<0.3):
+    if (0.2<M<1.5) and (-0.03<N<0.01) and (-1.5<b<-0.1) and (-0.3<g<0.6):
         return 0.0
     else:
         return -np.inf
@@ -406,8 +407,8 @@ def lnprob_hz(theta, Params_lz, HaloRed, HaloMasses, HM_bin, HaloWts, SMR, SM_bi
 
 if __name__ == "__main__":
     #Make FttingFuctionsCass
-    FittingClass = Fitting_Functions(SMHM = "Moster", SMF = ["Bernardi16", "Davidzon17_corr"], HMF_central = "HMF_Collosus", HMF_sub = "STEEL")
-    #FittingClass = Fitting_Functions(SMHM = "Moster", SMF = ["cModel", "Davidzon17"], HMF_central = "HMF_Collosus", HMF_sub = "STEEL")
+    #FittingClass = Fitting_Functions(SMHM = "Moster", SMF = ["Bernardi16", "Davidzon17_corr"], HMF_central = "HMF_Collosus", HMF_sub = "STEEL")
+    FittingClass = Fitting_Functions(SMHM = "Moster", SMF = ["cModel", "Davidzon17"], HMF_central = "HMF_Collosus", HMF_sub = "STEEL")
     #Fit at redshift 0.1:
     z = 0.1
     index_0 = np.digitize(z, bins = FittingClass.SMF_Redshifts) - 1
@@ -419,12 +420,13 @@ if __name__ == "__main__":
     CSMF_0 = FittingClass.SMF_Central[index_0]
     SSMF_0 = FittingClass.SMF_Satellite[index_0]
     SMHM_Model = FittingClass.SMHM_Model
+    
     Input = [z, HMR, HM_bin, CHMF_0, SMR, SM_bin, CSMF_0, SMHM_Model]
     #set up initial conditions
     ndim, nwalkers = 4, 20
-    pos = [[12.0,0.03,1.5,0.6] + 1e-4*np.random.randn(ndim) for i in range(nwalkers)]
+    pos = [[12.0,0.03,1.5,0.6] + 1e-3*np.random.randn(ndim) for i in range(nwalkers)]
     sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob_lz, args=(Input), threads = 20)
-    sampler.run_mcmc(pos, 1000)
+    sampler.run_mcmc(pos, 2000)
     samples = sampler.chain[:, 50:, :].reshape((-1, ndim))
     
     M, N, b, g = map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),zip(*np.percentile(samples, [16, 50, 84],axis=0)))
@@ -439,16 +441,17 @@ if __name__ == "__main__":
     fig.savefig("./Figures/SMHM_Fit/MCMC_plot_lz.png")
     fig.clf()
     
-    plt.plot(SMR, CSMF_0, "x")
+    plt.plot(SMR, CSMF_0, "x", label = "SDSS")
     SMF = DM_to_SM(SMR, SM_bin, HMR, HM_bin, CHMF_0, [M[0], 0, N[0], 0, b[0], 0, g[0], 0, 0.15], 0.1, SMHM_Model)
-    plt.plot(SMR, SMF, "o")
+    plt.plot(SMR, SMF, "o", label = "Model")
     plt.xlabel("$\mathrm{log_{10}}$ $\mathrm{M_*}$ $\mathrm{[M_\odot]}$")
     plt.ylabel("$\mathrm{log_{10}}$ $\mathrm{\phi}$ $\mathrm{[Mpc^{-3}dex^{-1}]}$")
+    plt.legend(frameon = False)
     plt.savefig("./Figures/SMHM_Fit/SMF_lz.png")
     plt.clf()
     
     Params_lz = M[0], N[0], b[0], g[0]
-    
+    #Params_lz = 11.925, 0.032,1.639,0.532,0.15
     #Greater than 0.1
     SMHM_Model = FittingClass.SMHM_Model
     HaloMasses = [[] for i in range(len(FittingClass.SMF_Redshifts))]
@@ -473,10 +476,10 @@ if __name__ == "__main__":
     
     Input = [Params_lz, HaloRed, HaloMasses, HM_bin, HaloWts, SMR, SM_bin, FittingClass.SMF_Total, SMHM_Model]
     #set up initial conditions
-    ndim, nwalkers = 4, 24
-    pos = [[0.6,-0.014,-0.7,0.08] + 1e-4*np.random.randn(ndim) for i in range(nwalkers)]
+    ndim, nwalkers = 4, 16
+    pos = [[0.6,-0.014,-0.7,0.03] + 1e-3*np.random.randn(ndim) for i in range(nwalkers)]
     sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob_hz, args=(Input), threads = 20)
-    sampler.run_mcmc(pos, 500)
+    sampler.run_mcmc(pos, 1000)
     samples = sampler.chain[:, 50:, :].reshape((-1, ndim))
     
     Mz, Nz, bz, gz = map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),zip(*np.percentile(samples, [16, 50, 84],axis=0)))
