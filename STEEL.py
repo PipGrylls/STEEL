@@ -4,6 +4,7 @@ Author: Philip Grylls
 If this code or its output is used please cite Grylls+2019 "A statistical semi-empirical model: satellite galaxies in groups and clusters" and any relavent followup papers by the authors.
 If you wish to devlop the code please contact pipgryllsastro"at"gmail.com or if unavalible F.Shankar"at"soton.ac.uk
 """
+
 import time
 import os
 import numpy as np
@@ -31,11 +32,11 @@ h_3 = h*h*h
 HMF_fun = F.Make_HMF_Interp()
 
 
-HighRes = False #set to True for better HM/SM resolution, takes MUCH longer
+HighRes = False # Set to True for better HM/SM resolution, but takes MUCH longer
 
-#Cuts in Satilitemass
-SM_Cuts = [9, 9.5, 10, 10.5, 11, 11.45]#[9,10,11]#
-#When using Abundance matching do N realisations to capture upscatter effects
+# Cuts in Satellite Mass
+SM_Cuts = [9, 9.5, 10, 10.5, 11, 11.45] #[9,10,11]
+# When using Abundance matching do N realisations to capture upscatter effects
 N = 5
 
 #Abundance Matching Parameters
@@ -97,8 +98,7 @@ Paramaters_Glob = \
 'AltDynamicalTimeB': False\
 }
 
-
-#Subhalomass function parameters macc/M0
+# Subhalomass function parameters macc/M0
 Unevolved = {\
 'gamma' : 0.22,\
 'alpha' : -0.91,\
@@ -107,74 +107,80 @@ Unevolved = {\
 'a' : 1,\
 }
 
-#HaloMass Limits and Bins
-AnalyticHaloMass_min = 11.0; AnalyticHaloMass_max = 16.6
+# HaloMass Limits and Bins
+AnalyticHaloMass_min = 11.0
+AnalyticHaloMass_max = 16.6
+
 if HighRes:
     AnalyticHaloBin = 0.05
 else:
     AnalyticHaloBin = 0.1
+
 AHB_2 = AnalyticHaloBin*AnalyticHaloBin
 AnalyticHaloMass = np.arange(AnalyticHaloMass_min + np.log10(h), AnalyticHaloMass_max + np.log10(h), AnalyticHaloBin)
-#Units are Mvir h-1
+# Units are Mvir h-1
 
-#This is the Halomass groWth history
-#Generates redshfit steps that are small enough to avoid systematics.
+# This is the Halomass groWth history
+# Generates redshfit steps that are small enough to avoid systematics.
 z, AvaHaloMass_wz = F.Get_HM_History(AnalyticHaloMass, AnalyticHaloMass_min, AnalyticHaloMass_max, AnalyticHaloBin)
 AvaHaloMass = AvaHaloMass_wz[:, 1:]
 
-#Account for central bin shrinking
+# Account for central bin shrinking
 AvaHaloMassBins = AvaHaloMass[:,1:] - AvaHaloMass[:,:-1]
 AvaHaloMassBins = np.concatenate((AvaHaloMassBins, np.array([AvaHaloMassBins[:,-1]]).T), axis = 1)
 
-
-#Arrays for tracing the time and indexing efficently the time to z = 0
+# Arrays for tracing the time and indexing efficently the time to z = 0
 Times = F.RedshiftToTimeArr(z)
 Time_To_0 = Times[0] - Times
 #=========================Creating SubHalos=====================================
 
 """Creating subhalo mass arrays going back in time"""
-#range of satilite masses (Slightly lower max and much lower min than AnaHaloMass)
-
+# range of satilite masses (Slightly lower max and much lower min than AnaHaloMass)
 
 if HighRes:
-    Min_Corr = -3 #For Continuity satellites
+    Min_Corr = -3 # For Continuity satellites
 else:
     Min_Corr = -1
-SatHaloMass = np.arange(AnalyticHaloMass_min+Min_Corr + np.log10(h), AnalyticHaloMass_max-0.1 + np.log10(h), AnalyticHaloBin)
+SatHaloMass = np.arange(AnalyticHaloMass_min + Min_Corr + np.log10(h), AnalyticHaloMass_max - 0.1 + np.log10(h), AnalyticHaloBin)
 SHM_min, SHM_max = np.min(SatHaloMass), np.max(SatHaloMass)
-#Units are Mvir h-1
+# Units are Mvir h-1
 
 """for each array create SHMF"""
-#Shapes
+# Shapes
 a, b = np.shape(AvaHaloMass)
 c = np.shape(SatHaloMass)[0]
 SubHaloFile = "SHMFs_Entering_{}{}{}{}{}{}{}.npy".format(AnalyticHaloMass_min+Min_Corr, AnalyticHaloMass_max, AnalyticHaloBin, h, a, b, c)
 if SubHaloFile in os.listdir(path="./Data/Model/Input/"):
     SHMFs_Entering = np.load("./Data/Model/Input/"+SubHaloFile)
 else:
-    #Make  m_M to FOR uSHMF from Jing et al
+    # Make  m_M to FOR uSHMF from Jing et al
     m_M = np.array([[SatHaloMass - AvaHaloMass[i][j] for j in range(b)] for i in range(a)])
-    #Create SHMF arrays (no redshift evolution)
+    # Create SHMF arrays (no redshift evolution)
     SHMFs = np.array([[F.dn_dlnX(Unevolved, np.power(10, m_M[i][j])) for j in range(b)] for i in range(a)])
-    #Calculate the number density of halos that fall in at each timestep
+    # Calculate the number density of halos that fall in at each timestep
     SHMFs_Entering = np.array([[SHMFs[:, i][j] - SHMFs[:, i][j+1] for i in range(b)] for j in range(a-1)])
 
     np.save("./Data/Model/Input/"+"SHMFs_Entering_{}{}{}{}{}{}{}".format(AnalyticHaloMass_min+Min_Corr, AnalyticHaloMass_max, AnalyticHaloBin, h, a, b, c), SHMFs_Entering)
 
 #===============Calculating Surviving Subhalos and Galaxies=====================
-#for each accreted halo calculate if it survives to z = 0 given tdyn
-#Abundance match the galaxy in and count the number of satilites above SM_Cut
+# for each accreted halo calculate if it survives to z = 0 given tdyn
+# Abundance match the galaxy in and count the number of satilites above SM_Cut
 
 def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
 
-    #For the high redhsift fits
+    # For the high redhsift fits
     if ParamOverRide:
         Paramaters = AltParam
     else:
         Paramaters = Paramaters_Glob
         print("Starting:", Factor_Stripping_SF)
+
     """Runs the Code for one set of parameters"""
-    #Split the Running Paramters here for clarity later
+
+    ######################
+    # Parameter Management
+
+    # Split the Running Paramters here for clarity later
     if Factor_Stripping_SF[0][-4:] == "_Alt":
         Factor = float(Factor_Stripping_SF[0][:-4])
         Paramaters['AltDynamicalTimeB'] = True
@@ -197,18 +203,20 @@ def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
     AbnMtch[Factor_Stripping_SF[5]] = True
     if "PFT" in Factor_Stripping_SF[5]:
         AbnMtch["PFT"] = True
+    ###################
 
+    # ///////////
+    # Array Prep
 
-
-    #Data output arrays that are saved into the folders created above
-    #Saving usSHMF's at each redshift step
+    # Data output arrays that are saved into the folders created above
+    # Saving usSHMF's at each redshift step
     SurvivingSubhalos = np.full((a, c), 0.)
     SurvivingSubhalos_Stripped = np.full((a, c-1), 0.)
     SurvivingSubhalos_ByParent = np.full((a, b, c), 0.)
     SurvivingSubhalos_Stripped_ByParent = np.full((a, b, c-1), 0.)
     SurvivingSubhalos_z_z = np.full((a,a,c), 0.)
 
-    #For saving surviving satilite galaxies
+    # For saving surviving satellite galaxies
     if HighRes:
         SatBin = 0.05
         Surviving_Sat_SMF_MassRange = np.arange(6.5, 13.1, SatBin)#For Continuity
@@ -218,7 +226,7 @@ def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
         Surviving_Sat_SMF_MassRange = np.arange(9, 13.1, SatBin)
         SatM_min, SatM_max, SatM_len = 9.0, 13.0, np.size(Surviving_Sat_SMF_MassRange)-1
 
-    #For the total numberdensities of each satilite mass for SMF
+    # For the total numberdensities of each satilite mass for SMF
     Surviving_Sat_SMF_Weighting_Totals = np.zeros(np.size(Surviving_Sat_SMF_MassRange[:-1]))
     Surviving_Sat_SMF_Weighting_Totals_highz = np.zeros((a, len(Surviving_Sat_SMF_MassRange[:-1])))
     #2d array where i is parent halomass and j is Surviving_Sat_SMF_MassRange
@@ -248,6 +256,8 @@ def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
     Pair_Frac = np.full((a, b, len(Surviving_Sat_SMF_MassRange)-1), 0.) #Array to host the subhalos merging in a given host bin for a given redshift
     Pair_Frac_Halo = np.full((a, b, c), 0.)
 
+    # ////////////
+
 
     #Loop over redshift steps from high z to z = 0
     for i in range(a-2, -1, -1):
@@ -256,14 +266,14 @@ def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
                 print("Still Running:", Factor_Stripping_SF, "{}/{}".format(a-i, a))
         #This is the time to redshift 0
         TTZ0 = Time_To_0[i]
-        #Loop over the AvaHaloMass
+        # Loop over the AvaHaloMass
         for j in range(b):
-            #Loop Over the Subhalo masses
+            # Loop Over the Subhalo masses
             for k in range(c):
-                #only calculate where host is bigger than sat, nothing physical just about shape of arrays.
+                # Only calculate where host is bigger than sat, nothing physical just about shape of arrays.
                 if AvaHaloMass[i][j] > SatHaloMass[k]:
-                    #Calculate the merger time for this bin of subhalo mass=========
-                    #Masses are virial, little h cancles out so dependance unnecessary
+                    # Calculate the merger time for this bin of subhalo mass=========
+                    # Masses are virial, little h cancles out so dependance unnecessary
                     Tdyf = F.DynamicalFriction(AvaHaloMass[i][j], SatHaloMass[k], z[i], Paramaters)
                     z_bin = np.digitize(Tdyf + Times[i], Times) #index for T_Merge
                     if Tdyf < TTZ0:
@@ -313,9 +323,10 @@ def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
 
 
                     #Calculate N galaxies from abundace matching====================
-                    SM_Sat = F.DarkMatterToStellarMass(np.full(N, SatHaloMass[k]-np.log10(h)), z[i], Paramaters, ScatterOn=True) #Mass Msun   
+                    SM_Sat = F.DarkMatterToStellarMass(np.full(N, SatHaloMass[k]-np.log10(h)), z[i], Paramaters, ScatterOn=True) #Mass Msun
                     #SM_Sizes = F.DarkMastterToStellarRadius()    Chris
-                    #Calculate the mass after stripping and starformation
+
+                    # Calculate the mass after stripping and starformation
                     if (z_bin < i):
                         #Stellar Mass Stripping/SF
                         MassBefore = np.mean(np.power(10, SM_Sat))

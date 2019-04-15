@@ -9,7 +9,8 @@ import numpy.ma as ma
 import pandas as pd
 import matplotlib as mpl
 import time
-from numba import jit 
+import copy
+from numba import jit
 from numba import jitclass
 from numba import int32, float32, double
 from matplotlib.gridspec import GridSpec
@@ -27,6 +28,7 @@ from colossus.cosmology import cosmology
 from math import isclose
 import warnings
 from DistroLib import *
+from mpl_toolkits.axes_grid.inset_locator import inset_axes
 cosmology.setCosmology("planck15")
 Cosmo =cosmology.getCurrent()
 HMF_fun = F.Make_HMF_Interp() #N Mpc^-3 h^3 dex^-1, Args are (Mass, Redshift)
@@ -337,10 +339,61 @@ class PairFractionData:
                 FirstAddition = False
         return P_ellip
 
+    def Return_Major_Merger_Frequency(self, MassRation = 0.3):
+
+        P_Maj = np.zeros_like(self.AvaStellarMass)
+        MMR = np.log10(MassRatio) #mergermass ratio in log10
+
+        for i in range(np.shape(self.AvaStellarMass)[0]-1, -1, -1):
+            for j in range(np.shape(self.AvaStellarMass)[1]-1, -1, -1):
+                Maj_Merge_Bin = np.digitize(self.AvaStellarMass[i,j]+MMR, bins = self.Surviving_Sat_SMF_MassRange) #find the bin of the Surviving_Sat_SMF_MassRange above which is major mergers
+                P_Maj[i,j] = np.sum(self.Accretion_History[i,j,Maj_Merge_Bin:])*self.SM_Bin #sums the numberdensity of satellites causing major mergers
+        return P_Maj
+
+
+    def Model_Morphology(self, MassRatio = 0.3, z_start = 10):
+        '''Function to model Morphology evolution and growth'''
+
+        FirstAddition = True
+        P_ellip = np.zeros_like(self.AvaStellarMass)
+        MMR = np.log10(MassRatio) # mergermass ratio in log10
+
+        Elliptical_Mass = np.zeros_like(self.AvaStellarMass)
+
+        WeightsM = np.zeros_like(self.AvaStellarMass[0, :]) # Follows Mass (j)
+
+        for i in range(np.shape(self.AvaStellarMass)[0]-1, -1, -1):
+            for j in range(np.shape(self.AvaStellarMass)[1]-1, -1, -1):
+
+                Maj_Merge_Bin = np.digitize(self.AvaStellarMass[i,j] + MMR, bins = self.Surviving_Sat_SMF_MassRange) #find the bin of the Surviving_Sat_SMF_MassRange above which is major mergers
+                Major_Frac = np.sum(self.Accretion_History[i, j,Maj_Merge_Bin:]) * self.SM_Bin #sums the numberdensity of satellites causing major mergers
+
+                Added_Mass = np.sum(self.Accretion_History[i, j, :] * self.Surviving_Sat_SMF_MassRange[:]) * self.SM_Bin
+
+                WeightsM[j] += Major_Frac
+
+                previous_index = i + 1
+                if previous_index > np.shape(self.AvaStellarMass)[0]-1:
+                    Previous_av_mass = self.AvaStellarMass[i, j]
+                    previous_index = i
+                else:
+                    Previous_av_mass = Elliptical_Mass[previous_index, j]
+
+                #new_mass = Tracer[j] * ((10**self.AvaStellarMass[i, j]) + 10**self.AvaStellarMass[previous_index, j])/(Tracer[j] + 1)
+                if (WeightsM[j] + Major_Frac) != 0:
+                    new_mass = (WeightsM[j] * 10**Previous_av_mass + Major_Frac * 10**self.AvaStellarMass[i, j])/(WeightsM[j] + Major_Frac)
+                    new_mass += 10**Added_Mass
+                else:
+                    new_mass = 1
+
+                Elliptical_Mass[i, j] = np.log10(new_mass) #np.log10(10**Mass_Imparted + 10**Elliptical_Mass[i, j] + 10**Mass_Conversions)
+
+        return Elliptical_Mass
+
     def CalculateSersicIndex(self, MassRatio = 0.3):
         ''' Function to evolve Sersic Index evolution
         '''
-        # Test Accuracy 
+        # Test Accuracy
         test_acc = 10**-7
 
         # Initialized Sersic Index Choice
@@ -350,7 +403,7 @@ class PairFractionData:
         # Values of k
         k_maj = 1
         k_min = 1
-        
+
         # Scatter Magnitude
         Gaussian_Scatter = 0.2
 
@@ -363,29 +416,29 @@ class PairFractionData:
 
         print("AccHist Shape:", self.Accretion_History.shape)
         # Create distro
-        SersicIndex = ProbabilityDistribution(self.Accretion_History.shape[0], self.Accretion_History.shape[1], 500)    
+        SersicIndex = ProbabilityDistribution(self.Accretion_History.shape[0], self.Accretion_History.shape[1], 500)
         SersicIndex.addDistributionComponents(2)
         SersicIndex.addScale(1, 8)
         self.Ser_Scale = SersicIndex.Scale
 
         MMR = np.log10(MassRatio) # Merger Mass in log10
-       
+
         print(self.Surviving_Sat_SMF_MassRange)
-         
+
         for i in range(np.shape(self.AvaStellarMass)[0]-1, -1, -1): # Redshift step - go from highest index back to zero
             for j in range(np.shape(self.AvaStellarMass)[1]-1, -1, -1): # Mass bin step - go from highest index back to zero
 
                     Maj_Merge_Bin = np.digitize(self.AvaStellarMass[i, j] + MMR, bins = self.Surviving_Sat_SMF_MassRange)
-                    lowLimitBin = np.digitize(self.AvaStellarMass[i, j] + lowLimitRatio, bins = self.Surviving_Sat_SMF_MassRange) 
-                   
+                    lowLimitBin = np.digitize(self.AvaStellarMass[i, j] + lowLimitRatio, bins = self.Surviving_Sat_SMF_MassRange)
+
                     # print(self.AvaStellarMass[i, j])
-                    
+
                     if i == np.shape(self.AvaStellarMass)[0]-1: # If we are in the first redshift bin
                         SersicIndex.initializeGaussian(0, i, j, Start_n, Gaussian_Scatter, 1)
                         SersicIndex.fullCheck(i, j)
                     else:
                         SersicIndex.copyFromPreviousStep(i, j)
-                        
+
                         # ----------------------------------
                         # Major Mergers happening to Spirals
                         # ----------------------------------
@@ -393,7 +446,7 @@ class PairFractionData:
                             #   Calculate number and reduce spiral array by approprate quantity
                             Major_Frac = (np.sum(self.Accretion_History[i, j, Maj_Merge_Bin:]) * self.SM_Bin) #/ total # Frac maj mergers
                             Major_Frac_Spirals = Major_Frac * SersicIndex.distributionComponentFractions[0][i, j] # Fraction MM that apply to spirals
-                            SersicIndex.scaleDistributionByFraction(0, i, j, (1 - Major_Frac)) 
+                            SersicIndex.scaleDistributionByFraction(0, i, j, (1 - Major_Frac))
                             SersicIndex.initializeGaussian(1, i, j, Elliptical_n, Gaussian_Scatter, Major_Frac_Spirals)
                             SersicIndex.fullCheck(i, j)
 
@@ -404,9 +457,9 @@ class PairFractionData:
                             #   Integral for Major Mergers
                             delta_n = (k_maj/self.AvaStellarMass[i,j]) * np.sum(self.Accretion_History[i, j, Maj_Merge_Bin:]\
                                 * self.Surviving_Sat_SMF_MassRange[Maj_Merge_Bin:]) * self.SM_Bin
-                           
+
                             SersicIndex.moveDistribution(1, i, j, delta_n)
-                        
+
                         # ------------------------------
                         # MINOR mergers - happen to both
                         # ------------------------------
@@ -414,14 +467,27 @@ class PairFractionData:
                             #   Integral for Minor Mergers
                             delta_n =  (k_min/self.AvaStellarMass[i,j]) * np.sum(self.Accretion_History[i, j, lowLimitBin:Maj_Merge_Bin]\
                                 * self.Surviving_Sat_SMF_MassRange[lowLimitBin:Maj_Merge_Bin]) * self.SM_Bin
-                         
+
                             SersicIndex.moveDistribution(0, i, j, delta_n)
                             SersicIndex.moveDistribution(1, i, j, delta_n)
-                                                                                          
+
+
+                        # ----------------------------------------
+                        # MAJOR mergers, that just happen to both
+                        # ----------------------------------------
+                        if False:
+                            delta_n =  (k_maj/self.AvaStellarMass[i,j]) * np.sum(self.Accretion_History[i, j, Maj_Merge_Bin:]\
+                                * self.Surviving_Sat_SMF_MassRange[Maj_Merge_Bin:]) * self.SM_Bin
+
+                            SersicIndex.moveDistribution(0, i, j, delta_n)
+                            SersicIndex.moveDistribution(1, i, j, delta_n)
+
+
+
         self.SersicIndex = SersicIndex
-        
-        #return SersicIndex.extractCombinedDistribution(), VDistro.extractCombinedDistribution() 
-    
+
+        #return SersicIndex.extractCombinedDistribution(), VDistro.extractCombinedDistribution()
+
     def CalculateSizes(self):
 
         SizeDistro = ProbabilityDistribution(self.Accretion_History.shape[0], self.Accretion_History.shape[1], 500)
@@ -441,40 +507,40 @@ class PairFractionData:
                 if True:
                     Mass_z0 = self.AvaStellarMass[0, j]
                     Mass_now = self.AvaStellarMass[i, j]
-                            
+
                     Redshift = self.z[i]
-                    
+
                     term2 = (1 + (10**Mass_z0)/(3.98e10))**(r_p - r_k)
-                    term1 = r_R_0 * ((10**Mass_z0)**r_k) / ((1 + Redshift)**0.4) 
+                    term1 = r_R_0 * ((10**Mass_z0)**r_k) / ((1 + Redshift)**0.4)
                     Radius = term1 * term2
-                    
+
                     Gaussian_Scatter = 2
                     SizeDistro.initializeGaussian(0, i, j, Radius, Gaussian_Scatter, 1)
 
         self.Sizes = SizeDistro
 
     def CalculateVelocityDispersion(self):
-        
+
         def Bernardi_k(n):
             k = np.zeros_like(n)
             k[n > 10] = 2.95
             k[n < 2] = 7.30
- 
+
             n_data = np.arange(2, 10.5, 0.5)
             k_data = np.array([7.30, 6.97, 6.62, 6.27, 5.93, 5.60, 5.29, 4.99, 4.71, 4.44, 4.19, 3.95, 3.73, 3.52, 3.32, 3.13, 2.95])
             f = interpolate.interp1d(n_data, k_data)
-  
+
             n_rel = n[k == 0]
             k[k == 0] = f(n_rel)
             return k
 
         VDistro = ProbabilityDistribution(self.Accretion_History.shape[0], self.Accretion_History.shape[1], 500)
         VDistro.addDistributionComponents(1)
-        VDistro.addScale(0, 300) 
-       
+        VDistro.addScale(0, 300)
+
         assert hasattr(self, 'Sizes'), "Velocity Dispersion requires Sizes - call CalculateSizes() first"
         assert hasattr(self, 'SersicIndex'), "Velocity Dispersion requires Sersic Index - call CalculateSersicIndex() first"
-        
+
         for i in range(np.shape(self.AvaStellarMass)[0]-1, -1, -1): # Redshift step - go from highest index back to zero
             for j in range(np.shape(self.AvaStellarMass)[1]-1, -1, -1): # Mass bin step - go from highest index back to zero
                 sample = self.Sizes.Catalogue(i, j, 10**4)
@@ -484,10 +550,10 @@ class PairFractionData:
                 res = 10**4
                 VD2 = np.sqrt((Gravitational_const * 10**Mass_now)/(Bernardi_k(self.SersicIndex.Catalogue(i, j, res)) \
                         * self.Sizes.Catalogue(i, j, res) * 10**3))
-                
+
                 hist = np.histogram(VD2, VDistro.Scale)[0]/res
                 VDistro.distributionComponents[0][i, j, :] = hist
-                             
+
         self.VelocityDispersion = VDistro
 
     def Return_satSMF(self, Redshift):
@@ -1412,14 +1478,14 @@ if __name__ == "__main__":
         plt.savefig("Figures/Paper2/SSFR.pdf", bbox_inches='tight')
 
     # Chris' routine for Sersic Index Evolution
-    if True:
+    if False:
         Tdyn_Factors = [('1.0', False, True, True, 'G19_DPL', 'G19_SE')] #['G19_SE_DPL_NOCE_SF', 'G19_SE_DPL_NOCE_SF_Strip']
 
         #run = "RunParam_{}_{}_{}_{}_{}_{}_".format(Tdyn_Factors[0][0], \
-        #   Tdyn_Factors[0][1], Tdyn_Factors[0][2], Tdyn_Factors[0][3], Tdyn_Factors[0][4], Tdyn_Factors[0][5]) 
-    
-        #files = ('MultiEpoch_SatHaloMass.npy', 'MultiEpoch_SubHalos_z.npy', 'MultiEpoch_SurvivingSubhalos_z_z.npy') 
-    
+        #   Tdyn_Factors[0][1], Tdyn_Factors[0][2], Tdyn_Factors[0][3], Tdyn_Factors[0][4], Tdyn_Factors[0][5])
+
+        #files = ('MultiEpoch_SatHaloMass.npy', 'MultiEpoch_SubHalos_z.npy', 'MultiEpoch_SurvivingSubhalos_z_z.npy')
+
         #loc = "Data/Model/Output/RunFiles"
 
         #for i in range(len(files)):
@@ -1430,7 +1496,7 @@ if __name__ == "__main__":
         '''
         string1 = 'Data/Model/Output/RunFiles/RunParam_1.0_False_True_True_G19_DPL_G19_SE_/MultiEpoch_SurvivingSubhalos_z_z.npy'
         string2 = 'Data/Model/Output/RunFiles/RunParam_{}_{}_{}_{}_{}_{}_/MultiEpoch_SubHaloes_z.npy'.format(Tdyn_Factors[0][0], \
-               Tdyn_Factors[0][1], Tdyn_Factors[0][2], Tdyn_Factors[0][3], Tdyn_Factors[0][4], Tdyn_Factors[0][5]) 
+               Tdyn_Factors[0][1], Tdyn_Factors[0][2], Tdyn_Factors[0][3], Tdyn_Factors[0][4], Tdyn_Factors[0][5])
 
         print("String Comparison:", string1 == string2)
         test = np.load(string1)
@@ -1468,14 +1534,14 @@ if __name__ == "__main__":
             index = FitList.index(Fit)
             tic = time.process_time()
             Classes[index].CalculateSersicIndex()
-            Classes[index].CalculateSizes() 
-            Classes[index].SersicIndex.extractCombinedDistribution()
+            Classes[index].CalculateSizes()
+            #Classes[index].SersicIndex.extractCombinedDistribution()
             P_ser = Classes[index].SersicIndex.extractCombinedDistribution()
-            Classes[index].CalculateVelocityDispersion() 
+            Classes[index].CalculateVelocityDispersion()
             toc = time.process_time()
             print("Process:", toc - tic)
-   
-            a = Classes[index].Accretion_History_Halo
+
+            #a = Classes[index].Accretion_History_Halo
 
             z = Classes[index].z
             binIn = 27
@@ -1552,7 +1618,7 @@ if __name__ == "__main__":
             fig3, ax3 = plt.subplots()
             Map = VD[:, binIn, :]
             plt.imshow(Map.T, aspect = 1/4, interpolation = 'bilinear', origin = 'lower', cmap = 'Greys')
-           
+
             ax.tick_params(axis='both', which='major', labelsize=10)
             ax3.set_xticks(digits)
             ax3.set_xticklabels(zshow)
@@ -1564,17 +1630,17 @@ if __name__ == "__main__":
 
             plt.title("Velocity Dispersion probability distribution\nfor galaxies of mass %.2f < $logM_\odot$ < %.2f (at $z = 0)$" % (mass_down, mass_up), fontsize=10)
             plt.savefig('test3.png')
-            
+
 
             fig4, ax4 = plt.subplots()
 
             selection_bins = np.array([5, 10, 15, 20, 25, 30, 40, 50])
-            
+
             for j in selection_bins:
 
                 mass_up = Classes[index].AvaStellarMass[0, j]
                 mass_down = Classes[index].AvaStellarMass[0, j - 1]
-                
+
                 Map = VD[:, j, :].T
                 length = Map.shape[1]
                 av_store = np.zeros(length)
@@ -1590,4 +1656,57 @@ if __name__ == "__main__":
             plt.xlabel("redshift", fontsize = 10)
             plt.ylabel("Velocity Dispersion $kms^{-1}$", fontsize = 10)
             plt.savefig('test4.png', dpi = 200)
-            
+
+    if True:
+        fit = ('1.0', False, True, True, 'G19_DPL', 'G19_SE')
+        index = FitList.index(fit)
+        MassRatio = 0.25
+
+        tic = time.process_time()
+        Masses = Classes[index].Model_Morphology()
+        Freq = Classes[index].Return_Major_Merger_Frequency()
+
+        toc = time.process_time()
+        print("Process:", toc - tic)
+
+        binIn = 27
+
+        Mean_Masses = Classes[index].AvaStellarMass[:, binIn]
+        z = Classes[index].z
+
+        Ellip_Masses = Masses[:, binIn]
+        flag = Ellip_Masses != 0
+
+        #print(Ellip_Masses[flag])
+
+        fig = plt.figure(figsize = (9, 4))
+        ax = fig.add_subplot(111)
+        plt.plot(z, Mean_Masses, label = 'Average Mass (all galaxies)')
+        plt.plot(z[flag], Ellip_Masses[flag], label = 'Average Elliptical Mass')
+        plt.legend(fontsize = 10)
+        plt.tick_params(labelsize=10)
+        plt.ylabel("Stellar Mass $(log_{10}$ $M_\odot)$", fontsize = 10)
+        plt.xlabel("Redshift", fontsize = 10)
+
+        mass_up = Classes[index].AvaStellarMass[0, binIn]
+        mass_down = Classes[index].AvaStellarMass[0, binIn - 1]
+
+        plt.title("Stellar Mass, for galaxies of mass %.2f < $logM_\odot$ < %.2f (at $z = 0)$" % (mass_down, mass_up), fontsize=10)
+
+        inset_axes = inset_axes(ax,
+                    width="100%", # width = 30% of parent_bbox
+                    height=0.75, # height : 1 inch
+                    loc=8,
+                    #axes_kwargs = {"alpha" : 0.1}
+                    )
+        inset_axes.patch.set_alpha(0.3)
+        inset_axes.yaxis.tick_right()
+        #plt.set_alpha(0)
+        plt.tick_params(labelsize=10)
+        plt.xticks([])
+        #plt.yticks([])
+        plt.plot(z, Freq[:, binIn], color = 'k', label = "Probability of a Major Merger Occuring")
+        plt.legend(fontsize = 10, fancybox=True, framealpha=0.1)
+
+        #n, bins, patches = plt.hist(s, 400, normed=1)
+        plt.savefig('massTest.png')
