@@ -99,7 +99,7 @@ def GetGasMass(SM, z, HM, Parameters):
     """
 
     #Used in Paper 1 #Stewart 2009
-    #Calculates gass mass via SM scaling relation
+    #Calcula`tes gass mass via SM scaling relation
     #alpha = -0.59*( (z + 1)**0.45 ) #minus here to avoid it later
     #GasMass = SM + np.log10(0.04) + alpha*(SM - 11.6532)
     
