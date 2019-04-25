@@ -1,5 +1,6 @@
 import os
 import sys
+import h5py
 AbsPath = str(__file__)[:-len("/CentralPostprocessing.py")]
 sys.path.append(AbsPath+"/..")
 import multiprocessing
@@ -1023,8 +1024,8 @@ if __name__ == "__main__":
             zbin4 = np.digitize(4, bins = DataClass.z)
             zbin5 = np.digitize(5, bins = DataClass.z)
             
-            #for i_, i in enumerate([np.digitize(12, bins = DataClass.AvaStellarMass[0])-1, np.digitize(11.5, bins = DataClass.AvaStellarMass[0])-1, np.digitize(11, bins = DataClass.AvaStellarMass[0])-1]):
-            for i_, i in enumerate([np.digitize(10.5, bins = DataClass.AvaStellarMass[0])-1, np.digitize(9.5, bins = DataClass.AvaStellarMass[0])-1, np.digitize(9, bins = DataClass.AvaStellarMass[0])-1]):
+            for i_, i in enumerate([np.digitize(12, bins = DataClass.AvaStellarMass[0])-1, np.digitize(11.5, bins = DataClass.AvaStellarMass[0])-1, np.digitize(11, bins = DataClass.AvaStellarMass[0])-1]):
+            #for i_, i in enumerate([np.digitize(10.5, bins = DataClass.AvaStellarMass[0])-1, np.digitize(9.5, bins = DataClass.AvaStellarMass[0])-1, np.digitize(9, bins = DataClass.AvaStellarMass[0])-1]):
                 colour = next(colourcycler)
                 
 
@@ -1159,7 +1160,8 @@ if __name__ == "__main__":
                 SubPlots[2, i_].plot(z_for_SFH, np.divide(M_dot_noacc, CMG_dt_interp(z_for_SFH)), ":", color = colour)
                 SubPlots[2, i_].plot(z_for_SFH, np.divide(M_dot, CMG_dt_interp(z_for_SFH)), "-", color = colour)               
                 
-                
+                #Adding crosses from leja
+                """
                 #Calculate the SFR by multipying the median sSFR by the mass
                 SFR_06 = Data['0.6']['sfr_med']*np.power(10, np.full((7, np.size(Data['0.6']['mvec'])) , Data['0.6']['mvec']).T)
                 #Get the redshift of the SFH steps by calculating the total lookback time then convering back to redshift 
@@ -1201,7 +1203,7 @@ if __name__ == "__main__":
                     print(CMG_dt_interp(z_2[:-2]))
                     print(np.divide(SFR_2[M_bin][:-2], CMG_dt_interp(z_2[:-2])))
                     SubPlots[2, i_].plot(z_2[:-2], np.divide(SFR_2[M_bin][:-2], CMG_dt_interp(z_2[:-2])), "x", color = colour)
-                
+                #"""
                 
                 
                 #plots off axis for labels  
@@ -1233,6 +1235,94 @@ if __name__ == "__main__":
                 SubPlots[1, i_].fill_between(z, Macc_Mcen_l, Macc_Mcen_u, alpha = 0.25, color = colour)
                 SubPlots[2, i_].plot([10, 11],[1, 1])
             """
+            #Adding Moster
+            """
+            colours = ["C2", "C1", "C0"]
+            colourcycler = cycle(colours)
+            Emerge = h5py.File(AbsPath+"/../Data/Observational/Moster_EMERGE/mainbranches.S85.h5")
+            for i, Masscut in enumerate(list(Emerge.keys())):
+                colour = next(colourcycler)
+                Switch = True
+                data = Emerge[Masscut]
+                Trees = list(data.keys())
+                for tree_id in Trees:
+                    Tree = Emerge[Masscut][tree_id]
+                    SF = Tree['Scale_factor']
+                    SF_cut = np.digitize(0.2, bins = SF)+1
+                    SF = SF[:SF_cut]
+                    SM = Tree['Stellar_mass'][:SF_cut]
+                    SM_insitu = Tree['Insitu_mass'][:SF_cut]
+                    SFR = Tree['SFR'][:SF_cut]
+                    CenSat = Tree['Type'][:SF_cut]
+                    H_ID = Tree['Halo_ID'][:SF_cut]
+                    D_ID = Tree['Desc_ID'][:SF_cut]
+
+                    SM_growth = np.power(10, SM[0:-2]) - np.power(10, SM[1:-1])
+                    SMis_growth = np.power(10, SM_insitu[0:-2]) - np.power(10, SM_insitu[1:-1])
+                    t = Cosmo.lookbackTime((1/SF)-1)
+                    z = Cosmo.lookbackTime((t[1:-1] + t[0:-2])/2, inverse = True)
+                    delta_t = t[1:-1] - t[0:-2]
+                    SM_dt = SM_growth/delta_t
+                    SMis_dt = SMis_growth/delta_t
+
+                    if Switch:
+                        Shape = np.shape(CenSat)
+                        z_stack = z
+                        M_stack = np.power(10, SM[0:-2]) + np.power(10, SM[1:-1])/2
+                        Mis_stack = np.power(10, SM_insitu[0:-2]) + np.power(10, SM_insitu[1:-1])/2
+                        Mes_stack = (np.power(10, SM[0:-2]) + np.power(10, SM[1:-1])/2) - (np.power(10, SM_insitu[0:-2]) + np.power(10, SM_insitu[1:-1])/2)
+                        rsf_stack = np.divide(SFR[0:-2]+SFR[1:-1],2)*10**9/SM_dt
+                        ris_stack = SMis_dt/SM_dt
+                        Switch = False
+                    elif Shape == np.shape(CenSat):
+                        z_stack = np.vstack((z_stack, z))
+                        M_stack = np.vstack((M_stack, np.power(10, SM[0:-2]) + np.power(10, SM[1:-1])/2))
+                        Mis_stack = np.vstack((Mis_stack, np.power(10, SM_insitu[0:-2]) + np.power(10, SM_insitu[1:-1])/2))
+                        Mes_stack = np.vstack((Mes_stack, (np.power(10, SM[0:-2]) + np.power(10, SM[1:-1])/2) - (np.power(10, SM_insitu[0:-2]) + np.power(10, SM_insitu[1:-1])/2)))
+                        rsf_stack = np.vstack((rsf_stack, np.divide(SFR[0:-2]+SFR[1:-1],2)*10**9/SM_dt))
+                        ris_stack = np.vstack((ris_stack,SMis_dt/SM_dt))
+                M_ava = np.log10(np.mean(M_stack, axis = 0)) + np.log10(h)
+                Mis_ava = np.log10(np.mean(Mis_stack, axis = 0)) + np.log10(h)
+                Mes_ava = np.log10(np.mean(Mes_stack, axis = 0)) + np.log10(h)
+                SubPlots[0,2-i].plot(z_stack[0], M_ava, "-", color = "k")#colour)
+                SubPlots[0,2-i].plot(z_stack[0], Mis_ava, ":", color = "k")#colour)
+                SubPlots[0,2-i].plot(z_stack[0], Mes_ava, "--", color = "k")#colour)
+                
+                z_cut = np.digitize(3, z_stack[0])+1
+                
+                Mava_3 = np.power(10,M_ava[:z_cut]) - np.power(10,M_ava[z_cut])
+                Misava_3 = np.divide(np.power(10,Mis_ava[:z_cut]) - np.power(10,Mis_ava[z_cut]), Mava_3)
+                Mesava_3 = np.divide(np.power(10,Mes_ava[:z_cut]) - np.power(10,Mes_ava[z_cut]), Mava_3)
+                SubPlots[1,2-i].plot(z_stack[0, :z_cut], Misava_3, ":", color = "k")#colour)
+                SubPlots[1,2-i].plot(z_stack[0, :z_cut], Mesava_3, "--", color = "k")#colour)
+                
+            #"""
+            
+            #Adding Behroozi
+            #"""
+            for i, file in enumerate(["stats_a0.911185_absolute_sm_11.500_cen.dat", "stats_a0.911185_absolute_sm_11.000_cen.dat"]):
+                print(file)
+                Header = ["type", "SF", "a", "b", "c", "avg", "avg_err", "sd", "counts"]
+                df = pd.read_csv(AbsPath+"/../Data/Observational/Behroozi_UnviM/sfh_stats/"+file, sep = " ", skiprows = 17, names = Header, usecols = [0,1,2,3,4,6,8,10,12])
+                df2 = df.pivot(index = 'SF', columns = "type", values = 'avg')
+                for j in df2.columns:
+                    df2[j] = df2[j].map(lambda x: float(str(x)[:-1]))
+                df2 = df2.assign(z = lambda x: (1/x.index.values)-1)
+                z= df2['z'].values
+                t = Cosmo.lookbackTime(1/df2.index.values - 1)
+                dt = (t[:-1]-t[1:])*(10**9)
+                SM = df2['sm_mp'].values
+                SM_dt = (SM[1:]-SM[:-1])/dt
+                z_med = Cosmo.lookbackTime((t[:-1]+t[1:])/2, inverse = True)
+                SFR = df2['sfr_mp'].values*0.59 #inst mass recycling
+                SFR_med = (SFR[:-1] + SFR[1:])/2
+                Ratio = SFR_med/SM_dt
+                SubPlots[0,i+1].plot(z, np.log10(SM), "-", color = "k")
+                SubPlots[2,i+1].plot(z_med, Ratio, ":", color = "k")
+            #"""
+            
+            
+            
             #Line labels
             SubPlots[0,2].plot([4,5,6], [0.5, 0.5, 0.5], "--",label = "Accretion", color = "k")
             SubPlots[0,2].plot([4,5,6], [0.5, 0.5, 0.5], ":", label = "SFH", color = "k")
@@ -1261,6 +1351,7 @@ if __name__ == "__main__":
             SubPlots[1,2].set_yscale('log')
             SubPlots[2,2].set_yscale('log')  
             
+            """
             #Arrows
             SubPlots[0,0].arrow(0.35, 11.3, 0.0, 0.3, head_width = 0.04, head_length = 0.15, length_includes_head = True, fill = None)
             SubPlots[1,0].arrow(0.85, 2.5*(10**-1), 0.0, 0.2, head_width = 0.1, head_length = 0.075, length_includes_head = True, fill = None)
@@ -1271,6 +1362,7 @@ if __name__ == "__main__":
             SubPlots[1,0].text(0.85, 2*(10**-1), "B")
             SubPlots[2,0].text(1.9, 0.2, "C")
             SubPlots[2,1].text(1.1, 0.25, "D")
+            #"""
             
             #Ticks
             #X
