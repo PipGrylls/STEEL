@@ -1084,7 +1084,7 @@ if __name__ == "__main__":
                 #Total
                 SubPlots[0, i_].plot(DataClass.z, DataClass.AvaStellarMass[:,i], "-", color = colour)
                 #SFH
-                SubPlots[0, i_].plot(z_for_SFH, np.log10(Mass), ":", color = colour)
+                #SubPlots[0, i_].plot(z_for_SFH, np.log10(Mass), ":", color = colour)
                 #Accretion
                 SubPlots[0, i_].plot(DataClass.z, np.flip(np.log10(np.cumsum(np.flip(Mass_Accretion_PerCentral[:,i], 0))), 0), "--", color = colour)
                 #SubPlots[0, i_].plot(DataClass.z, np.flip(np.log10(np.cumsum(np.flip(Mass_Accretion_PerCentral_Minor[:,i], 0))), 0), "-.", color = colour)
@@ -1143,22 +1143,22 @@ if __name__ == "__main__":
                 #The ratio from SFH
                 SFH_zbin3 = np.digitize(3, bins = z_for_SFH)
                 Ratio_SFH = np.divide(Mass[SFH_zbin3:]-Mass[SFH_zbin3], CM_interp(z_for_SFH[SFH_zbin3:])-CM_interp(z_for_SFH[SFH_zbin3]))
-                SubPlots[1, i_].plot(z_for_SFH[SFH_zbin3:], Ratio_SFH, ":", color = colour)                
+                #SubPlots[1, i_].plot(z_for_SFH[SFH_zbin3:], Ratio_SFH, ":", color = colour)                
                 
                 #The ratio from Satellite Accretion
                 Ratio_Acc = np.divide(Accretion_Interp(z_for_SFH[SFH_zbin3:]) - Accretion_Interp(z_for_SFH[SFH_zbin3]), CM_interp(z_for_SFH[SFH_zbin3:])-CM_interp(z_for_SFH[SFH_zbin3]))
                 SubPlots[1, i_].plot(z_for_SFH[SFH_zbin3:], Ratio_Acc, "--", color = colour)
                 
                 #Total
-                SubPlots[1, i_].plot(z_for_SFH[SFH_zbin3:], Ratio_SFH+Ratio_Acc, "-", color = colour)
+                #SubPlots[1, i_].plot(z_for_SFH[SFH_zbin3:], Ratio_SFH+Ratio_Acc, "-", color = colour)
                 
                 #Panel 3: Instaneous mass rates
                 #Moving averages here to smooth out the scatters in the instantaneous rates
                 N = 3
                 X_acc_hz, Y_acc_hz = np.convolve(DataClass.z, np.ones((N,))/N, mode='valid'), np.convolve( np.divide(Mass_Accretion_PerCentral[:,i], CentralMassGrowth), np.ones((N,))/N, mode='valid')
                 SubPlots[2, i_].plot(X_acc_hz[8:], Y_acc_hz[8:], "--", color = colour)
-                SubPlots[2, i_].plot(z_for_SFH, np.divide(M_dot_noacc, CMG_dt_interp(z_for_SFH)), ":", color = colour)
-                SubPlots[2, i_].plot(z_for_SFH, np.divide(M_dot, CMG_dt_interp(z_for_SFH)), "-", color = colour)               
+                #SubPlots[2, i_].plot(z_for_SFH, np.divide(M_dot_noacc, CMG_dt_interp(z_for_SFH)), ":", color = colour)
+                #SubPlots[2, i_].plot(z_for_SFH, np.divide(M_dot, CMG_dt_interp(z_for_SFH)), "-", color = colour)               
                 
                 #Adding crosses from leja
                 """
@@ -1234,7 +1234,7 @@ if __name__ == "__main__":
                 SubPlots[0, i_].fill_between(z, Macc_l, Macc_u, alpha = 0.25, facecolor = "none", hatch = "X", edgecolor = colour)
                 SubPlots[1, i_].fill_between(z, Macc_Mcen_l, Macc_Mcen_u, alpha = 0.25, color = colour)
                 SubPlots[2, i_].plot([10, 11],[1, 1])
-            """
+            #"""
             #Adding Moster
             """
             colours = ["C2", "C1", "C0"]
@@ -1299,7 +1299,7 @@ if __name__ == "__main__":
             #"""
             
             #Adding Behroozi
-            #"""
+            """
             for i, file in enumerate(["stats_a0.911185_absolute_sm_11.500_cen.dat", "stats_a0.911185_absolute_sm_11.000_cen.dat"]):
                 print(file)
                 Header = ["type", "SF", "a", "b", "c", "avg", "avg_err", "sd", "counts"]
@@ -1319,6 +1319,31 @@ if __name__ == "__main__":
                 Ratio = SFR_med/SM_dt
                 SubPlots[0,i+1].plot(z, np.log10(SM), "-", color = "k")
                 SubPlots[2,i+1].plot(z_med, Ratio, ":", color = "k")
+            #"""
+            
+            #Adding Menci
+            #"""
+            Acc11 = np.loadtxt(AbsPath+"/../Data/Observational/Nicola_SAM/Macc_11.dat").T
+            Acc11pt5 = np.loadtxt(AbsPath+"/../Data/Observational/Nicola_SAM/Macc_11.5.dat").T
+            Acc12 = np.loadtxt(AbsPath+"/../Data/Observational/Nicola_SAM/Macc_12.dat").T
+            Main11 = np.loadtxt(AbsPath+"/../Data/Observational/Nicola_SAM/Mmain_11.dat").T
+            Main11pt5 = np.loadtxt(AbsPath+"/../Data/Observational/Nicola_SAM/Mmain_11.5.dat").T
+            Main12 = np.loadtxt(AbsPath+"/../Data/Observational/Nicola_SAM/Mmain_12.dat").T
+            Ratio11 = np.loadtxt(AbsPath+"/../Data/Observational/Nicola_SAM/ratio_M11.dat").T
+            Ratio11pt5 = np.loadtxt(AbsPath+"/../Data/Observational/Nicola_SAM/ratio_M11.5.dat").T
+            Ratio12 = np.loadtxt(AbsPath+"/../Data/Observational/Nicola_SAM/ratio_M12.dat").T
+            
+            SubPlots[0,0].plot(Main12[0], np.log10(Main12[1]) + 12, color = "k")
+            SubPlots[0,1].plot(Main11pt5[0], np.log10(Main11pt5[1]) + 11.5, color = "k")
+            SubPlots[0,2].plot(Main11[0], np.log10(Main11[1]) + 11, color = "k")
+            
+            SubPlots[0,0].plot(Acc12[0], np.log10(Acc12[1]),"--", color = "k")
+            SubPlots[0,1].plot(Acc11pt5[0], np.log10(Acc11pt5[1]),"--", color = "k")
+            SubPlots[0,2].plot(Acc11[0], np.log10(Acc11[1]), "--", color = "k")
+            
+            SubPlots[1,0].plot(Ratio12[0], Ratio12[1], "--", color = "k")
+            SubPlots[1,1].plot(Ratio11pt5[0], Ratio11pt5[1], "--", color = "k")
+            SubPlots[1,2].plot(Ratio11[0], Ratio11[1], "--", color = "k")
             #"""
             
             
@@ -1408,7 +1433,8 @@ if __name__ == "__main__":
             #Axis Labels
             SubPlots[2,0].set_xlabel("z")
             SubPlots[0,0].set_ylabel(r"log10 M$_*$ M$_{\odot}$")
-            SubPlots[1,0].set_ylabel(r"$\sum_{i=3}^{0}  M_{X,i} \div \sum_{i=3}^{0}  M_{cen,i}$")
+            #SubPlots[1,0].set_ylabel(r"$\sum_{i=3}^{0}  M_{X,i} \div \sum_{i=3}^{0}  M_{cen,i}$")
+            SubPlots[1,0].set_ylabel(r"$\frac{M_{X,z}-M_{X,3}}{M_{cen,z}-M_{cen,3}}$") 
             SubPlots[2,0].set_ylabel(r"$\dot{M}_{X} \div \dot{M}_{cen}$")
             #Axis Labels
             SubPlots[2,1].set_xlabel("z")
