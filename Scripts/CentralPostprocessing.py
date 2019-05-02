@@ -683,7 +683,7 @@ if __name__ == "__main__":
     #====================================================================
 
     #Make the Data comparision PF plot===================================
-    if False:
+    if True:
         f, SubPlots = plt.subplots(1, 2, figsize = (14, 4))
         Master_Interp = Classes[FitList.index(('1.0', True, False, True, 'G19_DPL', 'G19_cMod'))].ReturnInterp()
         colourcycler = cycle(colours)
@@ -752,7 +752,7 @@ if __name__ == "__main__":
         plt.clf()
         
     #MergerRate Plot    
-    if False:
+    if True:
         def Mundy_MR(z, R, m, c = None):
             if c == None:
                 return R*np.power(1+z, m)
@@ -928,7 +928,7 @@ if __name__ == "__main__":
         Max = m-m1-a2*r
         Max[Max<0] = 0
         return m-m0+a0*r-a1*np.power(Max, 2)
-    if True:     
+    if False:     
         for k, Fit in enumerate([('1.0', True, True, True, 'G19_DPL', 'G19_SE')]):
             f, SubPlots = plt.subplots(3, 3, figsize = (12,7), sharex = 'col', sharey = 'row')
             colours = ["C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "k"]
