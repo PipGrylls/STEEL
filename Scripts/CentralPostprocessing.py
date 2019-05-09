@@ -732,7 +732,16 @@ if __name__ == "__main__":
         MundyPlots.append(SubPlots[1].semilogy(np.arange(z[0], z[-1], 0.4), (f0*np.power(1+np.arange(z[0], z[-1], 0.4), m)),  "+",label = r"$> 10^{10} M_{\odot}$", mfc = None)[0])
         f0, m, N = 0.024, 0.78, 0.5
         MundyPlots.append(SubPlots[1].semilogy(np.arange(z[0], z[-1], 0.4), (f0*np.power(1+np.arange(z[0], z[-1], 0.4), m)),  "x",label = r"$> 10^{11} M_{\odot}$")[0])
-
+        
+        #Add illustris
+        z_10 = [0, 0.5, 1, 1.5, 2, 3]
+        PF_ill_10 = [-2.46,-2.40,-2.27,-2.37,-2.43,-2.47]
+        z_11 = [0, 0.5, 1, 2, 3]
+        PF_ill_11 = [-2.91,-3.17,-2.60, -2.24,-2.25]
+        SubPlots[1].semilogy(z_10, np.power(10, PF_ill_10), ":", color = 'k')
+        SubPlots[1].semilogy(z_11, np.power(10, PF_ill_11), ".-", color = 'k')
+            
+            
         Legend1 = SubPlots[1].legend(handles = ModelPlots, ncol = 2, title = "{}{}".format("                   "+"pyMorph","       "+"cmodel"), markerfirst = False, frameon = False, bbox_to_anchor=(1.85, 0.4), loc = 1)
         ax = plt.gca().add_artist(Legend1)
         SubPlots[1].legend(handles = MundyPlots, title = "Mundy+ 17", frameon = False, bbox_to_anchor=(1.5, 0.6), loc = 4)
@@ -740,7 +749,7 @@ if __name__ == "__main__":
         if Min <= 0:
             Min = 0.001
         SubPlots[1].set_ylim(Min, Max+0.1)
-        SubPlots[1].set_xlim(0.1, 3.5)
+        SubPlots[1].set_xlim(0.0, 3.5)
         SubPlots[1].set_xlabel("z")
         SubPlots[1].set_ylabel("$\mathrm{f_{pair}}$")
         SubPlots[0].set_ylim(9, 12.5)
