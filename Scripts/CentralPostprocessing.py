@@ -250,7 +250,6 @@ class PairFractionData:
             print(M, z)
 
     def Return_PF_Plot(self, Master_interp, Parent_Cut = 11, Mass_Ratio = np.log10(1/4), UpperLimit = True):
-        print(Parent_Cut, UpperLimit)
         Upper_Cut = Parent_Cut + 0.6
         PairFracTot = []
         for i, SM_Arr in enumerate(self.AvaStellarMass):
@@ -270,7 +269,7 @@ class PairFractionData:
                 Bin = np.digitize(2, bins = self.z)
                 if i == Bin:
                     M_L = CND_Mass; M_U = CND_Mass_Upper
-            if self.Fit[-1] in ["1","E","d"]:                
+            if self.Fit[-1] in ["1","E","d","s"]:                
                 if i == 0:
                     M_L = CND_Mass; M_U = CND_Mass_Upper
             
@@ -322,7 +321,7 @@ class PairFractionData:
     
     def ReturnSMHM(self, z):
         Bin = np.digitize(z, bins = self.z)
-        return self.AvaHaloMass[Bin], self.AvaStellarMass[Bin]
+        return self.AvaHaloMass[Bin]-np.log10(h), self.AvaStellarMass[Bin]
     
     def Return_Morph_Plot(self, MassRatio = 0.3, z_start = 10):
         FirstAddition = True
@@ -401,7 +400,8 @@ if __name__ == "__main__":
                    ('0.8', True, True, True, 'G19_DPL_PP', 'G19_SE'),\
                    ('1.2', True, True, True, 'G19_DPL', 'G19_SE'),\
                    ('1.2', True, True, True, 'G19_DPL_PP', 'G19_SE')]
-    Total_Factors = Evo_Factors + DPL_Factors + cMod_Factors + M_Factors + N_Factors + b_Factors + g_Factors
+    Ill_Factors = [('1.0', True, False, True, 'Illustris', 'Illustris')]
+    Total_Factors = Evo_Factors + DPL_Factors + cMod_Factors + M_Factors + N_Factors + b_Factors + g_Factors + Ill_Factors
 
     if False:
         ClassList = []
@@ -479,7 +479,7 @@ if __name__ == "__main__":
             #For the label
             Label = r"$M"
             if Fit == ('1.0', True, False, True, 'G19_DPL', 'G19_SE'):
-                Label = "G19"
+                Label = "PyMorph"
             elif Fit == ('1.0', True, False, True, 'G19_DPL', 'M_PFT1'):
                 Label += "_{0.1, alt}$"
             elif Fit == ('1.0', True, False, True, 'G19_DPL', 'M_PFT2'):
@@ -517,7 +517,7 @@ if __name__ == "__main__":
             #For the label
             Label = r"$N"
             if Fit == ('1.0', True, False, True, 'G19_DPL', 'G19_SE'):
-                Label = "G19"
+                Label = "PyMorph"
             elif Fit == ('1.0', True, False, True, 'G19_DPL', 'N_PFT1'):
                 Label += "_{0.1, alt}$"
             elif Fit == ('1.0', True, False, True, 'G19_DPL', 'N_PFT2'):
@@ -552,7 +552,7 @@ if __name__ == "__main__":
             #For the label
             Label = r"$\beta"
             if Fit == ('1.0', True, False, True, 'G19_DPL', 'G19_SE'):
-                Label = "G19"
+                Label = "PyMorph"
             elif Fit == ('1.0', True, False, True, 'G19_DPL', 'b_PFT1'):
                 Label += "_{0.1, alt}$"
             elif Fit == ('1.0', True, False, True, 'G19_DPL', 'b_PFT2'):
@@ -589,7 +589,7 @@ if __name__ == "__main__":
             #For the label
             Label = r"$\gamma"
             if Fit == ('1.0', True, False, True, 'G19_DPL', 'G19_SE'):
-                Label = "G19"
+                Label = "PyMorph"
             elif Fit == ('1.0', True, False, True, 'G19_DPL', 'g_PFT1'):
                 Label += "_{0.1, alt}$"
             elif Fit == ('1.0', True, False, True, 'G19_DPL', 'g_PFT2'):
@@ -679,45 +679,50 @@ if __name__ == "__main__":
 
         plt.tight_layout()
         plt.savefig("Figures/Paper3/PairFractionSystematic.png")
+        plt.savefig("Figures/Paper3/PairFractionSystematic.pdf")
         plt.clf()
     #====================================================================
 
     #Make the Data comparision PF plot===================================
     if True:
-        f, SubPlots = plt.subplots(1, 2, figsize = (14, 4))
+        f, SubPlots = plt.subplots(1, 2, figsize = (10, 4))
         Master_Interp = Classes[FitList.index(('1.0', True, False, True, 'G19_DPL', 'G19_cMod'))].ReturnInterp()
         colourcycler = cycle(colours)
         Max = -1; Min = 1
         Fits = [('1.0', True, False, True, 'G19_DPL', 'G19_SE'), ('1.0', True, False, True, 'G19_DPL', 'G19_cMod')]
+        #Fits = [('1.0', True, False, True, 'G19_DPL', 'G19_SE'), ('1.0', True, False, True, 'Illustris', 'Illustris')]
         ModelPlots = []
         for Fit in Fits:
             colour = next(colourcycler)
             index = FitList.index(Fit)
 
-            lines = ["-.", ":"]
+            lines = ["-", ":"]
             linecycler = cycle(lines)
-            Redshifts = [0.1, 2.5]#[0.1,1,2,3]
+            Redshifts = [0.1,2]#[0.1,1,2,3]
             for i, z in enumerate(Redshifts):
                 line = next(linecycler)
                 Mh, Ms = Classes[index].ReturnSMHM(z)
                 if Fit == ('1.0', True, False, True, 'G19_DPL', 'G19_SE'):
-                    SubPlots[0].plot(Mh, Ms, line, color = colour, label = z)
+                    SubPlots[0].plot(Mh, Ms, line, color = colour)
                 else:
-                    SubPlots[0].plot(Mh, Ms, line, color = colour, label = " ")
+                    SubPlots[0].plot(Mh, Ms, line, color = colour)
 
 
-
-            z, PairFracTot, M_L, M_U = Classes[index].Return_PF_Plot(Master_Interp, Parent_Cut = 9.7, UpperLimit = True)
+            Classes[index].ReturnInterp()
+            #z, PairFracTot, M_L, M_U = Classes[index].Return_PF_Plot(Master_Interp, Parent_Cut = 10, UpperLimit = True)
+            z, PairFracTot, M_L, M_U = Classes[index].Return_PF_Plot(Classes[index].ReturnInterp(), Parent_Cut = 10, UpperLimit = True)
             if Fit == ('1.0', True, False, True, 'G19_DPL', 'G19_SE'):
-                ModelPlots.append(SubPlots[1].semilogy(z, PairFracTot, "--", label = r"$> 10^{10} M_{\odot}$", color = colour)[0])
+                ModelPlots.append(SubPlots[1].semilogy(z, PairFracTot, "-.", color = colour)[0])
             else:
-                ModelPlots.append(SubPlots[1].semilogy(z, PairFracTot, "--", label = " ", color = colour)[0])
+                ModelPlots.append(SubPlots[1].semilogy(z, PairFracTot, "-.", color = colour)[0])
             Max_new = np.nanmax(PairFracTot); Min_new = np.nanmin(PairFracTot)
             if Max_new > Max:
                 Max = Max_new
             if Min_new < Min:
                 Min = Min_new
-            z, PairFracTot, M_L, M_U = Classes[index].Return_PF_Plot(Master_Interp, Parent_Cut = 10.3, UpperLimit = False)
+                
+            #"""
+            z, PairFracTot, M_L, M_U = Classes[index].Return_PF_Plot(Master_Interp, Parent_Cut = 11, UpperLimit = True)
             if Fit == ('1.0', True, False, True, 'G19_DPL', 'G19_SE'):
                 ModelPlots.append(SubPlots[1].semilogy(z, PairFracTot, "-", label = r"$> 10^{11} M_{\odot}$", color = colour)[0])
             else:
@@ -727,28 +732,59 @@ if __name__ == "__main__":
                 Max = Max_new
             if Min_new < Min:
                 Min = Min_new
+            #"""
+        """
         MundyPlots = []
         f0, m, N = 0.028, 0.80, 0.5
         MundyPlots.append(SubPlots[1].semilogy(np.arange(z[0], z[-1], 0.4), (f0*np.power(1+np.arange(z[0], z[-1], 0.4), m)),  "+",label = r"$> 10^{10} M_{\odot}$", mfc = None)[0])
         f0, m, N = 0.024, 0.78, 0.5
         MundyPlots.append(SubPlots[1].semilogy(np.arange(z[0], z[-1], 0.4), (f0*np.power(1+np.arange(z[0], z[-1], 0.4), m)),  "x",label = r"$> 10^{11} M_{\odot}$")[0])
-        
+        """
+        """
         #Add illustris
-        z_10 = [0, 0.5, 1, 1.5, 2, 3]
-        PF_ill_10 = [-2.46,-2.40,-2.27,-2.37,-2.43,-2.47]
-        z_11 = [0, 0.5, 1, 2, 3]
-        PF_ill_11 = [-2.91,-3.17,-2.60, -2.24,-2.25]
-        SubPlots[1].semilogy(z_10, np.power(10, PF_ill_10), ":", color = 'k')
-        SubPlots[1].semilogy(z_11, np.power(10, PF_ill_11), ".-", color = 'k')
-            
-            
-        Legend1 = SubPlots[1].legend(handles = ModelPlots, ncol = 2, title = "{}{}".format("                   "+"pyMorph","       "+"cmodel"), markerfirst = False, frameon = False, bbox_to_anchor=(1.85, 0.4), loc = 1)
-        ax = plt.gca().add_artist(Legend1)
-        SubPlots[1].legend(handles = MundyPlots, title = "Mundy+ 17", frameon = False, bbox_to_anchor=(1.5, 0.6), loc = 4)
-        SubPlots[0].legend(ncol = 2, frameon = False, title = "{}{}".format("           "+"pyMorph","       "+"cmodel"), markerfirst = False)
+        #z_10 = [0, 0.1, 0.5, 0.7, 1, 1.5, 2, 3]
+        #PF_ill_10 = [-2.48, -2.50, -2.35, -2.26, -2.07,-2.54,-2.19,-2.83]
+        z_10 = [0.1, 0.5, 1, 1.5, 2, 3]
+        PF_ill_10 = [-2.41,-2.42,-2.26,-2.27,-2.37,-2.63]
+        #z_11 = [0, 0.5, 1, 2, 3]
+        #PF_ill_11 = [-2.91,-3.17,-2.60, -2.24,-2.25]
+        SubPlots[1].semilogy(z_10, np.power(10, PF_ill_10), "x", color = 'k', label = 'Illustris TNG')
+        #SubPlots[1].semilogy(z_11, np.power(10, PF_ill_11), "-.", color = 'k')
+        SMHM_ill = np.load(AbsPath+'/../Data/Observational/Illustris/SMHM_fillbtwn_99.npy')
+        SubPlots[0].fill_between(SMHM_ill[0], SMHM_ill[1], SMHM_ill[2], color = 'k', alpha = 0.5, label = 'Illustris TNG')
+        
+        #Sneaky Labels
+        SubPlots[0].plot([0,1], [0,1],"-", color = "C0", label = "STEEL: PyMorph")
+        SubPlots[0].plot([0,1], [0,1],"-", color = "C1", label = "STEEL: Illustris")
+        
+        
+        SubPlots[0].legend(frameon = False)
+        SubPlots[1].legend(frameon = False)
+        #"""
+        
+        #"""
+        #Sneaky Labels
+        Leg1 = []
+        Leg1.append(SubPlots[0].plot([0,1], [0,1],"-", color = "C0", label = "PyMorph")[0])
+        Leg1.append(SubPlots[0].plot([0,1], [0,1],"-", color = "C1", label = "cmodel")[0])
+        Leg2 = []
+        Leg2.append(SubPlots[0].plot([0,1], [0,1],"-", color = "k", label = "z = 0.1")[0])
+        Leg2.append(SubPlots[0].plot([0,1], [0,1],":", color = "k", label = "z = 2")[0])
+        Leg3 = []
+        Leg3.append(SubPlots[1].plot([],[],"-", color = "k", label = r"M$_\odot$: 10$^{11}$")[0])
+        Leg3.append(SubPlots[1].plot([],[],"-.", color = "k", label = r"M$_\odot$: 10$^{10}$")[0])
+        
+        Legend1 = SubPlots[0].legend(handles = Leg1, frameon = False, loc = 2)
+        SubPlots[0].add_artist(Legend1)
+        Legend2 = SubPlots[0].legend(handles = Leg2, frameon = False, loc = 4)
+        #ßSubPlots[0].add_artist(Legend2)
+        Legend3 = SubPlots[1].legend(handles = Leg3, frameon = False, ncol = 2, loc = 9)
+        SubPlots[1].add_artist(Legend3)
+        #"""
+        
         if Min <= 0:
-            Min = 0.001
-        SubPlots[1].set_ylim(Min, Max+0.1)
+            Min = 0.0001
+        SubPlots[1].set_ylim(Min, Max*5)#+0.1)
         SubPlots[1].set_xlim(0.0, 3.5)
         SubPlots[1].set_xlabel("z")
         SubPlots[1].set_ylabel("$\mathrm{f_{pair}}$")
@@ -758,6 +794,7 @@ if __name__ == "__main__":
         SubPlots[0].set_ylabel("$\mathrm{log_{10}}$ $\mathrm{M_*}$ $\mathrm{[M_\odot]}$")
         plt.tight_layout()
         plt.savefig("Figures/Paper3/PairFractionData.png")
+        plt.savefig("Figures/Paper3/PairFractionData.pdf")
         plt.clf()
         
     #MergerRate Plot    

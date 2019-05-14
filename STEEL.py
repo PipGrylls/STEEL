@@ -558,9 +558,9 @@ if __name__ == "__main__":
     #Tdyn_Factors += [('1.0', True, True, True, 'CE', 'G19_SE')]
     #Tdyn_Factors += [('1.0', True, True, True, 'Illustris', 'Illustris')]
     #Tdyn_Factors += [('1.0', True, True, True, 'Illustris_PP', 'Illustris')]
-    #Tdyn_Factors += [('1.0', True, False, True, 'Illustris', 'Illustris')]
-    Tdyn_Factors += [('1.0', True, False, True, 'G19_DPL', 'G19_SE'), ('1.0', True, False, True, 'G19_DPL', 'G19_cMod')]
-    Tdyn_Factors += [('1.0', True, False, True, 'G19_DPL', 'M_PFT1'),\
+    Tdyn_Factors += [('1.0', True, False, True, 'Illustris', 'Illustris')]
+    #Tdyn_Factors += [('1.0', True, False, True, 'G19_DPL', 'G19_SE'), ('1.0', True, False, True, 'G19_DPL', 'G19_cMod')]
+    """Tdyn_Factors += [('1.0', True, False, True, 'G19_DPL', 'M_PFT1'),\
                      ('1.0', True, False, True, 'G19_DPL', 'M_PFT2'),\
                      ('1.0', True, False, True, 'G19_DPL', 'M_PFT3'),\
                      ('1.0', True, False, True, 'G19_DPL', 'N_PFT1'),\
@@ -572,7 +572,7 @@ if __name__ == "__main__":
                      ('1.0', True, False, True, 'G19_DPL', 'g_PFT1'),\
                      ('1.0', True, False, True, 'G19_DPL', 'g_PFT2'),\
                      ('1.0', True, False, True, 'G19_DPL', 'g_PFT3'),\
-                    ]
+                    ]"""
     
     msg = 'About to run' + str(Tdyn_Factors)
     shall = input("%s (y/N) " % msg).lower() != 'y'
