@@ -105,7 +105,9 @@ AbnMtch =\
 'g_PFT1': False,\
 'g_PFT2': False,\
 'g_PFT3': False,\
-'g_PFT4': False\
+'g_PFT4': False,\
+'HMevo': False,\
+'HMevo_param': None\
 }
 
 Paramaters = \
@@ -173,6 +175,9 @@ class PairFractionData:
         AbnMtch[self.Fit] = True
         if "PFT" in self.Fit:
             AbnMtch["PFT"] = True
+        if "HMevo" in self.Fit:
+            AbnMtch["HMevo"] = True
+            AbnMtch["HMevo_param"] = float(self.Fit[-3:])
 
         AvaStellarMass = []
         for i, HM_Arr in enumerate(self.AvaHaloMass):
@@ -252,6 +257,7 @@ class PairFractionData:
     def Return_PF_Plot(self, Master_interp, Parent_Cut = 11, Mass_Ratio = np.log10(1/4), UpperLimit = True):
         Upper_Cut = Parent_Cut + 0.6
         PairFracTot = []
+        M_L, M_U = None, None
         for i, SM_Arr in enumerate(self.AvaStellarMass):
             CND_Mass = self.Get_CND_Masses(Master_interp, M = Parent_Cut, z = self.z[i])
             try:
@@ -401,7 +407,15 @@ if __name__ == "__main__":
                    ('1.2', True, True, True, 'G19_DPL', 'G19_SE'),\
                    ('1.2', True, True, True, 'G19_DPL_PP', 'G19_SE')]
     Ill_Factors = [('1.0', True, False, True, 'Illustris', 'Illustris')]
-    Total_Factors = Evo_Factors + DPL_Factors + cMod_Factors + M_Factors + N_Factors + b_Factors + g_Factors + Ill_Factors
+    HMevo_Factors = [('1.0', False, False, True, 'G19_DPL', 'G19_cMod'),\
+                     ('1.0', False, False, True, 'G19_DPL', 'HMevo_alt_0.0'),\
+                     ('1.0', False, False, True, 'G19_DPL', 'HMevo_alt_0.1'),\
+                     ('1.0', False, False, True, 'G19_DPL', 'HMevo_alt_0.2'),\
+                     ('1.0', False, False, True, 'G19_DPL', 'HMevo_alt_0.3'),\
+                     ('1.0', False, False, True, 'G19_DPL', 'HMevo_alt_0.4'),\
+                     ('1.0', False, False, True, 'G19_DPL', 'HMevo_alt_0.5')
+                    ]
+    Total_Factors = Evo_Factors + DPL_Factors + cMod_Factors + M_Factors + N_Factors + b_Factors + g_Factors + Ill_Factors + HMevo_Factors
 
     if False:
         ClassList = []
@@ -684,7 +698,7 @@ if __name__ == "__main__":
     #====================================================================
 
     #Make the Data comparision PF plot===================================
-    if True:
+    if False:
         f, SubPlots = plt.subplots(1, 2, figsize = (10, 4))
         Master_Interp = Classes[FitList.index(('1.0', True, False, True, 'G19_DPL', 'G19_cMod'))].ReturnInterp()
         colourcycler = cycle(colours)
@@ -733,13 +747,15 @@ if __name__ == "__main__":
             if Min_new < Min:
                 Min = Min_new
             #"""
-        """
+        
         MundyPlots = []
+        """
         f0, m, N = 0.028, 0.80, 0.5
         MundyPlots.append(SubPlots[1].semilogy(np.arange(z[0], z[-1], 0.4), (f0*np.power(1+np.arange(z[0], z[-1], 0.4), m)),  "+",label = r"$> 10^{10} M_{\odot}$", mfc = None)[0])
-        f0, m, N = 0.024, 0.78, 0.5
-        MundyPlots.append(SubPlots[1].semilogy(np.arange(z[0], z[-1], 0.4), (f0*np.power(1+np.arange(z[0], z[-1], 0.4), m)),  "x",label = r"$> 10^{11} M_{\odot}$")[0])
         """
+        f0, m, N = 0.024, 0.78, 0.5
+        MundyPlots.append(SubPlots[1].semilogy(np.arange(z[0], z[-1], 0.4), (f0*np.power(1+np.arange(z[0], z[-1], 0.4), m)),  "xk",label = r"$> 10^{11} M_{\odot}$")[0])
+        
         """
         #Add illustris
         #z_10 = [0, 0.1, 0.5, 0.7, 1, 1.5, 2, 3]
@@ -765,11 +781,12 @@ if __name__ == "__main__":
         #"""
         #Sneaky Labels
         Leg1 = []
+        Leg1.append(SubPlots[0].plot([0,1], [0,1],"x", color = "k", label = "Mundy+17")[0])
         Leg1.append(SubPlots[0].plot([0,1], [0,1],"-", color = "C0", label = "PyMorph")[0])
         Leg1.append(SubPlots[0].plot([0,1], [0,1],"-", color = "C1", label = "cmodel")[0])
         Leg2 = []
         Leg2.append(SubPlots[0].plot([0,1], [0,1],"-", color = "k", label = "z = 0.1")[0])
-        Leg2.append(SubPlots[0].plot([0,1], [0,1],":", color = "k", label = "z = 2")[0])
+        Leg2.append(SubPlots[0].plot([0,1], [0,1],":", color = "k", label = "z = 2.0")[0])
         Leg3 = []
         Leg3.append(SubPlots[1].plot([],[],"-", color = "k", label = r"M$_\odot$: 10$^{11}$")[0])
         Leg3.append(SubPlots[1].plot([],[],"-.", color = "k", label = r"M$_\odot$: 10$^{10}$")[0])
@@ -784,7 +801,7 @@ if __name__ == "__main__":
         
         if Min <= 0:
             Min = 0.0001
-        SubPlots[1].set_ylim(Min, Max*5)#+0.1)
+        SubPlots[1].set_ylim(Min, Max*10)#+0.1)
         SubPlots[1].set_xlim(0.0, 3.5)
         SubPlots[1].set_xlabel("z")
         SubPlots[1].set_ylabel("$\mathrm{f_{pair}}$")
@@ -795,7 +812,82 @@ if __name__ == "__main__":
         plt.tight_layout()
         plt.savefig("Figures/Paper3/PairFractionData.png")
         plt.savefig("Figures/Paper3/PairFractionData.pdf")
+        #plt.savefig("Figures/Paper3/Test.png")
+        #plt.savefig("Figures/Paper3/Test.pdf")
         plt.clf()
+
+        
+        
+    #Make the Mevo PF plot===================================
+    if True:
+        f, SubPlots = plt.subplots(1, 2, figsize = (10, 4))
+        colourcycler = cycle(colours)
+        Max = -1; Min = 1
+        ModelPlots = []
+        LegGz = []
+        GzFacs = ["cmodel", "0.0", "0.1", "0.2", "0.3", "0.4", "0.5"]
+        for i, Fit in enumerate(HMevo_Factors):
+            if Fit == ('1.0', False, False, True, 'G19_DPL', 'G19_cMod'):
+                index = FitList.index(Fit)
+                Mh, Ms = Classes[index].ReturnSMHM(0.1)
+                SubPlots[0].plot(Mh, Ms, ":", color = "k")
+            colour = next(colourcycler)
+            index = FitList.index(Fit)
+            Mh, Ms = Classes[index].ReturnSMHM(2)
+            if Fit == ('1.0', False, False, True, 'G19_DPL', 'G19_cMod'):
+                LegGz.append(SubPlots[0].plot(Mh, Ms, "-", color = colour, label = GzFacs[i])[0])
+            else:
+                LegGz.append(SubPlots[0].plot(Mh, Ms, "-", color = colour, label = r"$\gamma_{z}$ = "+GzFacs[i])[0])
+
+            Classes[index].ReturnInterp()
+            z, PairFracTot, M_L, M_U = Classes[index].Return_PF_Plot(Classes[index].ReturnInterp(), Parent_Cut = 11, UpperLimit = True)
+            ModelPlots.append(SubPlots[1].semilogy(z, PairFracTot, "-", color = colour)[0])
+            Max_new = np.nanmax(PairFracTot); Min_new = np.nanmin(PairFracTot)
+            if Max_new > Max:
+                Max = Max_new
+            if Min_new < Min:
+                Min = Min_new
+        
+        MundyPlots = []
+        f0, m, N = 0.024, 0.78, 0.5
+        MundyPlots.append(SubPlots[1].semilogy(np.arange(z[0], z[-1], 0.4), (f0*np.power(1+np.arange(z[0], z[-1], 0.4), m)),  "xk",label = r"$> 10^{11} M_{\odot}$")[0])
+        
+        #"""
+        #Sneaky Labels
+        Leg1 = []
+        Leg1.append(SubPlots[1].plot([], [],"x", color = "k", label = "Mundy+17")[0])
+        Leg2 = []
+        Leg2.append(SubPlots[0].plot([], [],":", color = "k", label = "z = 0.1")[0])
+        Leg2.append(SubPlots[0].plot([], [],"-", color = "k", label = "z = 2.0")[0])
+        Leg3 = []
+        Leg3.append(SubPlots[1].plot([],[],"-", color = "k", label = r"M$_\odot$: 10$^{11}$")[0])
+        
+        LegendGz = SubPlots[0].legend(handles = LegGz, frameon = False, loc = 2, ncol = 2, prop={'size': 10})
+        SubPlots[0].add_artist(LegendGz)
+        Legend1 = SubPlots[1].legend(handles = Leg1, frameon = False, loc = 2)
+        SubPlots[1].add_artist(Legend1)
+        Legend2 = SubPlots[0].legend(handles = Leg2, frameon = False, loc = 4)
+        #SubPlots[0].add_artist(Legend2)
+        Legend3 = SubPlots[1].legend(handles = Leg3, frameon = False, loc = 4)
+        #SubPlots[1].add_artist(Legend3)
+        #"""
+        
+        if Min <= 0:
+            Min = 0.0001
+        SubPlots[1].set_ylim(Min, Max*10)#+0.1)
+        SubPlots[1].set_xlim(0.0, 3.5)
+        SubPlots[1].set_xlabel("z")
+        SubPlots[1].set_ylabel("$\mathrm{f_{pair}}$")
+        SubPlots[0].set_ylim(9, 12.5)
+        SubPlots[0].set_xlim(11, 15)
+        SubPlots[0].set_xlabel("$\mathrm{log_{10}}$ $\mathrm{M_h}$ $\mathrm{[M_\odot]}$")
+        SubPlots[0].set_ylabel("$\mathrm{log_{10}}$ $\mathrm{M_*}$ $\mathrm{[M_\odot]}$")
+        plt.tight_layout()
+        plt.savefig("Figures/Paper3/PairFractionHMevo.png")
+        plt.savefig("Figures/Paper3/PairFractionHMevo.pdf")
+        plt.clf()
+        
+        
         
     #MergerRate Plot    
     if True:
@@ -974,11 +1066,18 @@ if __name__ == "__main__":
         Max = m-m1-a2*r
         Max[Max<0] = 0
         return m-m0+a0*r-a1*np.power(Max, 2)
-    if False:     
-        for k, Fit in enumerate([('1.0', True, True, True, 'G19_DPL', 'G19_SE')]):
-            f, SubPlots = plt.subplots(3, 3, figsize = (12,7), sharex = 'col', sharey = 'row')
-            colours = ["C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "k"]
-            colourcycler = cycle(colours)
+    if True:     
+        #for k, Fit in enumerate([('1.0', True, True, True, 'G19_DPL', 'G19_SE')]):
+        f, SubPlots = plt.subplots(3, 3, figsize = (12,7), sharex = 'col', sharey = 'row')
+        #colours = ["C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "k"]
+        colours = ["C0", "C2", "C3", "C6"]
+        colourcycler = cycle(colours)
+        #[HMevo_Factors[0], HMevo_Factors[1], HMevo_Factors[2], HMevo_Factors[6]]
+        for k, Fit in enumerate([HMevo_Factors[0], HMevo_Factors[2], HMevo_Factors[3], HMevo_Factors[6]]):
+            colour = next(colourcycler)
+            #f, SubPlots = plt.subplots(3, 3, figsize = (12,7), sharex = 'col', sharey = 'row')
+            #colours = ["C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "k"]
+            #colourcycler = cycle(colours)
             DataClass = Classes[FitList.index(Fit)]
             z_intp = DataClass.z[DataClass.z < 4]
             SatelliteMasses = np.power(10, DataClass.Surviving_Sat_SMF_MassRange)
@@ -1022,8 +1121,8 @@ if __name__ == "__main__":
                         Mass_Accretion_PerCentral_Major[i,j] = 0
                         
                         
-            colours = ["C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "k"]
-            colourcycler = cycle(colours)
+            #colours = ["C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "k"]
+            #colourcycler = cycle(colours)
             
             #Output the CE from the diffrence between unity and the galaxy accretion rate
             Masses_for_CE = [np.digitize(i, bins = DataClass.AvaStellarMass[0])-1 for i in np.arange(9, np.max(DataClass.AvaStellarMass[0]), 0.1)]
@@ -1072,7 +1171,7 @@ if __name__ == "__main__":
             
             for i_, i in enumerate([np.digitize(12, bins = DataClass.AvaStellarMass[0])-1, np.digitize(11.5, bins = DataClass.AvaStellarMass[0])-1, np.digitize(11, bins = DataClass.AvaStellarMass[0])-1]):
             #for i_, i in enumerate([np.digitize(10.5, bins = DataClass.AvaStellarMass[0])-1, np.digitize(9.5, bins = DataClass.AvaStellarMass[0])-1, np.digitize(9, bins = DataClass.AvaStellarMass[0])-1]):
-                colour = next(colourcycler)
+                #colour = next(colourcycler)
                 
 
                 
@@ -1202,7 +1301,7 @@ if __name__ == "__main__":
                 #Moving averages here to smooth out the scatters in the instantaneous rates
                 N = 3
                 X_acc_hz, Y_acc_hz = np.convolve(DataClass.z, np.ones((N,))/N, mode='valid'), np.convolve( np.divide(Mass_Accretion_PerCentral[:,i], CentralMassGrowth), np.ones((N,))/N, mode='valid')
-                SubPlots[2, i_].plot(X_acc_hz[8:], Y_acc_hz[8:], "--", color = colour)
+                SubPlots[2, i_].plot(X_acc_hz[9:], Y_acc_hz[9:], "--", color = colour)
                 #SubPlots[2, i_].plot(z_for_SFH, np.divide(M_dot_noacc, CMG_dt_interp(z_for_SFH)), ":", color = colour)
                 #SubPlots[2, i_].plot(z_for_SFH, np.divide(M_dot, CMG_dt_interp(z_for_SFH)), "-", color = colour)               
                 
@@ -1368,7 +1467,7 @@ if __name__ == "__main__":
             #"""
             
             #Adding Menci
-            #"""
+            """
             Acc11 = np.loadtxt(AbsPath+"/../Data/Observational/Nicola_SAM/Macc_11.dat").T
             Acc11pt5 = np.loadtxt(AbsPath+"/../Data/Observational/Nicola_SAM/Macc_11.5.dat").T
             Acc12 = np.loadtxt(AbsPath+"/../Data/Observational/Nicola_SAM/Macc_12.dat").T
@@ -1395,9 +1494,9 @@ if __name__ == "__main__":
             
             
             #Line labels
-            SubPlots[0,2].plot([4,5,6], [0.5, 0.5, 0.5], "--",label = "Accretion", color = "k")
-            SubPlots[0,2].plot([4,5,6], [0.5, 0.5, 0.5], ":", label = "SFH", color = "k")
-            SubPlots[0,2].plot([4,5,6], [0.5, 0.5, 0.5], "-", label = "Total", color = "k")
+            #SubPlots[0,2].plot([4,5,6], [0.5, 0.5, 0.5], "--",label = "Accretion", color = "k")
+            #SubPlots[0,2].plot([4,5,6], [0.5, 0.5, 0.5], ":", label = "SFH", color = "k")
+            #SubPlots[0,2].plot([4,5,6], [0.5, 0.5, 0.5], "-", label = "Total", color = "k")
             
             #Legends
             SubPlots[0,2].legend(ncol = 2,frameon = False, loc = 9, fontsize = 12)
@@ -1493,9 +1592,25 @@ if __name__ == "__main__":
             plt.subplots_adjust(hspace=0, wspace=0)
             #plt.tight_layout()
             
-            plt.savefig("Figures/Paper2/SatelliteAccretion{}.png".format(Fit_to_Str(Fit)))
-            plt.savefig("Figures/Paper2/SatelliteAccretion{}.pdf".format(Fit_to_Str(Fit)))
-            plt.clf()
+            #plt.savefig("Figures/Paper2/SatelliteAccretion{}.png".format(Fit_to_Str(Fit)))
+            #plt.savefig("Figures/Paper2/SatelliteAccretion{}.pdf".format(Fit_to_Str(Fit)))
+            #plt.clf()
+        colours = ["C0", "C2", "C3", "C6"]
+        colourcycler = cycle(colours)
+        SubPlots[0,0].plot([],[], "-", color = next(colourcycler), label = "cmodel")
+        for i in [HMevo_Factors[2], HMevo_Factors[3], HMevo_Factors[6]]:
+            SubPlots[0,0].plot([],[], "-", color = next(colourcycler), label = r"$\gamma_{z}$ = "+i[5][-3:])
+        
+        SubPlots[0,2].plot([4,5,6], [0.5, 0.5, 0.5], "--",label = "Accretion", color = "k")
+        SubPlots[0,2].plot([4,5,6], [0.5, 0.5, 0.5], "-", label = "Total", color = "k")
+        SubPlots[0,0].legend(ncol = 1, frameon = False, loc = 3, fontsize = 12)
+        SubPlots[0,2].legend(ncol = 2,frameon = False, loc = 9, fontsize = 12)
+        SubPlots[2,0].legend(ncol = 1, frameon = False, loc = 1, fontsize = 12)
+        SubPlots[2,1].legend(ncol = 1, frameon = False, loc = 1, fontsize = 12) 
+        SubPlots[2,2].legend(ncol = 1, frameon = False, loc = 1, fontsize = 12)
+        plt.savefig("Figures/Paper3/SatelliteAccretion.png".format(Fit_to_Str(Fit)))
+        plt.savefig("Figures/Paper3/SatelliteAccretion.pdf".format(Fit_to_Str(Fit)))
+        plt.clf()
             
             
             

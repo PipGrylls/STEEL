@@ -557,7 +557,7 @@ def DarkMatterToStellarMass(DM, z, Paramaters, ScatterOn = False, Scatter = 0.00
         M11, SHMnorm11, beta11, gamma11 = 0.576,-0.014,-0.693,0.03 #0.4, 0.0, -0.5, 0.1
     if(Paramaters['G19_cMod']):
         M10, SHMnorm10, beta10, gamma10, Scatter = 11.91,0.029,2.09,0.64,0.15 #12.0,0.032,1.74,0.66,0.15 #12.00, 0.022, 1.56, 0.55, 0.15
-        M11, SHMnorm11, beta11, gamma11 = 0.535,-0.017,-1.04,-0.078 #0.4, 0.0, -0.5, 0.1
+        M11, SHMnorm11, beta11, gamma11 = 0.518,-0.018,-1.031,-0.084 #0.4, 0.0, -0.5, 0.1
     #parameters to recreate the illistrius M*Mh
     if(Paramaters['Illustris']):
         M10, SHMnorm10, beta10, gamma10, Scatter = 11.8,0.018,1.5,0.31,0.15 
@@ -600,7 +600,10 @@ def DarkMatterToStellarMass(DM, z, Paramaters, ScatterOn = False, Scatter = 0.00
             gamma11 = gamma11 - 0.2
         if(Paramaters['g_PFT4']):
             gamma10 = gamma10 - 0.1
-    
+    if Paramaters['HMevo']:
+        M10, SHMnorm10, beta10, gamma10, Scatter = 11.91,0.029,2.09,0.64,0.15
+        M11, SHMnorm11, beta11 = 0.518,-0.018,-1.031 
+        gamma11 = Paramaters["HMevo_param"]
     #putting the parameters together for inclusion in the Moster 2010 equation
     M = M10 + M11*zparameter
     N = SHMnorm10 + SHMnorm11*zparameter

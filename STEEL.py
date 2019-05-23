@@ -84,7 +84,9 @@ AbnMtch =\
 'g_PFT1': False,\
 'g_PFT2': False,\
 'g_PFT3': False,\
-'g_PFT4': False\
+'g_PFT4': False,\
+'HMevo': False,\
+'HMevo_param': None\
 }
 
 Paramaters_Glob = \
@@ -197,7 +199,9 @@ def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
     AbnMtch[Factor_Stripping_SF[5]] = True
     if "PFT" in Factor_Stripping_SF[5]:
         AbnMtch["PFT"] = True
-        
+    if "HMevo" in Factor_Stripping_SF[5]:
+        AbnMtch["HMevo"] = True
+        AbnMtch["HMevo_param"] = float(Factor_Stripping_SF[5][-3:])
 
 
     #Data output arrays that are saved into the folders created above
@@ -436,7 +440,7 @@ def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
                         if len(np.shape(SM_Sat)) == 1:
                             Wt_Corr = np.divide(histogram1d(SM_Sat, SatM_len, (SatM_min, SatM_max)), N) #Weight per bin from scatter in SM-HM
                             Wt_Corr = np.full((len(Time_To_0[z_bin+PF_bin_l:z_bin+PF_bin_u]), len(Wt_Corr)), Wt_Corr) #matching array sizes
-                            print(np.shape(Wt_Corr))
+                            #print(np.shape(Wt_Corr))
                             Corr = np.divide(np.multiply(WeightList_SubOnly[PF_bin_l:PF_bin_u], Wt_Corr.T).T, SatBin)#N dex-1 per halo 
                             
                         else:
@@ -558,7 +562,7 @@ if __name__ == "__main__":
     #Tdyn_Factors += [('1.0', True, True, True, 'CE', 'G19_SE')]
     #Tdyn_Factors += [('1.0', True, True, True, 'Illustris', 'Illustris')]
     #Tdyn_Factors += [('1.0', True, True, True, 'Illustris_PP', 'Illustris')]
-    Tdyn_Factors += [('1.0', True, False, True, 'Illustris', 'Illustris')]
+    #Tdyn_Factors += [('1.0', True, False, True, 'Illustris', 'Illustris')]
     #Tdyn_Factors += [('1.0', True, False, True, 'G19_DPL', 'G19_SE'), ('1.0', True, False, True, 'G19_DPL', 'G19_cMod')]
     """Tdyn_Factors += [('1.0', True, False, True, 'G19_DPL', 'M_PFT1'),\
                      ('1.0', True, False, True, 'G19_DPL', 'M_PFT2'),\
@@ -573,6 +577,14 @@ if __name__ == "__main__":
                      ('1.0', True, False, True, 'G19_DPL', 'g_PFT2'),\
                      ('1.0', True, False, True, 'G19_DPL', 'g_PFT3'),\
                     ]"""
+    """Tdyn_Factors += [('1.0', False, False, True, 'G19_DPL', 'HMevo_alt_0.0'),\
+                     ('1.0', False, False, True, 'G19_DPL', 'HMevo_alt_0.1'),\
+                     ('1.0', False, False, True, 'G19_DPL', 'HMevo_alt_0.2'),\
+                     ('1.0', False, False, True, 'G19_DPL', 'HMevo_alt_0.3'),\
+                     ('1.0', False, False, True, 'G19_DPL', 'HMevo_alt_0.4'),\
+                     ('1.0', False, False, True, 'G19_DPL', 'HMevo_alt_0.5')
+                    ]"""
+    Tdyn_Factors += [('1.0', False, False, True, 'G19_DPL', 'G19_cMod')]
     
     msg = 'About to run' + str(Tdyn_Factors)
     shall = input("%s (y/N) " % msg).lower() != 'y'

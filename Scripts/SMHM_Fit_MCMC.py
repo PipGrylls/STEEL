@@ -409,6 +409,8 @@ if __name__ == "__main__":
     #Make FttingFuctionsCass
     #FittingClass = Fitting_Functions(SMHM = "Moster", SMF = ["Bernardi16", "Davidzon17_corr"], HMF_central = "HMF_Collosus", HMF_sub = "STEEL")
     FittingClass = Fitting_Functions(SMHM = "Moster", SMF = ["cModel", "Davidzon17"], HMF_central = "HMF_Collosus", HMF_sub = "STEEL")
+    
+    
     #Fit at redshift 0.1:
     z = 0.1
     index_0 = np.digitize(z, bins = FittingClass.SMF_Redshifts) - 1
@@ -420,7 +422,7 @@ if __name__ == "__main__":
     CSMF_0 = FittingClass.SMF_Central[index_0]
     SSMF_0 = FittingClass.SMF_Satellite[index_0]
     SMHM_Model = FittingClass.SMHM_Model
-    
+    """
     Input = [z, HMR, HM_bin, CHMF_0, SMR, SM_bin, CSMF_0, SMHM_Model]
     #set up initial conditions
     ndim, nwalkers = 4, 20
@@ -449,9 +451,13 @@ if __name__ == "__main__":
     plt.legend(frameon = False)
     plt.savefig("./Figures/SMHM_Fit/SMF_lz.png")
     plt.clf()
+    #"""
     
-    Params_lz = M[0], N[0], b[0], g[0]
+    
+    
+    #Params_lz = M[0], N[0], b[0], g[0]
     #Params_lz = 11.925, 0.032,1.639,0.532,0.15
+    Params_lz = 11.91,0.029,2.09,0.64,0.15
     #Greater than 0.1
     SMHM_Model = FittingClass.SMHM_Model
     HaloMasses = [[] for i in range(len(FittingClass.SMF_Redshifts))]
@@ -493,7 +499,7 @@ if __name__ == "__main__":
                         show_titles = True, title_fmt= ".3f")
     fig.savefig("./Figures/SMHM_Fit/MCMC_plot_hz.png")
     fig.clf()
-    """
+    #"""
     f, SubPlots = plt.subplots(3, 3, figsize = (12,12), sharex = True, sharey = True)
     k = 0
     for i in range(3):
@@ -501,5 +507,6 @@ if __name__ == "__main__":
             SubPlots[i][j].plot(SMR, DM_to_SM(SMR, SM_bin, HaloMasses[k], HM_bin, HaloWts[k], Params, HaloRed[k], SMHM_Model, Pairwise = True), label = "Fit")
             SubPlots[i][j].plot(SMR, FittingClass.SMF_Total[k], label = "Total")
             k+=1
-    plt.savefig("./SMHM_Fitting/HighzSMF_Ser_Exp.png")
-    plt.clf()"""
+    plt.savefig("./SMHM_Fitting/HighzSMF_cMod.png")
+    plt.clf()
+    #"""
