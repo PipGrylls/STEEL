@@ -8,11 +8,7 @@ import numpy as np
 import numpy.ma as ma
 import pandas as pd
 import matplotlib as mpl
-import time
-import copy
 from numba import jit
-from numba import jitclass
-from numba import int32, float32, double
 from matplotlib.gridspec import GridSpec
 mpl.use('agg')
 import matplotlib.pyplot as plt
@@ -21,15 +17,10 @@ from Scripts.Plots import SDSS_Plots
 from Functions import Functions as F
 from Functions import Functions_c as F_c
 from scipy import interpolate
-from scipy import stats
 from scipy.integrate import cumtrapz
 from itertools import cycle
 from copy import copy
 from colossus.cosmology import cosmology
-from math import isclose
-import warnings
-from DistroLib import *
-from mpl_toolkits.axes_grid.inset_locator import inset_axes
 cosmology.setCosmology("planck15")
 Cosmo =cosmology.getCurrent()
 HMF_fun = F.Make_HMF_Interp() #N Mpc^-3 h^3 dex^-1, Args are (Mass, Redshift)
@@ -154,6 +145,7 @@ def JitLoop2(SHMF_Entering, Mass_Ratio_Bins, SatHaloMass, z_step, t_step, Bin):
             Accreted_Above_Ratio_dt[i,j] = np.sum(SHMF_Entering[i,j,Mass_Ratio_Bins[i,j]:]*SatHaloMass[Mass_Ratio_Bins[i,j]:])*Bin/t_step[i]
     return Accreted_Above_Ratio, Accreted_Above_Ratio_dz, Accreted_Above_Ratio_dt
 
+
 #PairFractions Systematics Plot======================================
 PreProcessed_Factors = ['G19_SE_PP_SF_Strip','G19_SE_NOCE_PP_SF_Strip']
 
@@ -164,20 +156,20 @@ class PairFractionData:
         self.RunParam = Fit_in
         self.Data_AC = F.LoadData_Mergers(Fit_in)
         self.Data_PF = F.LoadData_Pair_Frac(Fit_in)
-
-        self.Accretion_History, self.z, self.AvaHaloMass, self.Surviving_Sat_SMF_MassRange = self.Data_AC
+        
+        self.Accretion_History, self.z, self.AvaHaloMass, self.Surviving_Sat_SMF_MassRange = self.Data_AC       
         self.Pair_Frac, self.z, self.AvaHaloMass, self.Surviving_Sat_SMF_MassRange = self.Data_PF
         #Calculate the theoritical central SM using SMHM
         self.AvaStellarMass, self.AvaStellarMassBins = self.CreateAverageSM()
         #Calculate SM_Bin for satellites
         self.SM_Bin = self.Surviving_Sat_SMF_MassRange[1] - self.Surviving_Sat_SMF_MassRange[0]
         #Account for central bin shrinking
-        self.AvaHaloMassBins = self.AvaHaloMass[:,1:] - self.AvaHaloMass[:,:-1]
+        self.AvaHaloMassBins = self.AvaHaloMass[:,1:] - self.AvaHaloMass[:,:-1] 
         self.AvaHaloMassBins = np.concatenate((self.AvaHaloMassBins, np.array([self.AvaHaloMassBins[:,-1]]).T), axis = 1)
-        self.SMF_interp = self.Generate_SMF_interp()
+        self.SMF_interp = self.Generate_SMF_interp()        
         self.z_step = self.z[1:] - self.z[:-1]
         self.t_step = Cosmo.age(self.z[:-1]) - Cosmo.age(self.z[1:])
-
+    
     def CreateAverageSM(self):
         AbnMtch[self.Fit] = True
         if "PFT" in self.Fit:
@@ -188,9 +180,9 @@ class PairFractionData:
             AvaStellarMass.append(F.DarkMatterToStellarMass(HM_Arr-np.log10(h), self.z[i], Paramaters))
         AvaStellarMass = np.array(AvaStellarMass)
 
-        #Where I have decreased the binsize the SMHM relation is occasionaly not monotomically increasing
+        #Where I have decreased the binsize the SMHM relation is occasionaly not monotomically increasing 
         #This smooths it out for np.digitize
-
+    
         AvaStellarMass2 = copy(AvaStellarMass)
         for i, SM_Arr in enumerate(AvaStellarMass):
             try:
@@ -210,18 +202,18 @@ class PairFractionData:
         AvaStellarMass = AvaStellarMass2
 
 
-        AvaStellarMassBins = AvaStellarMass[:,1:] - AvaStellarMass[:,:-1]
+        AvaStellarMassBins = AvaStellarMass[:,1:] - AvaStellarMass[:,:-1] 
         AvaStellarMassBins = np.concatenate((AvaStellarMassBins, np.array([AvaStellarMassBins[:,-1]]).T), axis = 1)
 
         AbnMtch[self.Fit] = False
         if "PFT" in self.Fit:
             AbnMtch["PFT"] = False
-
+        
         return AvaStellarMass, AvaStellarMassBins
 
-
+        
     def running_mean(self, x, N):
-        cumsum = np.cumsum(np.insert(x, 0, 0))
+        cumsum = np.cumsum(np.insert(x, 0, 0)) 
         return (cumsum[N:] - cumsum[:-N]) / float(N)
 
     def Return_Cent_SMF(self, z_in, SMF_X = np.arange(8, 12.5, 0.01), SMF_X_Bin = 0.01, N = 10):
@@ -230,7 +222,7 @@ class PairFractionData:
             AbnMtch["PFT"] = True
         HM_Bin = 0.01
         HM_Range = np.arange(9, 15, HM_Bin)
-        cSMF_X, cSMF_Y = F.DM_to_SM(SMF_X, np.log10(HMF_fun(HM_Range, z_in)), HM_Range, HM_Bin, SMF_X_Bin, Paramaters, Redshift = z_in, N = 3000)
+        cSMF_X, cSMF_Y = F.DM_to_SM(SMF_X, np.log10(HMF_fun(HM_Range, z_in)), HM_Range, HM_Bin, SMF_X_Bin, Paramaters, Redshift = z_in, N = 3000)    
         AbnMtch[self.Fit] = False
         if "PFT" in self.Fit:
             AbnMtch["PFT"] = False
@@ -243,7 +235,7 @@ class PairFractionData:
             SMFs = np.vstack((SMFs, pd.Series(self.Return_Cent_SMF(i)[1]).replace([np.inf, -np.inf], np.nan).interpolate().get_values().tolist()))
         SMF_interp = interpolate.interp2d(X, np.insert(self.z, 0, 0), SMFs)
         return SMF_interp
-
+    
     def Get_CND_Masses(self, Master_interp, M = 11, z = 0.1):
         MassRange = np.arange(7, 15, 0.1)
         Master_int = Master_interp(MassRange, z)
@@ -273,15 +265,15 @@ class PairFractionData:
                 M_Cut_bin_upper = np.digitize(CND_Mass_Upper, SM_Arr)
             else:
                 M_Cut_bin_upper = -1
-
+            
             if self.Fit[-1] in ["2","3"]:
                 Bin = np.digitize(2, bins = self.z)
                 if i == Bin:
                     M_L = CND_Mass; M_U = CND_Mass_Upper
-            if self.Fit[-1] in ["1","E","r", "d"]:
+            if self.Fit[-1] in ["1","E","r", "d"]:                
                 if i == 0:
                     M_L = CND_Mass; M_U = CND_Mass_Upper
-
+                
             Total_Pair = 0
             for j, Cent_Mass in enumerate(self.AvaHaloMass[i, M_Cut_bin:M_Cut_bin_upper]):
                 Sat_Mass_Cut_bin = np.digitize(SM_Arr[M_Cut_bin + j]+Mass_Ratio, self.Surviving_Sat_SMF_MassRange)
@@ -296,7 +288,7 @@ class PairFractionData:
                 PairFracTot.append(np.nan)
 
         return self.z[1:], PairFracTot[1:], M_L, M_U
-
+    
     def Return_Merger_Plot(self, M0, Mass_Ratio = 0.3):
         Mass_Ratio_Limit = self.AvaStellarMass + np.log10(Mass_Ratio)
         Mass_Ratio_Bins = np.digitize(Mass_Ratio_Limit, bins = self.Surviving_Sat_SMF_MassRange)[:-1]
@@ -315,14 +307,14 @@ class PairFractionData:
                 #print(e)
                 break
         return X, Y_dt, Y_dz
-
+    
     def ReturnInterp(self):
         return self.SMF_interp
-
+    
     def ReturnSMHM(self, z):
         Bin = np.digitize(z, bins = self.z)
         return self.AvaHaloMass[Bin], self.AvaStellarMass[Bin]
-
+    
     def Return_Morph_Plot(self, MassRatio = 0.3, z_start = 10):
         FirstAddition = True
         P_ellip = np.zeros_like(self.AvaStellarMass)
@@ -339,365 +331,17 @@ class PairFractionData:
             if (z_start > self.z[i]):
                 FirstAddition = False
         return P_ellip
-
-    def Return_Major_Merger_Frequency(self, MassRatio = 0.3):
-
-        P_Maj = np.zeros_like(self.AvaStellarMass)
-        MMR = np.log10(MassRatio) #mergermass ratio in log10
-
-        for i in range(np.shape(self.AvaStellarMass)[0]-1, -1, -1):
-            for j in range(np.shape(self.AvaStellarMass)[1]-1, -1, -1):
-                Maj_Merge_Bin = np.digitize(self.AvaStellarMass[i,j]+MMR, bins = self.Surviving_Sat_SMF_MassRange) #find the bin of the Surviving_Sat_SMF_MassRange above which is major mergers
-                P_Maj[i,j] = np.sum(self.Accretion_History[i,j,Maj_Merge_Bin:])*self.SM_Bin #sums the numberdensity of satellites causing major mergers
-        return P_Maj
-
-
-    def Model_Morphology(self, MassRatio = 0.3, z_start = 10):
-        '''Function to model Morphology evolution and growth'''
-
-        FirstAddition = True
-        P_ellip = np.zeros_like(self.AvaStellarMass)
-        MMR = np.log10(MassRatio) # mergermass ratio in log10
-
-        Elliptical_Mass = np.zeros_like(self.AvaStellarMass)
-
-        WeightsM = np.zeros_like(self.AvaStellarMass[0, :]) # Follows Mass (j)
-        MassCumulative = np.zeros_like(self.AvaStellarMass[0, :])
-        CountRunning = np.zeros_like(self.AvaStellarMass[0, :])
-        First = True;
-
-        for i in range(np.shape(self.AvaStellarMass)[0]-1, -1, -1):
-            for j in range(np.shape(self.AvaStellarMass)[1]-1, -1, -1):
-
-                Maj_Merge_Bin = np.digitize(self.AvaStellarMass[i,j] + MMR, bins = self.Surviving_Sat_SMF_MassRange) #find the bin of the Surviving_Sat_SMF_MassRange above which is major mergers
-                Major_Frac = np.sum(self.Accretion_History[i, j,Maj_Merge_Bin:]) * self.SM_Bin #sums the numberdensity of satellites causing major mergers
-
-                Added_Mass = np.sum(self.Accretion_History[i, j, :] * self.Surviving_Sat_SMF_MassRange[:]) * self.SM_Bin
-                Added_Mass_Weight = np.sum(self.Accretion_History[i, j, :]) * self.SM_Bin
-
-                assert Added_Mass_Weight >= 0, 'Added_Mass_Weight negative'
-                assert WeightsM[j] >= 0, 'WeightsM negative'
-
-
-                previous_index = i + 1
-                previous_index_j = j + 1
-
-                if previous_index > np.shape(self.AvaStellarMass)[0]-1:
-                    Previous_av_mass = 0
-                    previous_index = i
-                else:
-                    Previous_av_mass = Elliptical_Mass[previous_index, j]
-
-
-                new_mass = 0
-
-
-                if (WeightsM[j] + Major_Frac) != 0:
-                    # Mergers becoming Ellipticals
-                    pow_av_mass = 10**Previous_av_mass
-                    if Previous_av_mass == 0:
-                        pow_av_mass = 0
-
-                    pow_st_mass = 10**self.AvaStellarMass[i, j]
-                    if self.AvaStellarMass[i, j] == 0:
-                        pow_st_mass = 0
-
-                    new_mass = (WeightsM[j] * pow_av_mass + Major_Frac * pow_st_mass)/(WeightsM[j] + Major_Frac)
-                    WeightsM[j] += Major_Frac
-
-
-                if (WeightsM[j] + Added_Mass_Weight) != 0 and Added_Mass != 0 and Added_Mass_Weight != 0 and new_mass != 0:
-                    if j == 27:
-                        print('old new mass', new_mass, 'lt', np.log10(new_mass))
-                    new_mass = (WeightsM[j] * new_mass + Added_Mass_Weight * (new_mass + 10**Added_Mass))/(WeightsM[j] + Added_Mass_Weight)
-                    WeightsM[j] += Added_Mass_Weight
-                    if j == 27:
-                        print('new mass', new_mass, 'lt', np.log10(new_mass))
-                        print('Added mass weight', Added_Mass_Weight)
-                        print('Added_Mass', Added_Mass)
-                        print('WeightsM', WeightsM[j])
-                        print('-----------------------')
-
-
-                '''
-                for k in range(len(self.Accretion_History[0, 0, :])):
-
-                    if self.Accretion_History[i, j, k] != 0:
-                        Added_Mass = 10**self.Surviving_Sat_SMF_MassRange[k]
-                        Weight = self.Accretion_History[i, j, k] * self.SM_Bin
-                        if (WeightsM[j] + Added_Mass_Weight) != 0:
-                            new_mass = (CountRunning[j] * WeightsM[j] * new_mass + Weight * MassCumulative[j] + CountRunning[j] * Weight * Added_Mass)/(WeightsM[j] + Weight)
-                            WeightsM[j] += Weight
-                            MassCumulative[j] += new_mass
-                            CountRunning[j] += 1
-                '''
-
-                if new_mass != 0:
-                    Elliptical_Mass[i, j] = np.log10(new_mass) #np.log10(10**Mass_Imparted + 10**Elliptical_Mass[i, j] + 10**Mass_Conversions)
-                else:
-                    Elliptical_Mass[i, j] = 0
-
-
-        return Elliptical_Mass
-
-    def CalculateSersicIndex(self, MassRatio = 0.25):
-        ''' Function to evolve Sersic Index evolution
-        '''
-        # Test Accuracy
-        test_acc = 10**-7
-
-        # Initialized Sersic Index Choice
-        Start_n = 1.5
-        Elliptical_n = 2.75
-
-        # Values of k
-        k_maj = 1
-        k_min = 1
-
-        # Scatter Magnitude
-        Gaussian_Scatter = 0.2
-
-        # Lower Limit ratio
-        lowLimitRatio = np.log10(0.1)
-
-        # Extract array sizes
-        self.Accretion_History.shape[0]
-
-
-        print("AccHist Shape:", self.Accretion_History.shape)
-        # Create distro
-        SersicIndex = ProbabilityDistribution(self.Accretion_History.shape[0], self.Accretion_History.shape[1], 500)
-        SersicIndex.addDistributionComponents(2)
-        SersicIndex.addScale(1, 8)
-        self.Ser_Scale = SersicIndex.Scale
-
-        MMR = np.log10(MassRatio) # Merger Mass in log10
-
-        print(self.Surviving_Sat_SMF_MassRange)
-
-        for i in range(np.shape(self.AvaStellarMass)[0]-1, -1, -1): # Redshift step - go from highest index back to zero
-            for j in range(np.shape(self.AvaStellarMass)[1]-1, -1, -1): # Mass bin step - go from highest index back to zero
-
-                    Maj_Merge_Bin = np.digitize(self.AvaStellarMass[i, j] + MMR, bins = self.Surviving_Sat_SMF_MassRange)
-                    lowLimitBin = np.digitize(self.AvaStellarMass[i, j] + lowLimitRatio, bins = self.Surviving_Sat_SMF_MassRange)
-
-                    # print(self.AvaStellarMass[i, j])
-
-                    if i == np.shape(self.AvaStellarMass)[0]-1: # If we are in the first redshift bin
-                        SersicIndex.initializeGaussian(0, i, j, Start_n, Gaussian_Scatter, 1)
-                        SersicIndex.fullCheck(i, j)
-                    else:
-                        SersicIndex.copyFromPreviousStep(i, j)
-
-                        # ----------------------------------
-                        # Major Mergers happening to Spirals
-                        # ----------------------------------
-                        if True:
-                            #   Calculate number and reduce spiral array by approprate quantity
-                            Major_Frac = (np.sum(self.Accretion_History[i, j, Maj_Merge_Bin:]) * self.SM_Bin) #/ total # Frac maj mergers
-                            Major_Frac_Spirals = Major_Frac * SersicIndex.distributionComponentFractions[0][i, j] # Fraction MM that apply to spirals
-                            SersicIndex.scaleDistributionByFraction(0, i, j, (1 - Major_Frac))
-                            SersicIndex.initializeGaussian(1, i, j, Elliptical_n, Gaussian_Scatter, Major_Frac_Spirals)
-                            SersicIndex.fullCheck(i, j)
-
-                        # ---------------------------------------
-                        # MAJOR mergers happening to ellipticalls
-                        # ---------------------------------------
-                        if True:
-                            #   Integral for Major Mergers
-                            delta_n = (k_maj/self.AvaStellarMass[i,j]) * np.sum(self.Accretion_History[i, j, Maj_Merge_Bin:]\
-                                * self.Surviving_Sat_SMF_MassRange[Maj_Merge_Bin:]) * self.SM_Bin
-
-                            SersicIndex.moveDistribution(1, i, j, delta_n)
-
-                        # ------------------------------
-                        # MINOR mergers - happen to both
-                        # ------------------------------
-                        if True:
-                            #   Integral for Minor Mergers
-                            delta_n =  (k_min/self.AvaStellarMass[i,j]) * np.sum(self.Accretion_History[i, j, lowLimitBin:Maj_Merge_Bin]\
-                                * self.Surviving_Sat_SMF_MassRange[lowLimitBin:Maj_Merge_Bin]) * self.SM_Bin
-
-                            SersicIndex.moveDistribution(0, i, j, delta_n)
-                            SersicIndex.moveDistribution(1, i, j, delta_n)
-
-
-                        # ----------------------------------------
-                        # MAJOR mergers, that just happen to both
-                        # ----------------------------------------
-                        if False:
-                            delta_n =  (k_maj/self.AvaStellarMass[i,j]) * np.sum(self.Accretion_History[i, j, Maj_Merge_Bin:]\
-                                * self.Surviving_Sat_SMF_MassRange[Maj_Merge_Bin:]) * self.SM_Bin
-
-                            SersicIndex.moveDistribution(0, i, j, delta_n)
-                            SersicIndex.moveDistribution(1, i, j, delta_n)
-
-
-
-        self.SersicIndex = SersicIndex
-
-        #return SersicIndex.extractCombinedDistribution(), VDistro.extractCombinedDistribution()
-
-    def CalculateSersicIndex_SDSS(self):
-        # file read
-        Header = ["galcount", "z", "Vmaxwt", "MsMendSerExp", "AbsMag", "logReSerExp", "BT", "n_bulge", "newLcentsat", "NewMCentSat", "newMhaloL", "probaE", "probaEll", "probaS0", "probaSab", "probaScd", "TType", "AbsMagCent", "MsCent", "veldisp", "veldisperr", "AbsModel_newKcorr", "LCentSat", "raSDSS7", "decSDSS7", "Z", "sSFR", "FLAGsSFR", "MEDIANsSFR", "P16sSFR", "P84sSRF", "SFR", "FLAGSFR", "MEDIANSFR", "P16SFR", "P84SRF", "RA_SDSS", "DEC_SDSS", "Z_2", "Seperation"]
-        df = pd.read_csv("./Data/Observational/Bernardi_SDSS/new_catalog_SFRs.dat", header = None, names = Header, delim_whitespace = True, skiprows = 1)
-
-        # Grab useful fields
-        SersicIndex = np.array(df['n_bulge'])
-        StellarMass = np.array(df['MsCent'])
-        VMax = np.array(df["Vmaxwt"])
-
-        # Create flags to remove offending galaxies
-        flag_central = df["LCentSat"] == 1. # Only centrals
-        flag_hasMass = StellarMass != -999. # Only valid stellar masses
-        flag_is8 = SersicIndex != 8. # Cap
-        flag_is0 = SersicIndex != 0.1
-        flag_combined = flag_hasMass & flag_is8 & flag_is0 & flag_central
-
-        # Remove galaxies
-        StellarMass = StellarMass[flag_combined]
-        SersicIndex = SersicIndex[flag_combined]
-        VMax = VMax[flag_combined]
-
-        # Bin up the SDSS
-        bins = np.arange(3.0, 15.0, 0.05)
-        # Weighted average by VMax
-        array, edges, numbers = stats.binned_statistic(StellarMass, VMax*SersicIndex, statistic = 'sum', bins = bins)
-        den = stats.binned_statistic(StellarMass, VMax, statistic = 'sum', bins = bins)[0]
-        array = array/den # Calculate the numerator and denominator separately, to make the best use of binned statistic
-
-        # For the purposes of the error, we need to do some housekeeping here
-        means = np.zeros(len(numbers)) # Storage array for the means - the value of the mean at each element
-        for i in range(len(means)):
-            means[i] = array[numbers[i]-1] # There probably is a faster way to do this
-        # Calculate the components needed for the standard deviation
-        std_wrong = stats.binned_statistic(StellarMass, VMax*(SersicIndex - means)**2, statistic = 'sum', bins = bins)[0]
-        binCounts = stats.binned_statistic(StellarMass, means, statistic = 'count', bins = bins)[0]
-        # Calculate the standard deviation
-        dev = np.sqrt(std_wrong/(((binCounts-1)/binCounts)*den))
-
-        get_SersicIndex = interpolate.interp1d(bins[0:-1], array)
-        get_Error = interpolate.interp1d(bins[0:-1], dev)
-
-        # Prep distribution
-        SersicDistro = ProbabilityDistribution(self.Accretion_History.shape[0], self.Accretion_History.shape[1], 500)
-        SersicDistro.addDistributionComponents(1)
-        SersicDistro.addScale(0., 8.)
-
-        # Iterate through
-        for i in range(np.shape(self.AvaStellarMass)[0]-1, -1, -1): # Redshift step - go from highest index back to zero
-            for j in range(np.shape(self.AvaStellarMass)[1]-1, -1, -1): # Mass bin step - go from highest index back to zero
-                Mass_now = self.AvaStellarMass[i, j]
-                Redshift = self.z[i]
-
-                if Mass_now > 8.5 and Mass_now < 12.0:
-                    SersicIndex = get_SersicIndex(Mass_now) * (1 + Redshift)**-1
-
-                    deviation = get_Error(Mass_now)
-
-                    SersicDistro.initializeGaussian(0, i, j, SersicIndex, deviation, 1)
-
-        self.SersicIndex = SersicDistro
-
-    def CalculateSizes(self):
-
-        SizeDistro = ProbabilityDistribution(self.Accretion_History.shape[0], self.Accretion_History.shape[1], 500)
-        SizeDistro.addDistributionComponents(1)
-        SizeDistro.addScale(0, 50)
-        # Size constants
-        r_R_0 = 0.1
-        r_k = 0.14
-        r_p = 0.39
-
-        for i in range(np.shape(self.AvaStellarMass)[0]-1, -1, -1): # Redshift step - go from highest index back to zero
-            for j in range(np.shape(self.AvaStellarMass)[1]-1, -1, -1): # Mass bin step - go from highest index back to zero
-
-                # ---------------------
-                # Quick and dirty sizes
-                # ---------------------
-                if True:
-                    Mass_z0 = self.AvaStellarMass[0, j]
-                    Mass_now = self.AvaStellarMass[i, j]
-
-                    Redshift = self.z[i]
-
-                    term2 = (1 + (10**Mass_z0)/(3.98e10))**(r_p - r_k)
-                    term1 = r_R_0 * ((10**Mass_z0)**r_k) / ((1 + Redshift)**0.4)
-                    Radius = term1 * term2
-
-                    Gaussian_Scatter = 1
-                    SizeDistro.initializeGaussian(0, i, j, Radius, Gaussian_Scatter, 1)
-
-        self.Sizes = SizeDistro
-
-    def CalculateVelocityDispersion(self):
-
-        def Bernardi_k(n):
-            k = np.zeros_like(n)
-            k[n > 10] = 2.95
-            k[n < 2] = 7.30
-
-            n_data = np.arange(2, 10.5, 0.5)
-            k_data = np.array([7.30, 6.97, 6.62, 6.27, 5.93, 5.60, 5.29, 4.99, 4.71, 4.44, 4.19, 3.95, 3.73, 3.52, 3.32, 3.13, 2.95])
-            f = interpolate.interp1d(n_data, k_data)
-
-            n_rel = n[k == 0]
-            k[k == 0] = f(n_rel)
-            return k
-
-        VDistro = ProbabilityDistribution(self.Accretion_History.shape[0], self.Accretion_History.shape[1], 500)
-        VDistro.addDistributionComponents(1)
-        VDistro.addScale(0, 300)
-
-        assert hasattr(self, 'Sizes'), "Velocity Dispersion requires Sizes - call CalculateSizes() first"
-        assert hasattr(self, 'SersicIndex'), "Velocity Dispersion requires Sersic Index - call CalculateSersicIndex() first"
-
-        for i in range(np.shape(self.AvaStellarMass)[0]-1, -1, -1): # Redshift step - go from highest index back to zero
-            for j in range(np.shape(self.AvaStellarMass)[1]-1, -1, -1): # Mass bin step - go from highest index back to zero
-
-                Gravitational_const = 4.30091e-3
-                Mass_now = self.AvaStellarMass[i, j]
-                res = 10**4
-                VD2 = np.sqrt((Gravitational_const * 10**Mass_now)/(Bernardi_k(self.SersicIndex.Catalogue(i, j, res)) \
-                        * self.Sizes.Catalogue(i, j, res) * 10**3))
-
-                hist = np.histogram(VD2, VDistro.Scale)[0]/res
-                VDistro.distributionComponents[0][i, j, :] = hist
-
-        self.VelocityDispersion = VDistro
-
-    def VelocityDispersionToBlackHoleMass(self):
-
-        MassBlackHole = ProbabilityDistribution(self.Accretion_History.shape[0], self.Accretion_History.shape[1], 500)
-        MassBlackHole.addDistributionComponents(1)
-        MassBlackHole.addScale(0, 20)
-
-        sigma = self.VelocityDispersion.extractCombinedDistribution()
-
-        for i in range(np.shape(self.AvaStellarMass)[0]-1, -1, -1): # Redshift step - go from highest index back to zero
-            for j in range(np.shape(self.AvaStellarMass)[1]-1, -1, -1): # Mass bin step - go from highest index back to zero
-                sample = self.VelocityDispersion.Catalogue(i, j, 10**4)
-
-                MBH = np.log10(1.9 * (sample/200)**5.1 * 10**8)
-
-                hist = np.histogram(MBH, MassBlackHole.Scale)[0]/10**4
-
-                MassBlackHole.distributionComponents[0][i, j, :] = hist
-
-        self.BlackHoleMass = MassBlackHole
-
-
+    
     def Return_satSMF(self, Redshift):
         AvaHaloMass, AnalyticalModel_SMF, Surviving_Sat_SMF_MassRange, z = F.LoadData_SMFhz([self.RunParam])
         z_bins = np.digitize(Redshift, bins = z)
         return Surviving_Sat_SMF_MassRange, AnalyticalModel_SMF[0][z_bins]
-
+    
     def Return_SSFR(self):
         Surviving_Sat_SMF_MassRange, sSFR_Range, Satellite_sSFR = F.LoadData_sSFR(self.RunParam)
         return Surviving_Sat_SMF_MassRange, sSFR_Range, Satellite_sSFR
-
-
+        
+        
 
 def Fit_to_Str(Fit):
     Str_Out = ""
@@ -705,15 +349,15 @@ def Fit_to_Str(Fit):
         Str_Out += str(i)+"_"
     return Str_Out
 
-
+    
 def MakeClass(Fit):
     Class = PairFractionData(Fit)
     FitName = Fit_to_Str(Fit)
     pickle.dump(Class, open("./Scripts/CentralPostprocessing/"+FitName+".pkl", 'wb'))
-    return [Fit, Class]
+    return [Fit, Class]   
 
 if __name__ == "__main__":
-
+    
     #Make the classes===================================================================================
     #M_Factors = ['G19_SE', 'M_PFT1', 'M_PFT2', 'M_PFT3']
     #N_Factors = ['G19_SE', 'N_PFT1', 'N_PFT2', 'N_PFT3']
@@ -722,10 +366,8 @@ if __name__ == "__main__":
     #extra_g_Factors = ['g_PFT4', 'g_PFT4_Strip']
     cMod_Factors = [('1.0', False, False, True, 'CE', 'G19_cMod'), ('1.0', False, True, True, 'CE_PP', 'G19_cMod'), ('1.0', True, False, True, 'CE', 'G19_cMod'), ('1.0', True, True, True, 'CE_PP', 'G19_cMod')]
     Evo_Factors = [('1.0', False, False, True, 'CE', 'G19_SE'), ('1.0', False, True, True, 'CE', 'G19_SE'), ('1.0', True, True, True, 'CE', 'G19_SE')]
-    #DPL_Factors = [('1.0', False, False, True, 'G19_DPL', 'G19_SE'), ('1.0', False, True, True, 'G19_DPL', 'G19_SE'), ('1.0', True, True, True, 'G19_DPL', 'G19_SE'), ('0.8', True, True, True, 'G19_DPL', 'G19_SE'), ('0.8', True, True, True, 'G19_DPL_PP', 'G19_SE'), ('1.2', True, True, True, 'G19_DPL', 'G19_SE'), ('1.2', True, True, True, 'G19_DPL_PP', 'G19_SE')]
-
-    DPL_Factors = [('1.0', False, False, True, 'G19_DPL', 'G19_SE'), ('1.0', False, True, True, 'G19_DPL', 'G19_SE')]
-    Total_Factors = Evo_Factors + DPL_Factors # + cMod_Factors
+    DPL_Factors = [('1.0', False, False, True, 'G19_DPL', 'G19_SE'), ('1.0', False, True, True, 'G19_DPL', 'G19_SE'), ('1.0', True, True, True, 'G19_DPL', 'G19_SE'), ('0.8', True, True, True, 'G19_DPL', 'G19_SE'), ('0.8', True, True, True, 'G19_DPL_PP', 'G19_SE'), ('1.2', True, True, True, 'G19_DPL', 'G19_SE'), ('1.2', True, True, True, 'G19_DPL_PP', 'G19_SE')]
+    Total_Factors = Evo_Factors #+ DPL_Factors + cMod_Factors 
 
     if False:
         ClassList = []
@@ -764,7 +406,7 @@ if __name__ == "__main__":
         Classes.append(i[1])
     print(FitList)
     #=====================================================================================
-
+    
     #Pair fraction systematic plot========================================================
     if False:
         #using gridspec
@@ -782,7 +424,7 @@ if __name__ == "__main__":
 
 
 
-        Master_Interp = Classes[FitList.index(('1.0',True, True, True, 'G19_DPL', 'G19_SE'))].ReturnInterp()
+        Master_Interp = Classes[FitList.index('G19_SE')].ReturnInterp()
         #TopLeft
         colourcycler = cycle(colours)
         Max = -1; Min = 1
@@ -799,7 +441,7 @@ if __name__ == "__main__":
                 ax1.plot(Mh, Ms, "-", color = colour)
             z, PairFracTot, M_L, M_U = Classes[index].Return_PF_Plot(Master_Interp)
             ax1.fill_between([11,14], [M_L, M_L], y2 =[M_U, M_U], alpha = 0.2, color = colour)
-
+                   
             #For the label
             Label = r"$M"
             if Fit == 'G19_SE':
@@ -810,7 +452,7 @@ if __name__ == "__main__":
                 Label += "_{z+}$"
             elif Fit[-1] == "3":
                 Label += "_{z-}$"
-
+                
             ax2.semilogy(z, PairFracTot, label = Label, color = colour)
             Max_new = np.nanmax(PairFracTot); Min_new = np.nanmin(PairFracTot)
             if Max_new > Max:
@@ -837,7 +479,7 @@ if __name__ == "__main__":
                 ax4.plot(Mh, Ms, "-", color = colour)
             z, PairFracTot, M_L, M_U = Classes[index].Return_PF_Plot(Master_Interp)
             ax4.fill_between([11,14], [M_L, M_L], y2 =[M_U, M_U], alpha = 0.2, color = colour)
-
+                               
             #For the label
             Label = r"$N"
             if Fit == 'G19_SE':
@@ -848,7 +490,7 @@ if __name__ == "__main__":
                 Label += "_{z+}$"
             elif Fit[-1] == "3":
                 Label += "_{z-}$"
-
+                
             ax3.semilogy(z, PairFracTot, label = Label, color = colour)
             Max_new = np.nanmax(PairFracTot); Min_new = np.nanmin(PairFracTot)
             if Max_new > Max:
@@ -872,7 +514,7 @@ if __name__ == "__main__":
                 ax5.plot(Mh, Ms, "-", color = colour)
             z, PairFracTot, M_L, M_U = Classes[index].Return_PF_Plot(Master_Interp, Parent_Cut = 9.5)
             ax5.fill_between([11,14], [M_L, M_L], y2 =[M_U, M_U], alpha = 0.2, color = colour)
-
+                               
             #For the label
             Label = r"$\beta"
             if Fit == 'G19_SE':
@@ -883,7 +525,7 @@ if __name__ == "__main__":
                 Label += "_{z+}$"
             elif Fit[-1] == "3":
                 Label += "_{z-}$"
-
+                
             ax6.semilogy(z, PairFracTot, label = Label, color = colour)
             Max_new = np.nanmax(PairFracTot); Min_new = np.nanmin(PairFracTot)
             if Max_new > Max:
@@ -909,7 +551,7 @@ if __name__ == "__main__":
                 ax8.plot(Mh, Ms, "-", color = colour)
             z, PairFracTot, M_L, M_U = Classes[index].Return_PF_Plot(Master_Interp)
             ax8.fill_between([11,14], [M_L, M_L], y2 =[M_U, M_U], alpha = 0.2, color = colour)
-
+                               
             #For the label
             Label = r"$\gamma"
             if Fit == 'G19_SE':
@@ -920,7 +562,7 @@ if __name__ == "__main__":
                 Label += "_{z+}$"
             elif Fit[-1] == "3":
                 Label += "_{z-}$"
-
+                
             ax7.semilogy(z, PairFracTot, label = Label, color = colour)
             Max_new = np.nanmax(PairFracTot); Min_new = np.nanmin(PairFracTot)
             if Max_new > Max:
@@ -971,7 +613,7 @@ if __name__ == "__main__":
 
         #make legends
         ax2.legend(loc = 8, frameon = False, ncol = 2)#bbox_to_anchor=(-1.3, -0.1),
-        ax3.legend(loc = 8, frameon = False, ncol = 2)#bbox_to_anchor=(2.3, -0.1),
+        ax3.legend(loc = 8, frameon = False, ncol = 2)#bbox_to_anchor=(2.3, -0.1), 
         ax6.legend(loc = 9, frameon = False, ncol = 2) # bbox_to_anchor=(-1.3, 1),
         ax7.legend(loc = 8, frameon = False, ncol = 2) #, bbox_to_anchor=(2.3, 1)
 
@@ -1074,17 +716,17 @@ if __name__ == "__main__":
         plt.tight_layout()
         plt.savefig("Figures/Paper2/PairFractionData.png")
         plt.clf()
-
-    #MergerRate Plot
+        
+    #MergerRate Plot    
     if False:
         def Mundy_MR(z, R, m, c = None):
             if c == None:
                 return R*np.power(1+z, m)
             else:
                 return R*np.power(1+z, m)*np.exp(-c*z)
-
-        MassRatio = 0.25
-
+            
+        MassRatio = 0.25    
+        
         fig = plt.figure()
         ax = fig.add_subplot(111)
         ax2 = ax.twiny()#add time axis on top
@@ -1096,7 +738,7 @@ if __name__ == "__main__":
             index = FitList.index("G19_SE")
             for j, M0 in enumerate([10.0, 11.0]):
                 colour = next(colourcycler)
-                line = next(linecycler)
+                line = next(linecycler)           
                 X, Y_dt, Y_dz = Classes[index].Return_Merger_Plot(M0)
                 #print(np.shape(X), np.shape(Y_dt), np.shape(Y_dz))
                 ax.semilogy(X[1:], Y_dt[1:], line, label = r"$M_{*, cen} >$"+"$10^{%s}$"%M0+r"$M_{\odot}$", color = colour, linewidth = 2.2)
@@ -1122,9 +764,9 @@ if __name__ == "__main__":
         plt.savefig("Figures/Paper2/GalaxyMergerRate.png")
         plt.savefig("Figures/Paper2/GalaxyMergerRate.pdf")
         plt.clf()
-
-    #Morphology Plot
-    if False:
+        
+    #Morphology Plot    
+    if True:
         Header=['galcount','finalflag','z','Vmaxwt','MsMendSerExp','AbsMag','logReSerExp',
                                   'BT','n_bulge','NewLCentSat','NewMCentSat'
                                   ,'MhaloL','probaE','probaEll',
@@ -1177,12 +819,12 @@ if __name__ == "__main__":
         plt.plot(sm_bins[1:], F_Ell, "k^", label = "SDSS", fillstyle = "none")
         plt.xlabel("$log_{10}$ $M_*$ [$M_\odot$]", fontproperties = mpl.font_manager.FontProperties(size = 15))
         plt.ylabel("$f_{elliptical}$", fontproperties = mpl.font_manager.FontProperties(size = 15))
-
+        
         MassRatio = 0.25
-
+        
         index = FitList.index(('1.0', False, False, True, 'CE', 'G19_SE'))
         P_ellip = Classes[index].Return_Morph_Plot(MassRatio, 2)
-
+        
         #Create data for lorenzo
         if False:
             for i, P_Ellip in enumerate(Classes[index].Return_Morph_Plot(MassRatio, z_start = 2)):
@@ -1193,8 +835,8 @@ if __name__ == "__main__":
                 Output = np.vstack((Classes[index].AvaHaloMass[i], P_Ellip)).T
                 FilePath = "./Test/Lorenzo/3/Halo_PEllip_{}.dat".format(Classes[index].z[i])
                 np.savetxt(FilePath, Output)
-
-
+        
+        
         plt.plot(Classes[index].AvaStellarMass[0], P_ellip[0], "-k",label = "STEEL, z = 0.1")
         z_plot = 0.65
         plt.plot(Classes[index].AvaStellarMass[np.digitize(z_plot, bins = Classes[index].z)], P_ellip[np.digitize(z_plot, bins = Classes[index].z)], "--C0", alpha = 0.9,label = "STEEL, z = {}".format(z_plot))
@@ -1208,8 +850,8 @@ if __name__ == "__main__":
         plt.savefig("Figures/Paper2/GalaxyMorphologies.png")
         plt.savefig("Figures/Paper2/GalaxyMorphologies.pdf")
         plt.clf()
-
-
+    
+    
     #Satellite Accretion plot
     def SFR(M, z):
         s0 = 0.6 + 1.22*(z) - 0.2*(z**2)
@@ -1233,7 +875,7 @@ if __name__ == "__main__":
         Max = m-m1-a2*r
         Max[Max<0] = 0
         return m-m0+a0*r-a1*np.power(Max, 2)
-    if False:
+    if True:     
         for k, Fit in enumerate([('1.0', False, False, True, 'CE', 'G19_SE')]):#'G19_SE_DPL_NOCE_SF', 'G19_SE_DPL_NOCE_SF_Strip', 'G19_SE_DPL_NOCE_PP_SF_Strip', 'G19_SE_DPL_NOCE_SF_Strip_1.2_Dyn', 'G19_SE_DPL_NOCE_PP_SF_Strip_1.2_Dyn', 'G19_SE_DPL_NOCE_SF_Strip_0.8_Dyn', 'G19_SE_DPL_NOCE_PP_SF_Strip_0.8_Dyn' 'G19_cMod', 'G19_cMod_Strip'
             f, SubPlots = plt.subplots(3, 3, figsize = (12,7), sharex = 'col', sharey = 'row')
 
@@ -1244,7 +886,7 @@ if __name__ == "__main__":
             SatelliteMasses = np.power(10, DataClass.Surviving_Sat_SMF_MassRange)
             Mass_Accretion_PerCentral = np.zeros_like(DataClass.AvaStellarMass)
             for i in range(np.shape(DataClass.AvaStellarMass)[0]-1, -1, -1):
-                for j in range(np.shape(DataClass.AvaStellarMass)[1]-1, -1, -1):
+                for j in range(np.shape(DataClass.AvaStellarMass)[1]-1, -1, -1): 
                     MassAcc = np.sum(DataClass.Accretion_History[i,j]*SatelliteMasses)*DataClass.SM_Bin*0.612 #Calculates the total acreted stellar mass per central mass     factor of 0.612 from moster 2018 assuming in any given merger ~40% of the mass of the satellite is distributed to the ICM
                     if (j == None):
                         print(MassAcc)
@@ -1254,8 +896,8 @@ if __name__ == "__main__":
                         Mass_Accretion_PerCentral[i,j] = 0
             colours = ["C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "k"]
             colourcycler = cycle(colours)
-
-
+            
+            
             Mass_CE = np.array([])
             SFR_CE = np.array([])
             AccRt = np.array([])
@@ -1267,7 +909,7 @@ if __name__ == "__main__":
                 CentralMass = np.power(10, DataClass.AvaStellarMass[:,i])
                 CentralMassGrowth = CentralMass[:-1] - CentralMass[1:]
                 CentralMassGrowth = np.insert(CentralMassGrowth, -1,CentralMassGrowth[-1])
-                dt_CMG = Cosmo.lookbackTime(DataClass.z[1:]) - Cosmo.lookbackTime(DataClass.z[:-1])
+                dt_CMG = Cosmo.lookbackTime(DataClass.z[1:]) - Cosmo.lookbackTime(DataClass.z[:-1]) 
                 dt_CMG = np.insert(dt_CMG, len(dt_CMG)-1, dt_CMG[-1]) # timesteps in gyr
                 Cent_Loss_Rate = np.zeros_like(CentralMassGrowth)
                 for j, Mass in enumerate(CentralMassGrowth):
@@ -1277,7 +919,7 @@ if __name__ == "__main__":
                         Cent_Loss_Rate[:j] = Cent_Loss_Rate[:j] + loss_rate #Msun yr-1
                 CMG_dt = np.divide(CentralMassGrowth, dt_CMG*(10**9)) - Cent_Loss_Rate #Central Mass Growth dM/dt Msun yr-1
                 CM_interp = interpolate.interp1d(DataClass.z, CentralMass)
-                CMG_dt_interp = interpolate.interp1d(DataClass.z, CMG_dt)
+                CMG_dt_interp = interpolate.interp1d(DataClass.z, CMG_dt) 
                 N = 3
                 X_acc_hz, Y_acc_hz = np.convolve(DataClass.z, np.ones((N,))/N, mode='valid'), np.convolve( np.divide(Mass_Accretion_PerCentral[:,i], CentralMassGrowth), np.ones((N,))/N, mode='valid')
                 z_CE= np.concatenate((z_CE, X_acc_hz[:-1]))
@@ -1285,15 +927,15 @@ if __name__ == "__main__":
                 SFR_CE= np.concatenate((SFR_CE, (1-Y_acc_hz[:-1])*np.convolve(CMG_dt, np.ones((N,))/N, mode='valid')[:-1]))
                 AccRt = np.concatenate((AccRt , (Y_acc_hz[:-1])*np.convolve(np.divide(CentralMassGrowth, dt_CMG*(10**9)), np.ones((N,))/N, mode='valid')[:-1]))
             np.save("Scripts/CentralPostprocessing/HaloMassTrackCE", np.vstack((Mass_CE, SFR_CE, z_CE, AccRt)))
-
+            
             for i_, i in enumerate([np.digitize(12, bins = DataClass.AvaStellarMass[0])-1, np.digitize(11.5, bins = DataClass.AvaStellarMass[0])-1, np.digitize(11, bins = DataClass.AvaStellarMass[0])-1]):#, np.digitize(10.5, bins = DataClass.AvaStellarMass[0])-1, np.digitize(10, bins = DataClass.AvaStellarMass[0])-1]):
                 colour = next(colourcycler)
-
+                
                 #Useful redshift bins
                 zbin3 = np.digitize(3, bins = DataClass.z)
                 zbin4 = np.digitize(4, bins = DataClass.z)
                 zbin5 = np.digitize(5, bins = DataClass.z)
-
+                
                 #for printing masses of the MPB at diffrent redhsifts
                 if True:
                     print(" z0 Mass:", DataClass.AvaStellarMass[0,i])
@@ -1301,27 +943,27 @@ if __name__ == "__main__":
                           " z4:", round(DataClass.AvaStellarMass[zbin4,i], 2),\
                           " z5:", round(DataClass.AvaStellarMass[zbin5,i], 2))
                     print("\n")
-
+                
                 #Central Mass Growth interp
                 CentralMass = np.power(10, DataClass.AvaStellarMass[:,i])
                 CentralMassGrowth = CentralMass[:-1] - CentralMass[1:]
                 CentralMassGrowth = np.insert(CentralMassGrowth, -1,CentralMassGrowth[-1])
-                dt_CMG = Cosmo.lookbackTime(DataClass.z[1:]) - Cosmo.lookbackTime(DataClass.z[:-1])
+                dt_CMG = Cosmo.lookbackTime(DataClass.z[1:]) - Cosmo.lookbackTime(DataClass.z[:-1]) 
                 dt_CMG = np.insert(dt_CMG, -1, dt_CMG[-1]) # timesteps in gyr
-                CMG_dt = np.divide(CentralMassGrowth, dt_CMG*(10**9)) #Central Mass Growth dM/dt Msun yr-1
+                CMG_dt = np.divide(CentralMassGrowth, dt_CMG*(10**9)) #Central Mass Growth dM/dt Msun yr-1    
                 CM_interp = interpolate.interp1d(DataClass.z, CentralMass)
                 CMG_dt_interp = interpolate.interp1d(DataClass.z, CMG_dt)
-
+                
                 #Create the SFH using the central with mass accertion
                 #Moving average here to smooth out the scatters in the instantaneous rate
                 N = 3
                 X_acc_hz_SFH, Y_acc_hz_SFH = np.convolve(DataClass.z, np.ones((N,))/N, mode='valid'), np.convolve(Mass_Accretion_PerCentral[:,i], np.ones((N,))/N, mode='valid')
-
+                
                 Accretion_Interp = interpolate.interp1d(DataClass.z, np.flip(np.cumsum(np.flip(Mass_Accretion_PerCentral[:,i], 0))), 0)
-                dt_acc_hz = Cosmo.lookbackTime(X_acc_hz_SFH[1:]) - Cosmo.lookbackTime(X_acc_hz_SFH[:-1])
+                dt_acc_hz = Cosmo.lookbackTime(X_acc_hz_SFH[1:]) - Cosmo.lookbackTime(X_acc_hz_SFH[:-1]) 
                 dt_acc_hz = np.insert(dt_acc_hz, len(dt_acc_hz)-1, dt_acc_hz[-1]) # timesteps in gyr
                 Accretion_Interp_dt = interpolate.interp1d(X_acc_hz_SFH, np.divide(Y_acc_hz_SFH, dt_acc_hz*(10**9)), fill_value = "extrapolate")#dM/dt Msun yr-1
-
+                
                 #Imputs for the SFH code
                 z_start = 5
                 z_for_SFH = np.flip(np.arange(np.min(X_acc_hz_SFH), z_start, 0.01), 0)
@@ -1330,7 +972,7 @@ if __name__ == "__main__":
                 d_t = np.insert(d_t, 0, d_t[0])
                 M_acc_dot = Accretion_Interp_dt(z_for_SFH)
                 MaxGas, Tquench, Tau_f = 100, -1, 0
-
+                
                 M_out, M_dot, M_dot_noacc, SFH, GMLR = F_c.Starformation_Centrals(DataClass.AvaStellarMass[zbin5,i], t, d_t, z_for_SFH, M_acc_dot, MaxGas, Tquench, Tau_f, SFR_Model = "G19_DPL", Scatter_On = 0)#"G19_DPL"
                 M_out, M_dot, M_dot_noacc, SFH, GMLR = np.power(10, np.array(M_out)), np.array(M_dot), np.array(M_dot_noacc), np.array(SFH), np.array(GMLR)
                 np.save("Scripts/CentralPostprocessing/GalaxyTracks{}".format(round(DataClass.AvaStellarMass[0,i],1)), np.vstack((z_for_SFH, M_out, M_dot_noacc, GMLR)))
@@ -1339,7 +981,7 @@ if __name__ == "__main__":
                 #Cumlative SFH
                 Mass = np.cumsum(SFH) +np.power(10, DataClass.AvaStellarMass[zbin5,i])
                 Mass_Intp = interpolate.interp1d(z_for_SFH, Mass)
-
+                
                 #Panel 1: Cumlative total of mass from satellite accretion or SFH
                 #Total
                 SubPlots[0, i_].plot(DataClass.z, DataClass.AvaStellarMass[:,i], "-", color = colour)
@@ -1347,46 +989,46 @@ if __name__ == "__main__":
                 SubPlots[0, i_].plot(z_for_SFH, np.log10(Mass), ":", color = colour)
                 #Accretion
                 SubPlots[0, i_].plot(DataClass.z, np.flip(np.log10(np.cumsum(np.flip(Mass_Accretion_PerCentral[:,i], 0))), 0), "--", color = colour)
-
-                #Panel 2: Fraction of total mass from satellite accretion or SFH since z = 3
+            
+                #Panel 2: Fraction of total mass from satellite accretion or SFH since z = 3                
                 #The ratio from SFH
                 SFH_zbin3 = np.digitize(3, bins = z_for_SFH)
                 Ratio_SFH = np.divide(Mass[SFH_zbin3:]-Mass[SFH_zbin3], CM_interp(z_for_SFH[SFH_zbin3:])-CM_interp(z_for_SFH[SFH_zbin3]))
-                SubPlots[1, i_].plot(z_for_SFH[SFH_zbin3:], Ratio_SFH, ":", color = colour)
-
+                SubPlots[1, i_].plot(z_for_SFH[SFH_zbin3:], Ratio_SFH, ":", color = colour)                
+                
                 #The ratio from Satellite Accretion
                 Ratio_Acc = np.divide(Accretion_Interp(z_for_SFH[SFH_zbin3:]) - Accretion_Interp(z_for_SFH[SFH_zbin3]), CM_interp(z_for_SFH[SFH_zbin3:])-CM_interp(z_for_SFH[SFH_zbin3]))
                 SubPlots[1, i_].plot(z_for_SFH[SFH_zbin3:], Ratio_Acc, "--", color = colour)
-
+                
                 #Total
                 SubPlots[1, i_].plot(z_for_SFH[SFH_zbin3:], Ratio_SFH+Ratio_Acc, "-", color = colour)
-
+                
                 #Panel 3: Instaneous mass rates
                 #Moving averages here to smooth out the scatters in the instantaneous rates
                 N = 3
                 X_acc_hz, Y_acc_hz = np.convolve(DataClass.z, np.ones((N,))/N, mode='valid'), np.convolve( np.divide(Mass_Accretion_PerCentral[:,i], CentralMassGrowth), np.ones((N,))/N, mode='valid')
                 SubPlots[2, i_].plot(X_acc_hz[4:], Y_acc_hz[4:], "--", color = colour)
                 SubPlots[2, i_].plot(z_for_SFH, np.divide(M_dot_noacc, CMG_dt_interp(z_for_SFH)), ":", color = colour)
-                SubPlots[2, i_].plot(z_for_SFH, np.divide(M_dot, CMG_dt_interp(z_for_SFH)), "-", color = colour)
+                SubPlots[2, i_].plot(z_for_SFH, np.divide(M_dot, CMG_dt_interp(z_for_SFH)), "-", color = colour)               
+                
+                
 
+                
 
-
-
-
-                #plots off axis for labels
+                #plots off axis for labels  
                 SubPlots[2, i_].plot([7,8,9], [0.5, 0.5, 0.5], "-",label = "$M_{*,cen} = $"+"$10^{%.3g}$"%DataClass.AvaStellarMass[0,i]+"$M_{\odot}$", color = colour)
-
-
-
+            
+            
+            
             #Unity lines
-            SubPlots[1, 0].axhline(1, 0.001, 3, linestyle = "-", color = "k", alpha = 0.5)
+            SubPlots[1, 0].axhline(1, 0.001, 3, linestyle = "-", color = "k", alpha = 0.5) 
             SubPlots[2, 0].axhline(1, 0.001, 3, linestyle = "-", color = "k", alpha = 0.5)
-            SubPlots[1, 1].axhline(1, 0.001, 3, linestyle = "-", color = "k", alpha = 0.5)
+            SubPlots[1, 1].axhline(1, 0.001, 3, linestyle = "-", color = "k", alpha = 0.5) 
             SubPlots[2, 1].axhline(1, 0.001, 3, linestyle = "-", color = "k", alpha = 0.5)
-            SubPlots[1, 2].axhline(1, 0.001, 3, linestyle = "-", color = "k", alpha = 0.5)
+            SubPlots[1, 2].axhline(1, 0.001, 3, linestyle = "-", color = "k", alpha = 0.5) 
             SubPlots[2, 2].axhline(1, 0.001, 3, linestyle = "-", color = "k", alpha = 0.5)
-
-            #Adding Illustris
+            
+            #Adding Illustris 
             colours = ["C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "k"]
             colourcycler = cycle(colours)
             for i_, i in enumerate([12,11.5,11]):#
@@ -1405,13 +1047,13 @@ if __name__ == "__main__":
             SubPlots[0,2].plot([4,5,6], [0.5, 0.5, 0.5], "--",label = "Accretion", color = "k")
             SubPlots[0,2].plot([4,5,6], [0.5, 0.5, 0.5], ":", label = "SFH", color = "k")
             SubPlots[0,2].plot([4,5,6], [0.5, 0.5, 0.5], "-", label = "Total", color = "k")
-
+            
             #Legends
             SubPlots[0,2].legend(ncol = 2,frameon = False, loc = 9, fontsize = 12)
             SubPlots[2,0].legend(ncol = 1, frameon = False, loc = 1, fontsize = 12)
-            SubPlots[2,1].legend(ncol = 1, frameon = False, loc = 1, fontsize = 12)
+            SubPlots[2,1].legend(ncol = 1, frameon = False, loc = 1, fontsize = 12) 
             SubPlots[2,2].legend(ncol = 1, frameon = False, loc = 1, fontsize = 12)
-
+            
             #Log axis
             SubPlots[0,0].set_xscale('log')
             SubPlots[1,0].set_xscale('log')
@@ -1427,8 +1069,8 @@ if __name__ == "__main__":
             SubPlots[1,2].set_xscale('log')
             SubPlots[2,2].set_xscale('log')
             SubPlots[1,2].set_yscale('log')
-            SubPlots[2,2].set_yscale('log')
-
+            SubPlots[2,2].set_yscale('log')  
+            
             #Ticks
             #X
             SubPlots[2,0].set_xticks([0.1,0.5,1,2])
@@ -1437,15 +1079,15 @@ if __name__ == "__main__":
             SubPlots[2,1].set_xticklabels(["0.1","0.5","1", "2"])
             SubPlots[2,2].set_xticks([0.1,0.5,1,2,3])
             SubPlots[2,2].set_xticklabels(["0.1","0.5","1","2","3"])
-
-
+            
+                        
             SubPlots[0,0].set_yticks([9, 10, 11, 12])
             SubPlots[0,0].set_yticklabels(["9","10", "11","12"])
             SubPlots[0,1].set_yticks([9, 10, 11, 12])
             SubPlots[0,1].set_yticklabels(["9","10", "11","12"])
             SubPlots[0,2].set_yticks([9, 10, 11, 12])
-            SubPlots[0,2].set_yticklabels(["9","10", "11","12"])
-
+            SubPlots[0,2].set_yticklabels(["9","10", "11","12"])            
+            
             Ticks = [0.1, 0.5, 1]
             Labels = ["0.1", "0.5", "1"]
             SubPlots[2,0].set_yticks(Ticks)
@@ -1455,12 +1097,12 @@ if __name__ == "__main__":
             SubPlots[2,2].set_yticks(Ticks)
             SubPlots[2,0].set_yticklabels(Labels)
 
+             
+            
 
-
-
-
-
-
+            
+ 
+            
             #Axis Limits
             SubPlots[2,0].set_xlim(0.1, 3)
             SubPlots[0,0].set_ylim(9, 12.5)
@@ -1486,23 +1128,23 @@ if __name__ == "__main__":
             #SubPlots[0,1].set_ylabel(r"log10 Mass $M_{\odot}$")
             #SubPlots[1,1].set_ylabel(r"$\frac{M_{*,acc}}{M_{*,cen}}$")
             #SubPlots[2,1].set_ylabel(r"$\frac{dM_{*,acc}/dt}{dM_{*,cen}/dt}$")
-
+            
             #Adjust and Save
             plt.subplots_adjust(hspace=0, wspace=0)
             #plt.tight_layout()
-
+            
             plt.savefig("Figures/Paper2/SatelliteAccretion{}.png".format(Fit))
             plt.savefig("Figures/Paper2/SatelliteAccretion{}.pdf".format(Fit))
             plt.clf()
-
-
+    
+    
     #Make the SMF
-    if False:
+    if True:
         colours = ["C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "k"]
         colourcycler = cycle(colours)
         Redshifts = [0,1.5,3]
         f, SubPlots = plt.subplots(1, len(Redshifts), figsize = (12,4), sharex = True, sharey = 'row')
-        for i, Fit in enumerate([('1.0', False, False, True, 'G19_DPL', 'G19_SE')]):
+        for i, Fit in enumerate(['G19_SE', 'G19_SE_DPL_NOCE_SF', 'G19_SE_DPL_NOCE_SF_Strip', 'G19_SE_DPL_NOCE_PP_SF_Strip']):
             colour = next(colourcycler)
             DataClass = Classes[FitList.index(Fit)]
             for j, z_ in enumerate(Redshifts):
@@ -1515,17 +1157,17 @@ if __name__ == "__main__":
         SubPlots[0].set_ylim(-6, -1.5)
         SubPlots[0].set_xlim(9, 12.5)
         SubPlots[0].legend(loc = 3, frameon = False)
-
+        
         SubPlots[0].set_ylabel("$log_{10}  \phi$ $[Mpc^{-3} dex^{-1}]$")
         SubPlots[1].set_xlabel(r"log10 Mass $M_{\odot}$")
-
+        
         plt.tight_layout()
         plt.savefig("Figures/Paper2/SMF.png")
         plt.savefig("Figures/Paper2/SMF.pdf")
         plt.clf()
-
+        
     #Make the sSFR distribution
-    if False:
+    if True:
         f, SubPlots = plt.subplots(1, 3, figsize = (10,3), sharey = True)
         FirstPass = True
         No_Leg = False
@@ -1534,24 +1176,20 @@ if __name__ == "__main__":
         linecycler = cycle(lines)
         colourcycler = cycle(colours)
         x,y=0,0
-        #Tdyn_Factors = ['G19_SE_DPL_NOCE_PP_SF_Strip'] #['G19_SE_DPL_NOCE_SF', 'G19_SE_DPL_NOCE_SF_Strip']
-        Tdyn_Factors = [('1.0', False, True, True, 'G19_DPL', 'G19_SE')] #['G19_SE_DPL_NOCE_SF', 'G19_SE_DPL_NOCE_SF_Strip']
-
-        test = np.load("/Data/Model/Output/RunFiles/RunParam_{}_{}_{}_{}_{}_{}_/MultiEpoch_SubHaloes_z.npy".format(Tdyn_Factors[0][0], \
-               Tdyn_Factors[0][1], Tdyn_Factors[0][2], Tdyn_Factors[0][3], Tdyn_Factors[0][4], Tdyn_Factors[0][5] ))
-
+        Tdyn_Factors = ['G19_SE_DPL_NOCE_PP_SF_Strip'] #['G19_SE_DPL_NOCE_SF', 'G19_SE_DPL_NOCE_SF_Strip']
+        
         MassRatio = 0.25
         for i, Fit in enumerate(Tdyn_Factors):
             index = FitList.index(Fit)
             P_ellip = np.repeat(Classes[index].Return_Morph_Plot(MassRatio, 3)[0], 100)
             DataClass = Classes[FitList.index(Fit)]
             Paramaters['SFR_Model'] = 'G19_DPL'
-
+            
             Central_SM = np.repeat(DataClass.AvaStellarMass[0], 100)
             Central_SFR = F.StarFormationRate(Central_SM, 0.1, Paramaters, ScatterOn = True, Quenching = True, P_ellip = P_ellip)
             Central_sSFR = Central_SFR - Central_SM
             Central_wt = HMF_fun(Central_SM, 0.1)*np.repeat(DataClass.AvaHaloMassBins[0], 100)
-
+            
             Line = next(linecycler)
             Colour = next(colourcycler)
             Surviving_Sat_SMF_MassRange, sSFR_Range, Satellite_sSFR = DataClass.Return_SSFR()
@@ -1562,11 +1200,11 @@ if __name__ == "__main__":
                 Weights = np.sum(Satellite_sSFR[np.digitize(l, bins = Surviving_Sat_SMF_MassRange):np.digitize(u, bins = Surviving_Sat_SMF_MassRange)], axis = 0)
                 N_Ntot = Weights/(np.sum(Weights)*bin_w)
                 #Centrals
-
+                
                 N_Ntot_cen = np.histogram(Central_sSFR[np.digitize(l, bins = DataClass.AvaStellarMass[0])*100:np.digitize(u, bins = DataClass.AvaStellarMass[0])*101], bins = sSFR_Range, weights = Central_wt[np.digitize(l, bins = DataClass.AvaStellarMass[0])*100:np.digitize(u, bins = DataClass.AvaStellarMass[0])*101], density = True)[0]
 
                 SubPlots[x].set_title("{}-{}".format(l,u) + "$M_{*, sat}$")
-                if FirstPass == True:
+                if FirstPass == True:    
                     if i == 0 and x == 0:
                         No_Leg = False
                     else:
@@ -1594,7 +1232,7 @@ if __name__ == "__main__":
         SubPlots[1].legend(loc = 9, frameon = False, fontsize = 12)
 
         SubPlots[1].set_xlabel("log10(sSFR) [$yr^{-1}$]", fontproperties = mpl.font_manager.FontProperties(size = 15))
-        #print(ax.get_xticks())
+        #print(ax.get_xticks())  
         SubPlots[0].set_xticklabels(["-13", "-12", "-11", "-10", ""])
         SubPlots[1].set_xticklabels(["-13", "-12", "-11", "-10", ""])
         SubPlots[2].set_xticklabels(["-13", "-12", "-11", "-10", "-9"])
@@ -1607,484 +1245,4 @@ if __name__ == "__main__":
         #tik.TickHelper
         #plt.tight_layout()
         plt.savefig("Figures/Paper2/SSFR.png", bbox_inches='tight')
-        plt.savefig("Figures/Paper2/SSFR.pdf", bbox_inches='tight')
-
-    # Chris's routine for Black Hole mass Evolution, for Corfu
-    if True:
-        Tdyn_Factors = [('1.0', False, True, True, 'G19_DPL', 'G19_SE')]
-
-        hillxCircle   = np.array([0.34, 0.75, 1.25, 2.24, 2.75, 3.24])
-        hillyCircle   = np.array([5.46, 3.99, 3.53, 2.66, 2.84, 2.36])
-        hillyCircleEu = np.array([0.37, 0.29, 0.26, 0.02, 0.29, 0.29])
-        hillyCircleEd = np.array([0.40, 0.28, 0.33, 0.21, 0.28, 0.27])
-
-        hillxStar = np.array([0.34, 0.75, 2.24, 2.75])
-        hillyStar = np.array([5.37, 4.11, 3.39, 3.19])
-        hillyStarEu = np.array([0.43, 0.48, 0.91, 1.14])
-        hillyStarEd = np.array([0.48, 0.33, 1.81, 1.15])
-
-        hillxSquare   = np.array([0.34, 0.74, 1.25])
-        hillySquare   = np.array([5.29, 4.49, 3.50])
-        hillySquareEu = np.array([0.39, 0.38, 0.15])
-        hillySquareEd = np.array([0.36, 0.50, 0.30])
-
-        hillxTri   = np.array([0.34, 0.75, 1.25, 1.75])
-        hillyTri   = np.array([5.17, 4.17, 3.75, 2.69])
-        hillyTriEu = np.array([0.49, 0.18, 0.25, 0.34])
-        hillyTriEd = np.array([0.12, 0.43, 0.36, 0.25])
-
-        hillxRed   = np.array([1.25, 1.75, 2.24, 2.75, 3.24, 4.00, 5.00])
-        hillyRed   = np.array([3.32, 2.82, 2.54, 2.63, 2.82, 1.81, 1.45])
-        hillyRedEu = np.array([0.38, 0.41, 0.22, 0.28, 0.48, 0.15, 0.12])
-        hillyRedEd = np.array([0.41, 0.44, 0.20, 0.25, 0.45, 0.20, 0.12])
-
-        for i, Fit in enumerate(Tdyn_Factors):
-            index = FitList.index(Fit)
-            tic = time.process_time()
-            Classes[index].CalculateSersicIndex_SDSS()
-            Classes[index].CalculateSizes()
-
-            P_ser = Classes[index].SersicIndex.extractCombinedDistribution()
-            Classes[index].CalculateVelocityDispersion()
-            toc = time.process_time()
-            print("Process:", toc - tic)
-
-            #a = Classes[index].Accretion_History_Halo
-
-            z = Classes[index].z
-            binIn = 27
-            Map = P_ser[:, binIn, :]
-            ser_range = Classes[index].SersicIndex.Scale
-            VD = Classes[index].VelocityDispersion.extractCombinedDistribution()
-
-            mass_up = Classes[index].AvaStellarMass[0, binIn]
-            mass_down = Classes[index].AvaStellarMass[0, binIn - 1]
-
-            zshow = np.array([0.1, 0.5, 1, 2, 4, 6])
-            digits = np.digitize(zshow, z)
-
-            sershow = np.array([2, 4, 6, 8])
-            sdigits = np.digitize(sershow, ser_range)
-
-            VDShow = np.array([0, 50, 100, 150, 200, 250, 300])
-            VDigits = np.digitize(VDShow, Classes[index].VelocityDispersion.Scale)
-
-            # Hill scaling
-            hill_circle_x_scaled = np.digitize(hillxCircle, z)
-            hill_circle_y_scaled = np.digitize(hillyCircle, ser_range)
-            hill_circle_scaledEu = np.digitize(hillyCircle + hillyCircleEu, ser_range) - hill_circle_y_scaled
-            hill_circle_scaledEd = hill_circle_y_scaled - np.digitize(hillyCircle - hillyCircleEd, ser_range)
-
-            hill_star_x_scaled = np.digitize(hillxStar, z)
-            hill_star_y_scaled = np.digitize(hillyStar, ser_range)
-            hill_star_scaledEu = np.digitize(hillyStar + hillyStarEu, ser_range) - hill_star_y_scaled
-            hill_star_scaledEd = hill_star_y_scaled - np.digitize(hillyStar - hillyStarEd, ser_range)
-
-            hill_square_x_scaled = np.digitize(hillxSquare, z)
-            hill_square_y_scaled = np.digitize(hillySquare, ser_range)
-            hill_square_scaledEu = np.digitize(hillySquare + hillySquareEu, ser_range) - hill_square_y_scaled
-            hill_square_scaledEd = hill_square_y_scaled - np.digitize(hillySquare - hillySquareEd, ser_range)
-
-            hill_tri_x_scaled = np.digitize(hillxTri, z)
-            hill_tri_y_scaled = np.digitize(hillyTri, ser_range)
-            hill_tri_scaledEu = np.digitize(hillyTri + hillyTriEu, ser_range) - hill_tri_y_scaled
-            hill_tri_scaledEd = hill_tri_y_scaled - np.digitize(hillyTri - hillyTriEd, ser_range)
-
-            hill_redx_scaled = np.digitize(hillxRed, z)
-            hill_redy_scaled = np.digitize(hillyRed, ser_range)
-            hill_redy_scaledEu = np.digitize(hillyRed + hillyRedEu, ser_range) - hill_redy_scaled
-            hill_redy_scaledEd = hill_redy_scaled - np.digitize(hillyRed - hillyRedEd, ser_range)
-
-
-
-            fig, ax = plt.subplots()
-            plt.imshow(Map.T, aspect = 1/4, interpolation = 'bilinear', origin = 'lower', cmap = 'magma')
-
-            plt.errorbar(hill_redx_scaled, hill_redy_scaled, np.stack((hill_redy_scaledEd, hill_redy_scaledEu)), fmt = 'cd', elinewidth = 1, capsize = 3)
-            plt.errorbar(hill_tri_x_scaled, hill_tri_y_scaled, np.stack((hill_tri_scaledEd, hill_tri_scaledEu)), fmt = 'w^', elinewidth = 1, capsize = 3)
-            plt.errorbar(hill_square_x_scaled, hill_square_y_scaled, np.stack((hill_square_scaledEd, hill_square_scaledEu)), fmt = 'ws', elinewidth = 1, capsize = 3)
-            plt.errorbar(hill_star_x_scaled, hill_star_y_scaled, np.stack((hill_star_scaledEd, hill_star_scaledEu)), fmt = 'w*', elinewidth = 1, capsize = 3)
-            plt.errorbar(hill_circle_x_scaled, hill_circle_y_scaled, np.stack((hill_circle_scaledEd, hill_circle_scaledEu)), fmt = 'wo', elinewidth = 1, capsize = 3)
-
-            #plt.plot(np.arange(0, len(z)), scaled_av)
-
-            ax.set_xticks(digits)
-            ax.set_xticklabels(zshow)
-            ax.set_yticks(sdigits)
-            ax.set_yticklabels(sershow)
-            plt.title("Sersic index probability distribution for galaxies of mass %.2f < $logM_\odot$ < %.2f (at $z = 0)$" % (mass_down, mass_up), fontname = 'Times New Roman', fontsize=8)
-            ax.tick_params(axis='both', which='major', labelsize=7)
-            plt.xlabel("Redshift", fontname = 'Times New Roman', fontsize = 7)
-            plt.ylabel("Sersic Index", fontname = 'Times New Roman', fontsize = 7)
-            plt.savefig('SersicIndex.png', dpi = 400)
-
-            ##### Velocity Dispersion ######
-            print('Starting Velocity Dispersion part')
-
-            fig4, ax4 = plt.subplots()
-
-            selection_bins = np.array([5, 10, 15, 20, 25, 30, 40, 50])
-
-            for j in selection_bins:
-
-                mass_up = Classes[index].AvaStellarMass[0, j]
-                mass_down = Classes[index].AvaStellarMass[0, j - 1]
-
-                Map = VD[:, j, :].T
-                length = Map.shape[1]
-                av_store = np.zeros(length)
-                for i in range(length):
-                    VD_Range = Classes[index].VelocityDispersion.Scale[0:-1]
-                    weights = Map[:, i]
-                    if np.sum(weights != 0):
-                        av_store[i] = np.average(VD_Range, weights = weights)
-
-                plt.plot(z[av_store != 0], av_store[av_store != 0], label = "{:.2f} < $M_\odot$ < {:.2f}".format(mass_up, mass_down))
-            plt.legend(fontsize = 7)
-            plt.tick_params(labelsize=7)
-            plt.xlabel("Redshift", fontname = 'Times New Roman', fontsize = 7)
-            plt.ylabel("Average Velocity Dispersion $kms^{-1}$", fontname = 'Times New Roman', fontsize = 7)
-            plt.title("Average Semi-Empirical Velocity Dispersion tracks assigned using STEEL", fontsize = 8)
-            plt.savefig('VelocityDispersion.png', dpi = 400)
-
-            ######## Black Hole Mass #########
-            print('Starting Black Hole part')
-
-            Classes[index].VelocityDispersionToBlackHoleMass()
-
-            BHM = Classes[index].BlackHoleMass.extractCombinedDistribution()
-
-            fig4, ax4 = plt.subplots()
-            print(len(Classes[index].AvaStellarMass[0, :]))
-
-            selection_bins = np.array([9, 11, 13, 18, 24, 30, 37])
-
-            for j in selection_bins:
-
-                mass_up = Classes[index].AvaStellarMass[0, j]
-                mass_down = Classes[index].AvaStellarMass[0, j - 1]
-
-                Map = BHM[:, j, :].T
-                length = Map.shape[1]
-                av_store = np.zeros(length)
-                for i in range(length):
-                    BH_Range = Classes[index].BlackHoleMass.Scale[0:-1]
-                    weights = Map[:, i]
-                    if np.sum(weights != 0):
-                        av_store[i] = np.average(BH_Range, weights = weights)
-
-                plt.plot(z[av_store != 0], av_store[av_store != 0], label = "{:.2f} < $M_\odot$ < {:.2f}".format(mass_up, mass_down))
-            plt.legend(fontsize = 7)
-            plt.tick_params(labelsize=7)
-            plt.xlabel("Redshift", fontname = 'Times New Roman', fontsize = 7)
-            plt.ylabel("Average Black Hole Mass $log10 M_\odot$", fontname = 'Times New Roman', fontsize = 7)
-            plt.title("Average Semi-Empirical Black Hole accretion tracks assigned using STEEL", fontsize = 8)
-            plt.xlim((0, 6))
-            plt.savefig('BlackHoleMass.png', dpi = 400)
-
-
-
-
-
-
-
-
-    # Chris' routine for Sersic Index Evolution
-    if False:
-        Tdyn_Factors = [('1.0', False, True, True, 'G19_DPL', 'G19_SE')] #['G19_SE_DPL_NOCE_SF', 'G19_SE_DPL_NOCE_SF_Strip']
-
-        #run = "RunParam_{}_{}_{}_{}_{}_{}_".format(Tdyn_Factors[0][0], \
-        #   Tdyn_Factors[0][1], Tdyn_Factors[0][2], Tdyn_Factors[0][3], Tdyn_Factors[0][4], Tdyn_Factors[0][5])
-
-        #files = ('MultiEpoch_SatHaloMass.npy', 'MultiEpoch_SubHalos_z.npy', 'MultiEpoch_SurvivingSubhalos_z_z.npy')
-
-        #loc = "Data/Model/Output/RunFiles"
-
-        #for i in range(len(files)):
-        #    string = "{}/{}/{}".format(loc, run, files[i])
-        #    test = np.load(string)
-        #    print(files[i], test.shape)
-
-        '''
-        string1 = 'Data/Model/Output/RunFiles/RunParam_1.0_False_True_True_G19_DPL_G19_SE_/MultiEpoch_SurvivingSubhalos_z_z.npy'
-        string2 = 'Data/Model/Output/RunFiles/RunParam_{}_{}_{}_{}_{}_{}_/MultiEpoch_SubHaloes_z.npy'.format(Tdyn_Factors[0][0], \
-               Tdyn_Factors[0][1], Tdyn_Factors[0][2], Tdyn_Factors[0][3], Tdyn_Factors[0][4], Tdyn_Factors[0][5])
-
-        print("String Comparison:", string1 == string2)
-        test = np.load(string1)
-        print("Test:", test.shape)
-        '''
-        MassRatio = 0.25
-
-        hillxCircle   = np.array([0.34, 0.75, 1.25, 2.24, 2.75, 3.24])
-        hillyCircle   = np.array([5.46, 3.99, 3.53, 2.66, 2.84, 2.36])
-        hillyCircleEu = np.array([0.37, 0.29, 0.26, 0.02, 0.29, 0.29])
-        hillyCircleEd = np.array([0.40, 0.28, 0.33, 0.21, 0.28, 0.27])
-
-        hillxStar = np.array([0.34, 0.75, 2.24, 2.75])
-        hillyStar = np.array([5.37, 4.11, 3.39, 3.19])
-        hillyStarEu = np.array([0.43, 0.48, 0.91, 1.14])
-        hillyStarEd = np.array([0.48, 0.33, 1.81, 1.15])
-
-        hillxSquare   = np.array([0.34, 0.74, 1.25])
-        hillySquare   = np.array([5.29, 4.49, 3.50])
-        hillySquareEu = np.array([0.39, 0.38, 0.15])
-        hillySquareEd = np.array([0.36, 0.50, 0.30])
-
-        hillxTri   = np.array([0.34, 0.75, 1.25, 1.75])
-        hillyTri   = np.array([5.17, 4.17, 3.75, 2.69])
-        hillyTriEu = np.array([0.49, 0.18, 0.25, 0.34])
-        hillyTriEd = np.array([0.12, 0.43, 0.36, 0.25])
-
-        hillxRed   = np.array([1.25, 1.75, 2.24, 2.75, 3.24, 4.00, 5.00])
-        hillyRed   = np.array([3.32, 2.82, 2.54, 2.63, 2.82, 1.81, 1.45])
-        hillyRedEu = np.array([0.38, 0.41, 0.22, 0.28, 0.48, 0.15, 0.12])
-        hillyRedEd = np.array([0.41, 0.44, 0.20, 0.25, 0.45, 0.20, 0.12])
-
-
-        for i, Fit in enumerate(Tdyn_Factors):
-            index = FitList.index(Fit)
-            tic = time.process_time()
-            Classes[index].CalculateSersicIndex()
-            Classes[index].CalculateSizes()
-            #Classes[index].SersicIndex.extractCombinedDistribution()
-            P_ser = Classes[index].SersicIndex.extractCombinedDistribution()
-            Classes[index].CalculateVelocityDispersion()
-            toc = time.process_time()
-            print("Process:", toc - tic)
-
-            #a = Classes[index].Accretion_History_Halo
-
-            z = Classes[index].z
-            binIn = 27
-            Map = P_ser[:, binIn, :]
-            ser_range = Classes[index].SersicIndex.Scale
-            VD = Classes[index].VelocityDispersion.extractCombinedDistribution()
-
-            mass_up = Classes[index].AvaStellarMass[0, binIn]
-            mass_down = Classes[index].AvaStellarMass[0, binIn - 1]
-
-            zshow = np.array([0.1, 0.5, 1, 2, 4, 6])
-            digits = np.digitize(zshow, z)
-
-            sershow = np.array([2, 4, 6, 8])
-            sdigits = np.digitize(sershow, ser_range)
-
-            VDShow = np.array([0, 50, 100, 150, 200, 250, 300])
-            VDigits = np.digitize(VDShow, Classes[index].VelocityDispersion.Scale)
-
-            # Hill scaling
-            hill_circle_x_scaled = np.digitize(hillxCircle, z)
-            hill_circle_y_scaled = np.digitize(hillyCircle, ser_range)
-            hill_circle_scaledEu = np.digitize(hillyCircle + hillyCircleEu, ser_range) - hill_circle_y_scaled
-            hill_circle_scaledEd = hill_circle_y_scaled - np.digitize(hillyCircle - hillyCircleEd, ser_range)
-
-            hill_star_x_scaled = np.digitize(hillxStar, z)
-            hill_star_y_scaled = np.digitize(hillyStar, ser_range)
-            hill_star_scaledEu = np.digitize(hillyStar + hillyStarEu, ser_range) - hill_star_y_scaled
-            hill_star_scaledEd = hill_star_y_scaled - np.digitize(hillyStar - hillyStarEd, ser_range)
-
-            hill_square_x_scaled = np.digitize(hillxSquare, z)
-            hill_square_y_scaled = np.digitize(hillySquare, ser_range)
-            hill_square_scaledEu = np.digitize(hillySquare + hillySquareEu, ser_range) - hill_square_y_scaled
-            hill_square_scaledEd = hill_square_y_scaled - np.digitize(hillySquare - hillySquareEd, ser_range)
-
-            hill_tri_x_scaled = np.digitize(hillxTri, z)
-            hill_tri_y_scaled = np.digitize(hillyTri, ser_range)
-            hill_tri_scaledEu = np.digitize(hillyTri + hillyTriEu, ser_range) - hill_tri_y_scaled
-            hill_tri_scaledEd = hill_tri_y_scaled - np.digitize(hillyTri - hillyTriEd, ser_range)
-
-            hill_redx_scaled = np.digitize(hillxRed, z)
-            hill_redy_scaled = np.digitize(hillyRed, ser_range)
-            hill_redy_scaledEu = np.digitize(hillyRed + hillyRedEu, ser_range) - hill_redy_scaled
-            hill_redy_scaledEd = hill_redy_scaled - np.digitize(hillyRed - hillyRedEd, ser_range)
-
-
-
-            fig, ax = plt.subplots()
-            plt.imshow(Map.T, aspect = 1/4, interpolation = 'bilinear', origin = 'lower', cmap = 'magma')
-
-            plt.errorbar(hill_redx_scaled, hill_redy_scaled, np.stack((hill_redy_scaledEd, hill_redy_scaledEu)), fmt = 'cd', elinewidth = 1, capsize = 3)
-            plt.errorbar(hill_tri_x_scaled, hill_tri_y_scaled, np.stack((hill_tri_scaledEd, hill_tri_scaledEu)), fmt = 'w^', elinewidth = 1, capsize = 3)
-            plt.errorbar(hill_square_x_scaled, hill_square_y_scaled, np.stack((hill_square_scaledEd, hill_square_scaledEu)), fmt = 'ws', elinewidth = 1, capsize = 3)
-            plt.errorbar(hill_star_x_scaled, hill_star_y_scaled, np.stack((hill_star_scaledEd, hill_star_scaledEu)), fmt = 'w*', elinewidth = 1, capsize = 3)
-            plt.errorbar(hill_circle_x_scaled, hill_circle_y_scaled, np.stack((hill_circle_scaledEd, hill_circle_scaledEu)), fmt = 'wo', elinewidth = 1, capsize = 3)
-
-            #plt.plot(np.arange(0, len(z)), scaled_av)
-
-            ax.set_xticks(digits)
-            ax.set_xticklabels(zshow)
-            ax.set_yticks(sdigits)
-            ax.set_yticklabels(sershow)
-            plt.title("Sersic index probability distribution for galaxies of mass %.2f < $logM_\odot$ < %.2f (at $z = 0)$" % (mass_down, mass_up), fontname = 'Times New Roman', fontsize=8)
-            ax.tick_params(axis='both', which='major', labelsize=7)
-            plt.xlabel("Redshift", fontname = 'Times New Roman', fontsize = 7)
-            plt.ylabel("Sersic Index", fontname = 'Times New Roman', fontsize = 7)
-            plt.savefig('SersicIndex.png', dpi = 400)
-
-            #fig2, ax2 = plt.subplots()
-            #y = Classes[index].rad_store[0, :]
-            #plt.plot(Classes[index].AvaStellarMass[0, :], np.log10(y))
-            #plt.savefig('test2.png')
-
-            fig3, ax3 = plt.subplots()
-            Map = VD[:, binIn, :]
-            plt.imshow(Map.T, aspect = 1/4, interpolation = 'bilinear', origin = 'lower', cmap = 'Greys')
-
-            ax.tick_params(axis='both', which='major', labelsize=10)
-            ax3.set_xticks(digits)
-            ax3.set_xticklabels(zshow)
-            ax3.set_yticks(VDigits)
-            ax3.set_yticklabels(VDShow)
-
-            plt.xlabel("Redshift", fontsize = 10)
-            plt.ylabel("Velocity Dispersion ($kms^{-1}$)", fontsize = 10)
-
-            plt.title("Velocity Dispersion probability distribution\nfor galaxies of mass %.2f < $logM_\odot$ < %.2f (at $z = 0)$" % (mass_down, mass_up), fontsize=10)
-            plt.savefig('test3.png')
-
-
-            fig4, ax4 = plt.subplots()
-
-            selection_bins = np.array([5, 10, 15, 20, 25, 30, 40, 50])
-
-            for j in selection_bins:
-
-                mass_up = Classes[index].AvaStellarMass[0, j]
-                mass_down = Classes[index].AvaStellarMass[0, j - 1]
-
-                Map = VD[:, j, :].T
-                length = Map.shape[1]
-                av_store = np.zeros(length)
-                for i in range(length):
-                    VD_Range = Classes[index].VelocityDispersion.Scale[0:-1]
-                    weights = Map[:, i]
-                    if np.sum(weights != 0):
-                        av_store[i] = np.average(VD_Range, weights = weights)
-
-                plt.plot(z[av_store != 0], av_store[av_store != 0], label = "{:.2f} < $M_\odot$ < {:.2f}".format(mass_up, mass_down))
-            plt.legend(fontsize = 7)
-            plt.tick_params(labelsize=7)
-            plt.xlabel("Redshift", fontname = 'Times New Roman', fontsize = 7)
-            plt.ylabel("Average Velocity Dispersion $kms^{-1}$", fontname = 'Times New Roman', fontsize = 7)
-            plt.title("Average Semi-Empirical Velocity Dispersion tracks assigned using STEEL", fontsize = 8)
-            plt.savefig('VelocityDispersion.png', dpi = 400)
-
-    if False:
-        fit = ('1.0', False, True, True, 'G19_DPL', 'G19_SE')
-        index = FitList.index(fit)
-        MassRatio = 0.25
-
-        tic = time.process_time()
-        Masses = Classes[index].Model_Morphology()
-        Freq = Classes[index].Return_Major_Merger_Frequency()
-
-        toc = time.process_time()
-        print("Process:", toc - tic)
-
-        binIn = 27
-
-        Mean_Masses = Classes[index].AvaStellarMass[:, binIn]
-        z = Classes[index].z
-
-        Ellip_Masses = Masses[:, binIn]
-        flag = Ellip_Masses != 0
-
-        #print(Ellip_Masses[flag])
-
-        fig = plt.figure(figsize = (9, 4))
-        ax = fig.add_subplot(111)
-        plt.plot(z, Mean_Masses, label = 'Average Mass (all galaxies)')
-        plt.plot(z[flag], Ellip_Masses[flag], label = 'Average Elliptical Mass')
-        plt.legend(fontsize = 10)
-        plt.tick_params(labelsize=10)
-        plt.ylabel("Stellar Mass $(log_{10}$ $M_\odot)$", fontsize = 10)
-        plt.xlabel("Redshift", fontsize = 10)
-
-        mass_up = Classes[index].AvaStellarMass[0, binIn]
-        mass_down = Classes[index].AvaStellarMass[0, binIn - 1]
-
-        plt.title("Stellar Mass, for galaxies of mass %.2f < $logM_\odot$ < %.2f (at $z = 0)$" % (mass_down, mass_up), fontsize=10)
-
-        inset_axes = inset_axes(ax,
-                    width="100%", # width = 30% of parent_bbox
-                    height=0.75, # height : 1 inch
-                    loc=8,
-                    #axes_kwargs = {"alpha" : 0.1}
-                    )
-        inset_axes.patch.set_alpha(0.3)
-        inset_axes.yaxis.tick_right()
-        #plt.set_alpha(0)
-        plt.tick_params(labelsize=10)
-        plt.xticks([])
-        #plt.yticks([])
-        plt.plot(z, Freq[:, binIn], color = 'k', label = "Probability of a Major Merger Occuring")
-        plt.legend(fontsize = 10, fancybox=True, framealpha=0.1)
-
-        #n, bins, patches = plt.hist(s, 400, normed=1)
-        plt.savefig('massTest.png')
-
-    if False:
-        fit = ('1.0', False, True, True, 'G19_DPL', 'G19_SE')
-        index = FitList.index(fit)
-
-        tic = time.process_time()
-
-        Freq = Classes[index].Return_Major_Merger_Frequency()
-
-        toc = time.process_time()
-        print("Process:", toc - tic)
-        z = Classes[index].z
-
-        binIn = 16
-
-        mass_up = Classes[index].AvaStellarMass[0, binIn]
-        mass_down = Classes[index].AvaStellarMass[0, binIn - 1]
-
-        prob = Freq[:, binIn]
-
-        running_area = prob # * z
-        total_area = np.sum(running_area)
-
-        normalized_area = np.flip(np.cumsum(np.flip(running_area)))#/total_area
-
-        Low = 0.16
-        High = 0.84
-
-        BinLow = np.digitize(Low, normalized_area)
-        BinHigh = np.digitize(High, normalized_area)
-
-        LineLowVertx = [0, z[BinLow]]
-        LineLowVerty = [Low, Low]
-        LineLowHozx = [z[BinLow], z[BinLow]]
-        LineLowHozy = [0, Low]
-        print('ZLow', z[BinLow])
-
-        LineHighVertx = [0, z[BinHigh]]
-        LineHighVerty = [High, High]
-        LineHighHozx = [z[BinHigh], z[BinHigh]]
-        LineHighHozy = [0, High]
-        print('ZHigh', z[BinHigh])
-
-
-#        cumprob = np.flip(np.cumsum(np.flip(Freq[:, binIn])))
-
-
-        #Mean_Masses = Classes[index].AvaStellarMass[:, binIn]
-
-        plt.figure()
-        plt.plot(z, normalized_area, color = 'k', label = "Probability of a Major Merger Occuring")
-
-        plt.plot(LineLowVertx, LineLowVerty, 'r:')
-        plt.plot(LineLowHozx, LineLowHozy, 'r:')
-
-        plt.plot(LineHighVertx, LineHighVerty, 'r-.')
-        plt.plot(LineHighHozx, LineHighHozy, 'r-.')
-
-        plt.title("For galaxies of mass %.2f < $logM_\odot$ < %.2f (at $z = 0)$" % (mass_down, mass_up), fontsize=10)
-
-        plt.xlabel('z', fontsize = 10)
-        plt.ylabel('Fraction of Major Mergers that have happened', fontsize = 10)
-        plt.xlim([0, 6])
-        plt.ylim([0, 1])
-        plt.savefig('MajProb.png')
+        plt.savefig("Figures/Paper2/SSFR.pdf", bbox_inches='tight')   
