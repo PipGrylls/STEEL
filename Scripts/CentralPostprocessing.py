@@ -679,13 +679,83 @@ class PairFractionData:
             for j in range(np.shape(self.AvaStellarMass)[1]-1, -1, -1): # Mass bin step - go from highest index back to zero
                 sample = self.VelocityDispersion.Catalogue(i, j, 10**4)
 
-                MBH = np.log10(1.9 * (sample/200)**5.1 * 10**8)
+                Redshift = self.z[i]
+
+                MBH = np.log10(1.9 * (sample/200)**5.1 * 10**8) + 3.1 * np.log10(1 + Redshift) + 0.05
 
                 hist = np.histogram(MBH, MassBlackHole.Scale)[0]/10**4
 
                 MassBlackHole.distributionComponents[0][i, j, :] = hist
 
         self.BlackHoleMass = MassBlackHole
+
+    def StellarMassToVelocityDispersion(self, StellarMass):
+        # Only works at z = 0.
+
+        ## assign sizes
+        r_R_0 = 0.1
+        r_k = 0.14
+        r_p = 0.39
+
+        term2 = (1 + (10**StellarMass)/(3.98e10))**(r_p - r_k)
+        term1 = r_R_0 * ((10**StellarMass)**r_k)
+        Radius = term1 * term2
+
+        ## assign sersic index
+        Header = ["galcount", "z", "Vmaxwt", "MsMendSerExp", "AbsMag", "logReSerExp", "BT", "n_bulge", "newLcentsat", "NewMCentSat", "newMhaloL", "probaE", "probaEll", "probaS0", "probaSab", "probaScd", "TType", "AbsMagCent", "MsCent", "veldisp", "veldisperr", "AbsModel_newKcorr", "LCentSat", "raSDSS7", "decSDSS7", "Z", "sSFR", "FLAGsSFR", "MEDIANsSFR", "P16sSFR", "P84sSRF", "SFR", "FLAGSFR", "MEDIANSFR", "P16SFR", "P84SRF", "RA_SDSS", "DEC_SDSS", "Z_2", "Seperation"]
+        df = pd.read_csv("./Data/Observational/Bernardi_SDSS/new_catalog_SFRs.dat", header = None, names = Header, delim_whitespace = True, skiprows = 1)
+
+        # Grab useful fields
+        SersicIndex = np.array(df['n_bulge'])
+        SDSS_StellarMass = np.array(df['MsCent'])
+        VMax = np.array(df["Vmaxwt"])
+
+        # Create flags to remove offending galaxies
+        flag_central = df["LCentSat"] == 1. # Only centrals
+        flag_hasMass = SDSS_StellarMass != -999. # Only valid stellar masses
+        flag_is8 = SersicIndex != 8. # Cap
+        flag_is0 = SersicIndex != 0.1
+        flag_combined = flag_hasMass & flag_is8 & flag_is0 & flag_central
+
+        # Remove galaxies
+        SDSS_StellarMass = SDSS_StellarMass[flag_combined]
+        SersicIndex = SersicIndex[flag_combined]
+        VMax = VMax[flag_combined]
+
+        # Bin up the SDSS
+        bins = np.arange(3.0, 15.0, 0.05)
+        # Weighted average by VMax
+        array, edges, numbers = stats.binned_statistic(SDSS_StellarMass, VMax*SersicIndex, statistic = 'sum', bins = bins)
+        den = stats.binned_statistic(SDSS_StellarMass, VMax, statistic = 'sum', bins = bins)[0]
+        array = array/den # Calculate the numerator and denominator separately, to make the best use of binned statistic
+
+        get_SersicIndex = interpolate.interp1d(bins[0:-1], array)
+
+        # Finally assign them
+        SersicIndex = get_SersicIndex(StellarMass)
+
+        ## Assign Velocity Dispersion
+        def Bernardi_k(n):
+            k = np.zeros_like(n)
+            k[n > 10] = 2.95
+            k[n < 2] = 7.30
+
+            n_data = np.arange(2, 10.5, 0.5)
+            k_data = np.array([7.30, 6.97, 6.62, 6.27, 5.93, 5.60, 5.29, 4.99, 4.71, 4.44, 4.19, 3.95, 3.73, 3.52, 3.32, 3.13, 2.95])
+            f = interpolate.interp1d(n_data, k_data)
+
+            n_rel = n[k == 0]
+            k[k == 0] = f(n_rel)
+            return k
+
+        Gravitational_const = 4.30091e-3
+
+        VD2 = np.sqrt((Gravitational_const * 10**StellarMass)/(Bernardi_k(SersicIndex) \
+                * Radius * 10**3))
+
+        return VD2
+
+
 
 
     def Return_satSMF(self, Redshift):
@@ -1773,14 +1843,37 @@ if __name__ == "__main__":
                     if np.sum(weights != 0):
                         av_store[i] = np.average(BH_Range, weights = weights)
 
-                plt.plot(z[av_store != 0], av_store[av_store != 0], label = "{:.2f} < $M_\odot$ < {:.2f}".format(mass_up, mass_down))
-            plt.legend(fontsize = 7)
+                plt.plot(z[av_store != 0], av_store[av_store != 0], 'k', label = "{:.2f} < $M_\odot$ < {:.2f}".format(mass_up, mass_down))
+
+            track = np.array(['6', '6.5', '7', '7.5', '8', '8.5', '9'])
+
+            for t in track:
+                data_path = './Data/Plotting/AccTrack' + t + '.csv'
+                print(data_path)
+                df = pd.read_csv(data_path, header=None)
+                plt.plot(df[0], df[1], 'k:', label = 'FS', alpha = 0.5)
+
+            #plt.legend(fontsize = 7)
             plt.tick_params(labelsize=7)
             plt.xlabel("Redshift", fontname = 'Times New Roman', fontsize = 7)
             plt.ylabel("Average Black Hole Mass $log10 M_\odot$", fontname = 'Times New Roman', fontsize = 7)
             plt.title("Average Semi-Empirical Black Hole accretion tracks assigned using STEEL", fontsize = 8)
-            plt.xlim((0, 6))
+            plt.xlim((0.1, 6))
             plt.savefig('BlackHoleMass.png', dpi = 400)
+
+            ######### Starting m_star-velocity dispersion part #########
+
+            M_star = np.linspace(9.5, 12, 100)
+            VD = Classes[index].StellarMassToVelocityDispersion(M_star)
+
+            data_path = './Data/Plotting/SDSS_MStarSigma.csv'
+            df = pd.read_csv(data_path, header=None)
+            plt.figure()
+            plt.plot(M_star, np.log10(VD))
+            plt.plot(df[0], df[1], ':', label = 'SDSS', alpha = 0.5)
+            plt.xlabel('log M_star')
+            plt.ylabel('log $\sigma$ $[km$ $s^{-1}]$')
+            plt.savefig('Mstar_velocityDispersion.png')
 
 
 
