@@ -458,18 +458,16 @@ class SDSS_Plots:
 
         return Cent_fig, Sat_fig, Tot_fig, ax
     
-    def sSFR_Plot(self, l, u, fig, No_Leg = False):
+    def sSFR_Plot(self, l, u, fig, No_Leg = False, colour = "k"):
         #Make DF cuts
         df_sSFR_masscut = self.df_sat[ (l < self.df_sat.MsMendSerExp) & (self.df_sat.MsMendSerExp < u)]
         hist, bins = np.histogram(df_sSFR_masscut.SerExpsSFR, bins = np.arange(-13, -9, 0.1), weights = df_sSFR_masscut.Vmaxwt)
         Bi_Mod_X = bins[:-1]
         Bi_Mod_Y = hist/(np.sum(hist)*0.1)
         if No_Leg == False:
-            print("1")
-            fig.bar(Bi_Mod_X, Bi_Mod_Y, 0.1, color = "k", alpha = 0.4, label = "SDSS Satellites")
+            fig.bar(Bi_Mod_X, Bi_Mod_Y, 0.1, color = colour, alpha = 0.4, label = "SDSS Satellites")
         else:
-            print("2")
-            fig.bar(Bi_Mod_X, Bi_Mod_Y, 0.1, color = "k", alpha = 0.4)
+            fig.bar(Bi_Mod_X, Bi_Mod_Y, 0.1, color = colour, alpha = 0.4)
         return Bi_Mod_X, Bi_Mod_Y
     
     def sSFR_Plot_Cen(self, l, u, fig, No_Leg = False):

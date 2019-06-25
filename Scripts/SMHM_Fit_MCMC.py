@@ -394,7 +394,7 @@ def lnlike_hz(Params, Inputs):
        
 def lnprior_hz(theta):
     M,N,b,g = theta
-    if (0.2<M<1.5) and (-0.03<N<0.01) and (-1.5<b<-0.1) and (-0.3<g<0.6):
+    if (0.2<M<1.5) and (-0.03<N<0.01) and (-3<b<-0.1) and (-0.5<g<0.6):
         return 0.0
     else:
         return -np.inf
@@ -507,6 +507,6 @@ if __name__ == "__main__":
             SubPlots[i][j].plot(SMR, DM_to_SM(SMR, SM_bin, HaloMasses[k], HM_bin, HaloWts[k], Params, HaloRed[k], SMHM_Model, Pairwise = True), label = "Fit")
             SubPlots[i][j].plot(SMR, FittingClass.SMF_Total[k], label = "Total")
             k+=1
-    plt.savefig("./SMHM_Fitting/HighzSMF_cMod.png")
+    plt.savefig("./Figures/SMHM_Fit/HighzSMF_cMod.png")
     plt.clf()
     #"""

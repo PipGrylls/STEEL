@@ -456,7 +456,7 @@ if __name__ == "__main__":
     #=====================================================================================
     
     #Pair fraction systematic plot========================================================
-    if False:
+    if True:
         #using gridspec
         fig = plt.figure(figsize=[18,8])
         gs = GridSpec(8, 18, hspace=0.0,wspace=0.0,figure=fig)
@@ -486,7 +486,7 @@ if __name__ == "__main__":
             if Fit in [('1.0', True, False, True, 'G19_DPL', 'M_PFT1'),('1.0', True, False, True, 'G19_DPL', 'G19_SE')]:
                 z = 0.1
                 Mh, Ms = Classes[index].ReturnSMHM(z)
-                ax1.plot(Mh, Ms, "-", color = colour)
+                ax1.plot(Mh, Ms, ":", color = colour)
             z, PairFracTot, M_L, M_U = Classes[index].Return_PF_Plot(Master_Interp)
             ax1.fill_between([11,14], [M_L, M_L], y2 =[M_U, M_U], alpha = 0.2, color = colour)
                    
@@ -524,7 +524,7 @@ if __name__ == "__main__":
             if Fit in [('1.0', True, False, True, 'G19_DPL', 'N_PFT1'),('1.0', True, False, True, 'G19_DPL', 'G19_SE')]:
                 z = 0.1
                 Mh, Ms = Classes[index].ReturnSMHM(z)
-                ax4.plot(Mh, Ms, "-", color = colour)
+                ax4.plot(Mh, Ms, ":", color = colour)
             z, PairFracTot, M_L, M_U = Classes[index].Return_PF_Plot(Master_Interp)
             ax4.fill_between([11,14], [M_L, M_L], y2 =[M_U, M_U], alpha = 0.2, color = colour)
                                
@@ -559,7 +559,7 @@ if __name__ == "__main__":
             if Fit in [('1.0', True, False, True, 'G19_DPL', 'b_PFT1'),('1.0', True, False, True, 'G19_DPL', 'G19_SE')]:
                 z = 0.1
                 Mh, Ms = Classes[index].ReturnSMHM(z)
-                ax5.plot(Mh, Ms, "-", color = colour)
+                ax5.plot(Mh, Ms, ":", color = colour)
             z, PairFracTot, M_L, M_U = Classes[index].Return_PF_Plot(Master_Interp, Parent_Cut = 9.5)
             ax5.fill_between([11,14], [M_L, M_L], y2 =[M_U, M_U], alpha = 0.2, color = colour)
                                
@@ -596,7 +596,7 @@ if __name__ == "__main__":
             if Fit in [('1.0', True, False, True, 'G19_DPL', 'g_PFT1'),('1.0', True, False, True, 'G19_DPL', 'G19_SE')]:
                 z = 0.1
                 Mh, Ms = Classes[index].ReturnSMHM(z)
-                ax8.plot(Mh, Ms, "-", color = colour)
+                ax8.plot(Mh, Ms, ":", color = colour)
             z, PairFracTot, M_L, M_U = Classes[index].Return_PF_Plot(Master_Interp)
             ax8.fill_between([11,14], [M_L, M_L], y2 =[M_U, M_U], alpha = 0.2, color = colour)
                                
@@ -819,7 +819,7 @@ if __name__ == "__main__":
         
         
     #Make the Mevo PF plot===================================
-    if True:
+    if False:
         f, SubPlots = plt.subplots(1, 2, figsize = (10, 4))
         colourcycler = cycle(colours)
         Max = -1; Min = 1
@@ -887,10 +887,21 @@ if __name__ == "__main__":
         plt.savefig("Figures/Paper3/PairFractionHMevo.pdf")
         plt.clf()
         
+    #ExtraplotsData
+    if True:
+        Max = -1; Min = 1
+        for i, Fit in enumerate([('1.0', True, False, True, 'G19_DPL', 'G19_SE'), ('1.0', False, False, True, 'G19_DPL', 'G19_cMod'), ('1.0', False, False, True, 'G19_DPL', 'HMevo_alt_0.0'), ('1.0', False, False, True, 'G19_DPL', 'HMevo_alt_0.3')]):
+            index = FitList.index(Fit)
+            Classes[index].ReturnInterp()
+            z, PairFracTot, M_L, M_U = Classes[index].Return_PF_Plot(Classes[index].ReturnInterp(), Parent_Cut = 11, UpperLimit = True)
+            if i == 0:
+                Out = z
+            Out = np.vstack((Out, PairFracTot))
+        np.save("Scripts/CentralPostprocessing/Extraplots3", Out)
         
         
     #MergerRate Plot    
-    if True:
+    if False:
         def Mundy_MR(z, R, m, c = None):
             if c == None:
                 return R*np.power(1+z, m)
@@ -1072,7 +1083,7 @@ if __name__ == "__main__":
         #colours = ["C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "k"]
         colours = ["C0", "C2", "C3", "C6"]
         colourcycler = cycle(colours)
-        #[HMevo_Factors[0], HMevo_Factors[1], HMevo_Factors[2], HMevo_Factors[6]]
+        #[HMevo_Factors[0], HMevo_Factors[2], HMevo_Factors[3], HMevo_Factors[6]]
         for k, Fit in enumerate([HMevo_Factors[0], HMevo_Factors[2], HMevo_Factors[3], HMevo_Factors[6]]):
             colour = next(colourcycler)
             #f, SubPlots = plt.subplots(3, 3, figsize = (12,7), sharex = 'col', sharey = 'row')
