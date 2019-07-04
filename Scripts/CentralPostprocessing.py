@@ -357,6 +357,37 @@ class PairFractionData:
         return Surviving_Sat_SMF_MassRange, sSFR_Range, Satellite_sSFR
         
         
+    def Return_Second_Order_Lenticular_Plot(self, MassRatio = 0.3, MassRatioS0 = 0.1, z_start = 10):
+        FirstAddition = True
+        FirstAdditionS0 = True
+
+        P_ellip = np.zeros_like(self.AvaStellarMass)
+        P_lentic = np.zeros_like(self.AvaStellarMass)
+        
+        MMR = np.log10(MassRatio) #mergermass ratio in log10
+        MMRS0 = np.log10(MassRatioS0)
+        
+        print(np.shape(self.AvaStellarMass)[0], np.shape(self.AvaStellarMass)[1], np.shape(self.z), np.shape(P_lentic))
+        
+        for i in range(np.shape(self.AvaStellarMass)[0]-1, -1, -1):
+            for j in range(np.shape(self.AvaStellarMass)[1]-1, -1, -1):
+                Maj_Merge_Bin = np.digitize(self.AvaStellarMass[i,j]+MMR, bins = self.Surviving_Sat_SMF_MassRange) #find the bin of the Surviving_Sat_SMF_MassRange above which is major mergers
+                Major_Frac = np.sum(self.Accretion_History[i,j,Maj_Merge_Bin:])*self.SM_Bin #sums the numberdensity of satellites causing major mergers
+                
+                Maj_Merge_BinS0 = np.digitize(self.AvaStellarMass[i,j]+MMRS0, bins = self.Surviving_Sat_SMF_MassRange) #find the bin of the Surviving_Sat_SMF_MassRange above which is major mergers
+                Major_FracS0 = np.sum(self.Accretion_History[i,j,Maj_Merge_BinS0:])*self.SM_Bin
+                
+                if FirstAddition and (z_start > self.z[i]):
+                    P_ellip[i,j] = Major_Frac #if this is the first step then the number turned is just the fraction
+                    P_lentic[i,j] = Major_FracS0
+                elif (z_start > self.z[i]):
+                    P_ellip[i,j] = P_ellip[i+1,j] + Major_Frac*(1 - P_ellip[i+1,j]) #elliptical population continues to grow
+                    P_lentic[i,j] = P_lentic[i+1,j] + Major_FracS0*(1 - P_lentic[i+1,j] - P_ellip[i+1,j]) #lenticular population grows including existing E population
+
+            if (z_start > self.z[i]):
+                FirstAddition = False
+                
+        return P_lentic
 
 def Fit_to_Str(Fit):
     Str_Out = ""
@@ -819,7 +850,7 @@ if __name__ == "__main__":
         
         
     #Make the Mevo PF plot===================================
-    if True:
+    if False:
         f, SubPlots = plt.subplots(1, 2, figsize = (10, 4))
         colourcycler = cycle(colours)
         Max = -1; Min = 1
@@ -890,7 +921,7 @@ if __name__ == "__main__":
         
         
     #MergerRate Plot    
-    if True:
+    if False:
         def Mundy_MR(z, R, m, c = None):
             if c == None:
                 return R*np.power(1+z, m)
@@ -938,7 +969,7 @@ if __name__ == "__main__":
         plt.clf()
         
     #Morphology Plot    
-    if False:
+    if True:
         mpl.rcParams.update(mpl.rcParamsDefault)
         plt.rcParams['ytick.minor.visible']=True
         plt.rcParams['xtick.minor.visible']=True
@@ -1007,11 +1038,13 @@ if __name__ == "__main__":
         plt.xlabel("$log_{10}$ $M_*$ [$M_\odot$]")#, fontproperties = mpl.font_manager.FontProperties(size = 15))
         plt.ylabel("$f_{elliptical}$")#, fontproperties = mpl.font_manager.FontProperties(size = 15))
         
-        MassRatio = 0.3
+        MassRatio = 0.25
         
-        index = FitList.index(('1.0', True, True, True, 'G19_DPL', 'G19_SE'))
-        P_ellip = Classes[index].Return_Morph_Plot(MassRatio, 3)
-        
+        # index = FitList.index(('1.0', True, True, True, 'G19_DPL', 'G19_SE'))
+        index = FitList.index(('1.0', False, False, True, 'CE', 'G19_SE'))
+        # P_ellip = Classes[index].Return_Morph_Plot(MassRatio, 3)
+        P_ellip = Classes[index].Return_Morph_Plot(MassRatio, 2)
+
         #Create data for lorenzo
         if False:
             for i, P_Ellip in enumerate(Classes[index].Return_Morph_Plot(MassRatio, z_start = 2)):
@@ -1041,8 +1074,111 @@ if __name__ == "__main__":
         plt.savefig("Figures/Paper2/GalaxyMorphologies.pdf")
         plt.clf()
     
-    
-    
+
+    #Second Order Lenticular Morphology Plot
+    '''
+    This generates plots working under the assumptions that:
+    1) Lenticulars are anything that isn't an elliptical
+    2) Lenticulars have mass ratio range between MassRatio and MassRatioS0
+
+    Anything else is a spiral/late-type galaxy
+    '''
+    if True:
+        mpl.rcParams.update(mpl.rcParamsDefault)
+        plt.rcParams['ytick.minor.visible']=True
+        plt.rcParams['xtick.minor.visible']=True
+        plt.rcParams['axes.linewidth']=2
+        plt.rcParams['xtick.major.size'] = 5
+        plt.rcParams['ytick.major.size'] = 5
+        plt.rcParams['xtick.minor.size'] = 3
+        plt.rcParams['ytick.minor.size'] = 3
+        plt.rcParams['xtick.major.width'] = 1
+        plt.rcParams['ytick.major.width'] = 1
+        plt.rcParams['xtick.minor.width'] = 1
+        plt.rcParams['ytick.minor.width'] = 1
+        mpl.rcParams['axes.titlepad'] = 20
+        plt.rcParams['font.size']=22
+        plt.rcParams['lines.linewidth']=3
+        Header=['galcount','finalflag','z','Vmaxwt','MsMendSerExp','AbsMag','logReSerExp',
+                                  'BT','n_bulge','NewLCentSat','NewMCentSat'
+                                  ,'MhaloL','probaE','probaEll',
+                                'probaS0','probaSab','probaScd','TType','P_S0',
+                              'veldisp','veldisperr','raSDSS7','decSDSS7']
+
+        df = pd.read_csv('Data/Observational/Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, delim_whitespace = True)
+        goodness_cut = (df.finalflag==3 ) | (df.finalflag==5) | (df.finalflag==1)
+
+        df = df[goodness_cut]
+
+        df = df[df.Vmaxwt>0]
+        df.loc[df.finalflag==5,'BT']=0
+        df.loc[df.finalflag==1,'BT']=1
+
+        fracper=len(df)/670722
+        skycov=8000.
+        fracsky=(skycov*fracper)/(4*np.pi*(180./np.pi)**2.)
+
+        df_cent = df[df.NewLCentSat == 1.0]
+        #Add SDSS Data to plot
+        sm_binwidth = 0.2
+        sm_bins = np.arange(9, 12.5, sm_binwidth)
+
+        #Total Population
+        SM_All = np.array(df_cent.MsMendSerExp)
+        Vmax_All = np.array(df_cent.Vmaxwt)
+
+        Weights_All = Vmax_All
+        Weightsum_All = np.sum(Vmax_All)
+        totVmax_All = Weightsum_All/fracsky
+
+        hist_cent_All, edges_All = np.histogram(SM_All, bins = sm_bins, weights = Vmax_All)
+
+        Y_All = np.log10(np.divide(hist_cent_All, fracsky*sm_binwidth)*0.9195) #0.9195 correction of volume to Planck15
+
+        #Lenticulars Only
+        SM_Len = np.array(df_cent.MsMendSerExp[(df_cent.TType<=0)&(df_cent.P_S0>=0.5)])
+        Vmax_Len = np.array(df_cent.Vmaxwt[(df_cent.TType<=0)&(df_cent.P_S0>=0.5)])
+
+        Weights_Len = Vmax_Len
+        Weightsum_Len = np.sum(Vmax_Len)
+        totVmax_Len = Weightsum_Len/fracsky
+
+        hist_cent_Len, edges = np.histogram(SM_Len, bins = sm_bins, weights = Vmax_Len)
+
+        Y_Len = np.log10(np.divide(hist_cent_Len, fracsky*sm_binwidth)*0.9195) #0.9195 correction of volume to Planck15
+
+        F_Len = np.power(10, Y_Len - Y_All)
+        plt.plot(sm_bins[1:], F_Len, "k^", label = "SDSS", fillstyle = "none", markersize=15)
+        plt.xlabel("$log_{10}$ $M_*$ [$M_\odot$]")#, fontproperties = mpl.font_manager.FontProperties(size = 15))
+        plt.ylabel("$f_{lenticular}$")#, fontproperties = mpl.font_manager.FontProperties(size = 15))
+        
+        MassRatio = 0.25
+        MassRatioS0 = 0.05
+        
+        # index = FitList.index(('1.0', True, True, True, 'G19_DPL', 'G19_SE'))
+        index = FitList.index(('1.0', False, False, True, 'CE', 'G19_SE'))
+        # P_ellip = Classes[index].Return_Morph_Plot(MassRatio, 3)
+        P_lentic = Classes[index].Return_Second_Order_Lenticular_Plot(MassRatio, MassRatioS0, 2)
+
+        
+        plt.plot(Classes[index].AvaStellarMass[0], P_lentic[0], "-k",label = "STEEL")#, z = 0.1")
+        """
+        z_plot = 1.0
+        plt.plot(Classes[index].AvaStellarMass[np.digitize(z_plot, bins = Classes[index].z)], P_lentic[np.digitize(z_plot, bins = Classes[index].z)], "--C0", alpha = 0.9,label = "STEEL, z = {}".format(z_plot))
+        z_plot = 2.0
+        plt.plot(Classes[index].AvaStellarMass[np.digitize(z_plot, bins = Classes[index].z)], P_lentic[np.digitize(z_plot, bins = Classes[index].z)], "-.C3", alpha = 0.9,label = "STEEL, z = {}".format(z_plot))
+        plt.xlim(10, 12.3)
+        """
+        # plt.text(10.2, 0.8, "{}".format(MassRatioS0) + r"< $\frac{M_{*, sat}}{M_{*,cen}} <$" + "{}".format(MassRatio))
+        plt.text(10.2, 0.8, r"$\frac{M_{*, sat}}{M_{*,cen}} >$" + "{}".format(MassRatioS0))
+        plt.legend(frameon = False)
+        plt.xlim(10,12)
+        plt.ylim(0,1)
+        plt.tight_layout()
+        plt.savefig("Figures/Paper2/Second_Order_Lenticular.png")
+        plt.savefig("Figures/Paper2/Second_Order_Lenticular.pdf")
+        plt.clf()
+
     #Satellite Accretion plot
     def SFR(M, z):
         s0 = 0.6 + 1.22*(z) - 0.2*(z**2)
@@ -1066,7 +1202,7 @@ if __name__ == "__main__":
         Max = m-m1-a2*r
         Max[Max<0] = 0
         return m-m0+a0*r-a1*np.power(Max, 2)
-    if True:     
+    if False:     
         #for k, Fit in enumerate([('1.0', True, True, True, 'G19_DPL', 'G19_SE')]):
         f, SubPlots = plt.subplots(3, 3, figsize = (12,7), sharex = 'col', sharey = 'row')
         #colours = ["C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "k"]
