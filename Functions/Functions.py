@@ -99,7 +99,7 @@ def GetGasMass(SM, z, HM, Parameters):
     """
 
     #Used in Paper 1 #Stewart 2009
-    #Calculates gass mass via SM scaling relation
+    #Calcula`tes gass mass via SM scaling relation
     #alpha = -0.59*( (z + 1)**0.45 ) #minus here to avoid it later
     #GasMass = SM + np.log10(0.04) + alpha*(SM - 11.6532)
     
@@ -499,8 +499,6 @@ def DynamicalFriction(HostHaloMass, SatiliteHaloMass, Redshift, Paramaters):
 
 
 ##DarkMatterToStellarMassStart #moster 2013
-##DarkMatterToStellarMassStart #moster 2013
-@jit
 def DarkMatterToStellarMass(DM, z, Paramaters, ScatterOn = False, Scatter = 0.001, Pairwise = True):
     """ 
     This funtion returns Stellar mass in log10 Msun, all arguments should be passed in simmilar cosmology (Planck 15 unless otherwise stated)
@@ -521,7 +519,7 @@ def DarkMatterToStellarMass(DM, z, Paramaters, ScatterOn = False, Scatter = 0.00
     Raises: 
         N/A
     """
-    np.random.seed(int(time()+os.getpid()*1000))
+    np.random.seed(int(str(time()).split('.')[1])+os.getpid())
     Paramaters = Paramaters['AbnMtch']
     if Paramaters['z_Evo']:
         if Paramaters['Moster']:
@@ -533,7 +531,7 @@ def DarkMatterToStellarMass(DM, z, Paramaters, ScatterOn = False, Scatter = 0.00
     else:
         zparameter = 0
 
-    if ScatterOn == True:
+    if ScatterOn:
         Scatter = Paramaters['Scatter']
     
     if Paramaters['Override_0'] or Paramaters['Override_z']:
@@ -555,16 +553,17 @@ def DarkMatterToStellarMass(DM, z, Paramaters, ScatterOn = False, Scatter = 0.00
         M10, SHMnorm10, beta10, gamma10, Scatter = 11.95, 0.032, 1.61, 0.62, 0.11 #12.00, 0.022, 1.56, 0.55, 0.15
         M11, SHMnorm11, beta11, gamma11 = 0.4, -0.02, -0.6, 0.0 #0.4, 0.0, -0.5, 0.1
     if(Paramaters['G19_SE']):
-        M10, SHMnorm10, beta10, gamma10, Scatter = 12.0,0.032,1.5,0.56,0.15 #12.00, 0.022, 1.56, 0.55, 0.15
-        M11, SHMnorm11, beta11, gamma11 = 0.6,-0.014,-0.7,0.08 #0.4, 0.0, -0.5, 0.1
+        M10, SHMnorm10, beta10, gamma10, Scatter = 11.925, 0.032,1.639,0.532,0.15 #12.00, 0.022, 1.56, 0.55, 0.15
+        M11, SHMnorm11, beta11, gamma11 = 0.576,-0.014,-0.693,0.03 #0.4, 0.0, -0.5, 0.1
     if(Paramaters['G19_cMod']):
-        M10, SHMnorm10, beta10, gamma10, Scatter = 12,0.032,1.74,0.66,0.15 #12.0,0.032,1.74,0.66,0.15 #12.00, 0.022, 1.56, 0.55, 0.15
-        M11, SHMnorm11, beta11, gamma11 = 0.4,-0.024,-0.74,-0.12 #0.4, 0.0, -0.5, 0.1
+        M10, SHMnorm10, beta10, gamma10, Scatter = 11.91,0.029,2.09,0.64,0.15 #12.0,0.032,1.74,0.66,0.15 #12.00, 0.022, 1.56, 0.55, 0.15
+        M11, SHMnorm11, beta11, gamma11 = 0.518,-0.018,-1.031,-0.084 #0.4, 0.0, -0.5, 0.1
     #parameters to recreate the illistrius M*Mh
     if(Paramaters['Illustris']):
         M10, SHMnorm10, beta10, gamma10, Scatter = 11.8,0.018,1.5,0.31,0.15 
         M11, SHMnorm11, beta11, gamma11 = 0.0,-0.01,0,-0.12
-    #allows user to sent in their own abundance matching parameters either fixed at redshift 0/0.1 or evolving 
+    #allows user to sent in their own abundance matching parameters either fixed at redshift 0/0.1 or evolving
+    
     if(Paramaters['Override_0']):
         M10, SHMnorm10, beta10, gamma10 = Override['M10'], Override['SHMnorm10'], Override['beta10'], Override['gamma10']
         M11, SHMnorm11, beta11, gamma11 = 0.4, -0.02, -0.6, -0.1 #1.195, -0.0247, -0.826, 0.329
@@ -573,8 +572,8 @@ def DarkMatterToStellarMass(DM, z, Paramaters, ScatterOn = False, Scatter = 0.00
         M11, SHMnorm11, beta11, gamma11 = Override['M11'], Override['SHMnorm11'], Override['beta11'], Override['gamma11']
     #For Pairfraction Testing
     if Paramaters['PFT']:
-        M10, SHMnorm10, beta10, gamma10, Scatter = 12.0,0.032,1.5,0.56,0.15 #12.00, 0.022, 1.56, 0.55, 0.15
-        M11, SHMnorm11, beta11, gamma11 = 0.6,-0.014,-0.7,0.08 #0.4, 0.0, -0.5, 0.1
+        M10, SHMnorm10, beta10, gamma10, Scatter = 11.925, 0.032,1.639,0.532,0.15 #12.00, 0.022, 1.56, 0.55, 0.15
+        M11, SHMnorm11, beta11, gamma11 = 0.576,-0.014,-0.693,0.03 #0.4, 0.0, -0.5, 0.1
         if(Paramaters['M_PFT1']):
             M10 = M10-0.25
         if(Paramaters['M_PFT2']):
@@ -601,7 +600,10 @@ def DarkMatterToStellarMass(DM, z, Paramaters, ScatterOn = False, Scatter = 0.00
             gamma11 = gamma11 - 0.2
         if(Paramaters['g_PFT4']):
             gamma10 = gamma10 - 0.1
-    
+    if Paramaters['HMevo']:
+        M10, SHMnorm10, beta10, gamma10, Scatter = 11.91,0.029,2.09,0.64,0.15
+        M11, SHMnorm11, beta11 = 0.518,-0.018,-1.031 
+        gamma11 = Paramaters["HMevo_param"]
     #putting the parameters together for inclusion in the Moster 2010 equation
     M = M10 + M11*zparameter
     N = SHMnorm10 + SHMnorm11*zparameter
@@ -753,7 +755,7 @@ def DM_to_SM(SMF_X, HMF, Halo_MR, HMF_Bin, SMF_Bin, Paramaters, Redshift = 0, N 
     else:
         SM = DarkMatterToStellarMass(DM_In, Redshift, Paramaters, ScatterOn = True) #log M* [Msun]
     
-    SMF_Y, Bin_Edge = np.histogram(SM, bins = np.append(SMF_X, SMF_X[-1]+SMF_Bin), weights = Wt) #Phi [Mpc^-3], M* [Msun]
+    SMF_Y, Bin_Edge = np.histogram(SM, bins = np.append(SMF_X, SMF_X[-1]+SMF_Bin)-(SMF_Bin/2), weights = Wt, density = False) #Phi [Mpc^-3], M* [Msun]
     
     return SMF_X, np.log10(np.divide(SMF_Y, SMF_Bin)) #M* [Msun], Phi [Mpc^-3] 
 
@@ -779,9 +781,10 @@ def Gauss_Scatt(X, Y, Scatt = 0.1):
 
 #==========================Saving Output========================================
 OutputFolder = AbsFP+"/../Data/Model/Output/RunFiles/"
+
 def PrepareToSave(RunParam_List): 
     for RunParam in RunParam_List:
-        os.system("rm -r" + OutputFolder +"RunParam_{}".format("".join(("{}_".format(i) for i in RunParam))))
+        os.system("rm -r " + OutputFolder +"RunParam_{}".format("".join(("{}_".format(i) for i in RunParam))))
     for RunParam in RunParam_List:
         os.system("mkdir " + OutputFolder +"RunParam_{}".format("".join(("{}_".format(i) for i in RunParam))))
 def SaveData_3(AvaHaloMass, AnalyticalModel_SMF, Surviving_Sat_SMF_MassRange, RunParam):

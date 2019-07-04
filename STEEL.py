@@ -84,7 +84,9 @@ AbnMtch =\
 'g_PFT1': False,\
 'g_PFT2': False,\
 'g_PFT3': False,\
-'g_PFT4': False\
+'g_PFT4': False,\
+'HMevo': False,\
+'HMevo_param': None\
 }
 
 Paramaters_Glob = \
@@ -117,7 +119,7 @@ AHB_2 = AnalyticHaloBin*AnalyticHaloBin
 AnalyticHaloMass = np.arange(AnalyticHaloMass_min + np.log10(h), AnalyticHaloMass_max + np.log10(h), AnalyticHaloBin)
 #Units are Mvir h-1
 
-#This is the Halomass groWth history
+#This is the Halomass growth history
 #Generates redshfit steps that are small enough to avoid systematics.
 z, AvaHaloMass_wz = F.Get_HM_History(AnalyticHaloMass, AnalyticHaloMass_min, AnalyticHaloMass_max, AnalyticHaloBin)
 AvaHaloMass = AvaHaloMass_wz[:, 1:]
@@ -197,7 +199,9 @@ def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
     AbnMtch[Factor_Stripping_SF[5]] = True
     if "PFT" in Factor_Stripping_SF[5]:
         AbnMtch["PFT"] = True
-        
+    if "HMevo" in Factor_Stripping_SF[5]:
+        AbnMtch["HMevo"] = True
+        AbnMtch["HMevo_param"] = float(Factor_Stripping_SF[5][-3:])
 
 
     #Data output arrays that are saved into the folders created above
@@ -436,10 +440,17 @@ def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
                         if len(np.shape(SM_Sat)) == 1:
                             Wt_Corr = np.divide(histogram1d(SM_Sat, SatM_len, (SatM_min, SatM_max)), N) #Weight per bin from scatter in SM-HM
                             Wt_Corr = np.full((len(Time_To_0[z_bin+PF_bin_l:z_bin+PF_bin_u]), len(Wt_Corr)), Wt_Corr) #matching array sizes
-
-                            Corr = np.divide(np.multiply(WeightList_SubOnly[PF_bin_l:PF_bin_u], Wt_Corr.T).T, SatBin)#N dex-1 per halo                            
-                            Pair_Frac[z_bin+PF_bin_l:z_bin+PF_bin_u,j] = Pair_Frac[z_bin+PF_bin_l:z_bin+PF_bin_u,j] + Corr#N dex-1 per halo
-                            Pair_Frac_Halo[z_bin+PF_bin_l:z_bin+PF_bin_u,j,k] = Pair_Frac_Halo[z_bin+PF_bin_l:z_bin+PF_bin_u,j,k] + WeightList_SubOnly[PF_bin_l:PF_bin_u]/AnalyticHaloBin #N dex-1 per halo
+                            #print(np.shape(Wt_Corr))
+                            Corr = np.divide(np.multiply(WeightList_SubOnly[PF_bin_l:PF_bin_u], Wt_Corr.T).T, SatBin)#N dex-1 per halo 
+                            
+                        else:
+                            Counterpart = np.multiply(np.ones_like(SM_Sat), np.arange(z_bin,i,1)).T                            
+                            Wt_Corr = np.flipud(np.divide(histogram2d(Counterpart.flatten(), SM_Sat.T.flatten(), (i-z_bin,SatM_len), ((z_bin, i),(SatM_min, SatM_max))), N))[PF_bin_l:PF_bin_u]
+                            Corr = np.divide(np.multiply(WeightList_SubOnly[PF_bin_l:PF_bin_u], Wt_Corr.T).T, SatBin)#N dex-1 per halo
+                            
+                        Pair_Frac[z_bin+PF_bin_l:z_bin+PF_bin_u,j] = Pair_Frac[z_bin+PF_bin_l:z_bin+PF_bin_u,j] + Corr#N dex-1 per halo
+                            
+                        Pair_Frac_Halo[z_bin+PF_bin_l:z_bin+PF_bin_u,j,k] = Pair_Frac_Halo[z_bin+PF_bin_l:z_bin+PF_bin_u,j,k] + WeightList_SubOnly[PF_bin_l:PF_bin_u]/AnalyticHaloBin #N dex-1 per halo
                     
                     #===============================================================
                     
@@ -543,16 +554,38 @@ if __name__ == "__main__":
     #Tdyn_Factors += [('1.2', True, True, True, 'G19_DPL', 'G19_SE')]
     #Tdyn_Factors += [('0.8', True, True, True, 'G19_DPL', 'G19_SE')]
     #Tdyn_Factors += [('1.0', False, False, True, 'CE', 'Override_z')]
-    Tdyn_Factors += [('1.0', False, False, True, 'G19_DPL', 'Moster')]
     #Tdyn_Factors += [('1.0', True, True, True, 'G19_DPL', 'G19_SE')]
+    #Tdyn_Factors += [('1.0', True, True, True, 'G19_DPL_PP', 'G19_SE')]
     #Tdyn_Factors += [('1.0', False, True, True, 'CE_PP', 'G19_cMod')]
-    #Tdyn_Factors += [('1.0', True, True, True, 'CE_PP', 'G19_cMod')]
+    #Tdyn_Factors += [('1.0', True, False, True, 'G19_DPL', 'G19_cMod')]
     #Tdyn_Factors += [('1.0', True, True, True, 'CE_PP', 'G19_SE')]
     #Tdyn_Factors += [('1.0', True, True, True, 'CE', 'G19_SE')]
     #Tdyn_Factors += [('1.0', True, True, True, 'Illustris', 'Illustris')]
     #Tdyn_Factors += [('1.0', True, True, True, 'Illustris_PP', 'Illustris')]
     #Tdyn_Factors += [('1.0', True, False, True, 'Illustris', 'Illustris')]
-       
+    #Tdyn_Factors += [('1.0', True, False, True, 'G19_DPL', 'G19_SE'), ('1.0', True, False, True, 'G19_DPL', 'G19_cMod')]
+    """Tdyn_Factors += [('1.0', True, False, True, 'G19_DPL', 'M_PFT1'),\
+                     ('1.0', True, False, True, 'G19_DPL', 'M_PFT2'),\
+                     ('1.0', True, False, True, 'G19_DPL', 'M_PFT3'),\
+                     ('1.0', True, False, True, 'G19_DPL', 'N_PFT1'),\
+                     ('1.0', True, False, True, 'G19_DPL', 'N_PFT2'),\
+                     ('1.0', True, False, True, 'G19_DPL', 'N_PFT3'),\
+                     ('1.0', True, False, True, 'G19_DPL', 'b_PFT1'),\
+                     ('1.0', True, False, True, 'G19_DPL', 'b_PFT2'),\
+                     ('1.0', True, False, True, 'G19_DPL', 'b_PFT3'),\
+                     ('1.0', True, False, True, 'G19_DPL', 'g_PFT1'),\
+                     ('1.0', True, False, True, 'G19_DPL', 'g_PFT2'),\
+                     ('1.0', True, False, True, 'G19_DPL', 'g_PFT3'),\
+                    ]"""
+    """Tdyn_Factors += [('1.0', False, False, True, 'G19_DPL', 'HMevo_alt_0.0'),\
+                     ('1.0', False, False, True, 'G19_DPL', 'HMevo_alt_0.1'),\
+                     ('1.0', False, False, True, 'G19_DPL', 'HMevo_alt_0.2'),\
+                     ('1.0', False, False, True, 'G19_DPL', 'HMevo_alt_0.3'),\
+                     ('1.0', False, False, True, 'G19_DPL', 'HMevo_alt_0.4'),\
+                     ('1.0', False, False, True, 'G19_DPL', 'HMevo_alt_0.5')
+                    ]"""
+    Tdyn_Factors += [('1.0', False, False, True, 'G19_DPL', 'G19_cMod')]
+    
     msg = 'About to run' + str(Tdyn_Factors)
     shall = input("%s (y/N) " % msg).lower() != 'y'
     if shall:
