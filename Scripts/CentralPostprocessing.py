@@ -388,7 +388,96 @@ class PairFractionData:
                 FirstAddition = False
                 
         return P_lentic
+    
+    def Return_Gas_Hard_Threshold_Plot(self, MassRatio = 0.3, MassRatioS0 = 0.1, z_start = 10, GasFracThresh = 0.5):
+        FirstAddition = True
+        FirstAdditionS0 = True
 
+        GasFrac = np.zeros_like(self.AvaStellarMass)
+        for i in range(np.shape(self.AvaStellarMass)[0]-1, -1, -1):
+            for j in range(np.shape(self.AvaStellarMass)[1]-1, -1, -1):
+                alpha = 0.59 * ((1+self.z[i])**0.45)
+                GasFrac[i,j] = 0.04*(10**self.AvaStellarMass[i,j]/4.5e11)**(-1*alpha)
+
+        P_ellip = np.zeros_like(self.AvaStellarMass)
+        P_lentic = np.zeros_like(self.AvaStellarMass)
+        
+        MMR = np.log10(MassRatio) #mergermass ratio in log10
+        MMRS0 = np.log10(MassRatioS0)
+        
+        print(np.shape(self.AvaStellarMass)[0], np.shape(self.AvaStellarMass)[1], np.shape(self.z), np.shape(P_lentic))
+        
+        for i in range(np.shape(self.AvaStellarMass)[0]-1, -1, -1):
+            for j in range(np.shape(self.AvaStellarMass)[1]-1, -1, -1):
+                Maj_Merge_Bin = np.digitize(self.AvaStellarMass[i,j]+MMR, bins = self.Surviving_Sat_SMF_MassRange) #find the bin of the Surviving_Sat_SMF_MassRange above which is major mergers
+                Major_Frac = np.sum(self.Accretion_History[i,j,Maj_Merge_Bin:])*self.SM_Bin #sums the numberdensity of satellites causing major mergers
+                
+                Maj_Merge_BinS0 = np.digitize(self.AvaStellarMass[i,j]+MMRS0, bins = self.Surviving_Sat_SMF_MassRange) #find the bin of the Surviving_Sat_SMF_MassRange above which is major mergers
+                Major_FracS0 = np.sum(self.Accretion_History[i,j,Maj_Merge_BinS0:])*self.SM_Bin
+
+                CurrentGasFrac = GasFrac[i,j]
+
+                if FirstAddition and (z_start > self.z[i]):
+                    P_ellip[i,j] = Major_Frac
+                    if CurrentGasFrac >= GasFracThresh:
+                        P_lentic[i,j] = Major_FracS0
+
+                elif (z_start > self.z[i]):
+                    if CurrentGasFrac >= GasFracThresh:
+                        P_ellip[i,j] = P_ellip[i+1,j] + Major_Frac*(1 - P_ellip[i+1,j])
+                        P_lentic[i,j] = P_lentic[i+1,j] + Major_FracS0*(1 - P_lentic[i+1,j] - P_ellip[i+1,j])
+                    else:
+                        P_ellip[i,j] = P_ellip[i+1,j] + Major_Frac*(1 - P_ellip[i+1,j] - P_lentic[i+1,j])
+            if (z_start > self.z[i]):
+                FirstAddition = False
+        return P_lentic
+
+    def Return_Gas_Soft_Threshold_Plot(self, MassRatio = 0.3, MassRatioS0 = 0.1, z_start = 10, GasFracThresh = 0.5):
+        FirstAddition = True
+        FirstAdditionS0 = True
+
+        GasFrac = np.zeros_like(self.AvaStellarMass)
+        for i in range(np.shape(self.AvaStellarMass)[0]-1, -1, -1):
+            for j in range(np.shape(self.AvaStellarMass)[1]-1, -1, -1):
+                alpha = 0.59 * ((1+self.z[i])**0.45)
+                GasFrac[i,j] = 0.04*(10**self.AvaStellarMass[i,j]/4.5e11)**(-1*alpha)
+
+        P_ellip = np.zeros_like(self.AvaStellarMass)
+        P_lentic = np.zeros_like(self.AvaStellarMass)
+        
+        MMR = np.log10(MassRatio) #mergermass ratio in log10
+        MMRS0 = np.log10(MassRatioS0)
+        
+        print(np.shape(self.AvaStellarMass)[0], np.shape(self.AvaStellarMass)[1], np.shape(self.z), np.shape(P_lentic))
+        
+        for i in range(np.shape(self.AvaStellarMass)[0]-1, -1, -1):
+            for j in range(np.shape(self.AvaStellarMass)[1]-1, -1, -1):
+                Maj_Merge_Bin = np.digitize(self.AvaStellarMass[i,j]+MMR, bins = self.Surviving_Sat_SMF_MassRange) #find the bin of the Surviving_Sat_SMF_MassRange above which is major mergers
+                Major_Frac = np.sum(self.Accretion_History[i,j,Maj_Merge_Bin:])*self.SM_Bin #sums the numberdensity of satellites causing major mergers
+                
+                Maj_Merge_BinS0 = np.digitize(self.AvaStellarMass[i,j]+MMRS0, bins = self.Surviving_Sat_SMF_MassRange) #find the bin of the Surviving_Sat_SMF_MassRange above which is major mergers
+                Major_FracS0 = np.sum(self.Accretion_History[i,j,Maj_Merge_BinS0:])*self.SM_Bin
+
+                CurrentGasFrac = GasFrac[i,j]
+
+                if FirstAddition and (z_start > self.z[i]):
+                    P_ellip[i,j] = Major_Frac
+                    if CurrentGasFrac >= GasFracThresh:
+                        P_lentic[i,j] = Major_FracS0
+                    else:
+                        P_lentic[i,j] = Major_FracS0 - abs(CurrentGasFrac - GasFracThresh)
+
+                elif (z_start > self.z[i]):
+                    if CurrentGasFrac >= GasFracThresh:
+                        P_ellip[i,j] = P_ellip[i+1,j] + Major_Frac*(1 - P_ellip[i+1,j])
+                        P_lentic[i,j] = P_lentic[i+1,j] + Major_FracS0*(1 - P_lentic[i+1,j] - P_ellip[i+1,j])
+                    else:
+                        P_ellip[i,j] = P_ellip[i+1,j] + Major_Frac*(1 - P_ellip[i+1,j] - P_lentic[i+1,j])
+                        P_lentic[i,j] = P_lentic[i+1,j] + Major_FracS0*(1 - P_lentic[i+1,j] - P_ellip[i+1,j]) - abs(CurrentGasFrac - GasFracThresh)
+                        # P_ellip[i,j] = P_ellip[i+1,j] + Major_Frac*(1 - P_ellip[i+1,j])
+            if (z_start > self.z[i]):
+                FirstAddition = False
+        return P_lentic
 def Fit_to_Str(Fit):
     Str_Out = ""
     for i in Fit:
@@ -1057,14 +1146,12 @@ if __name__ == "__main__":
                 np.savetxt(FilePath, Output)
         
         
-        plt.plot(Classes[index].AvaStellarMass[0], P_ellip[0], "-k",label = "STEEL")#, z = 0.1")
-        """
-        z_plot = 1.0
-        plt.plot(Classes[index].AvaStellarMass[np.digitize(z_plot, bins = Classes[index].z)], P_ellip[np.digitize(z_plot, bins = Classes[index].z)], "--C0", alpha = 0.9,label = "STEEL, z = {}".format(z_plot))
-        z_plot = 2.0
-        plt.plot(Classes[index].AvaStellarMass[np.digitize(z_plot, bins = Classes[index].z)], P_ellip[np.digitize(z_plot, bins = Classes[index].z)], "-.C3", alpha = 0.9,label = "STEEL, z = {}".format(z_plot))
+        plt.plot(Classes[index].AvaStellarMass[0], P_ellip[0], "-k",label = "STEEL, z = 0.1")
+        # z_plot = 1.0
+        # plt.plot(Classes[index].AvaStellarMass[np.digitize(z_plot, bins = Classes[index].z)], P_ellip[np.digitize(z_plot, bins = Classes[index].z)], "--C0", alpha = 0.9,label = "STEEL, z = {}".format(z_plot))
+        # z_plot = 2.0
+        # plt.plot(Classes[index].AvaStellarMass[np.digitize(z_plot, bins = Classes[index].z)], P_ellip[np.digitize(z_plot, bins = Classes[index].z)], "-.C3", alpha = 0.9,label = "STEEL, z = {}".format(z_plot))
         plt.xlim(10, 12.3)
-        """
         plt.text(10.2, 0.4, r"$\frac{M_{*, sat}}{M_{*,cen}} >$" + "{}".format(MassRatio))
         plt.legend(frameon = False)
         plt.xlim(10,12)
@@ -1157,26 +1244,154 @@ if __name__ == "__main__":
         
         # index = FitList.index(('1.0', True, True, True, 'G19_DPL', 'G19_SE'))
         index = FitList.index(('1.0', False, False, True, 'CE', 'G19_SE'))
-        # P_ellip = Classes[index].Return_Morph_Plot(MassRatio, 3)
         P_lentic = Classes[index].Return_Second_Order_Lenticular_Plot(MassRatio, MassRatioS0, 2)
 
         
-        plt.plot(Classes[index].AvaStellarMass[0], P_lentic[0], "-k",label = "STEEL")#, z = 0.1")
-        """
-        z_plot = 1.0
-        plt.plot(Classes[index].AvaStellarMass[np.digitize(z_plot, bins = Classes[index].z)], P_lentic[np.digitize(z_plot, bins = Classes[index].z)], "--C0", alpha = 0.9,label = "STEEL, z = {}".format(z_plot))
-        z_plot = 2.0
-        plt.plot(Classes[index].AvaStellarMass[np.digitize(z_plot, bins = Classes[index].z)], P_lentic[np.digitize(z_plot, bins = Classes[index].z)], "-.C3", alpha = 0.9,label = "STEEL, z = {}".format(z_plot))
-        plt.xlim(10, 12.3)
-        """
+        plt.plot(Classes[index].AvaStellarMass[0], P_lentic[0], "-k",label = "STEEL, z = 0.1")
+        # z_plot = 1.0
+        # plt.plot(Classes[index].AvaStellarMass[np.digitize(z_plot, bins = Classes[index].z)], P_lentic[np.digitize(z_plot, bins = Classes[index].z)], "--C0", alpha = 0.9,label = "STEEL, z = {}".format(z_plot))
+        # z_plot = 2.0
+        # plt.plot(Classes[index].AvaStellarMass[np.digitize(z_plot, bins = Classes[index].z)], P_lentic[np.digitize(z_plot, bins = Classes[index].z)], "-.C3", alpha = 0.9,label = "STEEL, z = {}".format(z_plot))
+
         # plt.text(10.2, 0.8, "{}".format(MassRatioS0) + r"< $\frac{M_{*, sat}}{M_{*,cen}} <$" + "{}".format(MassRatio))
-        plt.text(10.2, 0.8, r"$\frac{M_{*, sat}}{M_{*,cen}} >$" + "{}".format(MassRatioS0))
+        plt.text(10.2, 0.55, r"$\frac{M_{*, sat}}{M_{*,cen}} >$" + "{}".format(MassRatioS0))
         plt.legend(frameon = False)
         plt.xlim(10,12)
         plt.ylim(0,1)
         plt.tight_layout()
         plt.savefig("Figures/Paper2/Second_Order_Lenticular.png")
         plt.savefig("Figures/Paper2/Second_Order_Lenticular.pdf")
+        plt.clf()
+
+
+
+    # Gas Fraction Restricted Lenticular Plots
+    '''
+    This generates plots working under the same assumptions as the second order plot.
+    We also introduce the condition that to form Lenticulars, there must be a gas fraction higher than a threshold.
+    Two sets of plots are generated, one with a hard threshold and one with a soft threshold:
+        The hard threshold has no lenticulars forming if below gas threshold
+        The soft threshold has less lenticulars forming the further below the gas threshold.
+    '''
+    if True:
+        mpl.rcParams.update(mpl.rcParamsDefault)
+        plt.rcParams['ytick.minor.visible']=True
+        plt.rcParams['xtick.minor.visible']=True
+        plt.rcParams['axes.linewidth']=2
+        plt.rcParams['xtick.major.size'] = 5
+        plt.rcParams['ytick.major.size'] = 5
+        plt.rcParams['xtick.minor.size'] = 3
+        plt.rcParams['ytick.minor.size'] = 3
+        plt.rcParams['xtick.major.width'] = 1
+        plt.rcParams['ytick.major.width'] = 1
+        plt.rcParams['xtick.minor.width'] = 1
+        plt.rcParams['ytick.minor.width'] = 1
+        mpl.rcParams['axes.titlepad'] = 20
+        plt.rcParams['font.size']=22
+        plt.rcParams['lines.linewidth']=3
+        Header=['galcount','finalflag','z','Vmaxwt','MsMendSerExp','AbsMag','logReSerExp',
+                                  'BT','n_bulge','NewLCentSat','NewMCentSat'
+                                  ,'MhaloL','probaE','probaEll',
+                                'probaS0','probaSab','probaScd','TType','P_S0',
+                              'veldisp','veldisperr','raSDSS7','decSDSS7']
+
+        df = pd.read_csv('Data/Observational/Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, delim_whitespace = True)
+        goodness_cut = (df.finalflag==3 ) | (df.finalflag==5) | (df.finalflag==1)
+
+        df = df[goodness_cut]
+
+        df = df[df.Vmaxwt>0]
+        df.loc[df.finalflag==5,'BT']=0
+        df.loc[df.finalflag==1,'BT']=1
+
+        fracper=len(df)/670722
+        skycov=8000.
+        fracsky=(skycov*fracper)/(4*np.pi*(180./np.pi)**2.)
+
+        df_cent = df[df.NewLCentSat == 1.0]
+        #Add SDSS Data to plot
+        sm_binwidth = 0.2
+        sm_bins = np.arange(9, 12.5, sm_binwidth)
+
+        #Total Population
+        SM_All = np.array(df_cent.MsMendSerExp)
+        Vmax_All = np.array(df_cent.Vmaxwt)
+
+        Weights_All = Vmax_All
+        Weightsum_All = np.sum(Vmax_All)
+        totVmax_All = Weightsum_All/fracsky
+
+        hist_cent_All, edges_All = np.histogram(SM_All, bins = sm_bins, weights = Vmax_All)
+
+        Y_All = np.log10(np.divide(hist_cent_All, fracsky*sm_binwidth)*0.9195) #0.9195 correction of volume to Planck15
+
+        #Lenticulars Only
+        SM_Len = np.array(df_cent.MsMendSerExp[(df_cent.TType<=0)&(df_cent.P_S0>=0.5)])
+        Vmax_Len = np.array(df_cent.Vmaxwt[(df_cent.TType<=0)&(df_cent.P_S0>=0.5)])
+
+        Weights_Len = Vmax_Len
+        Weightsum_Len = np.sum(Vmax_Len)
+        totVmax_Len = Weightsum_Len/fracsky
+
+        hist_cent_Len, edges = np.histogram(SM_Len, bins = sm_bins, weights = Vmax_Len)
+
+        Y_Len = np.log10(np.divide(hist_cent_Len, fracsky*sm_binwidth)*0.9195) #0.9195 correction of volume to Planck15
+
+        F_Len = np.power(10, Y_Len - Y_All)
+        plt.plot(sm_bins[1:], F_Len, "k^", label = "SDSS", fillstyle = "none", markersize=15)
+        plt.xlabel("$log_{10}$ $M_*$ [$M_\odot$]")#, fontproperties = mpl.font_manager.FontProperties(size = 15))
+        plt.ylabel("$f_{lenticular}$")#, fontproperties = mpl.font_manager.FontProperties(size = 15))
+        
+        MassRatio = 0.25
+        MassRatioS0 = 0.05
+        GasFracThresh = 0.09
+        
+        # index = FitList.index(('1.0', True, True, True, 'G19_DPL', 'G19_SE'))
+        index = FitList.index(('1.0', False, False, True, 'CE', 'G19_SE'))
+        P_lentic = Classes[index].Return_Gas_Hard_Threshold_Plot(MassRatio, MassRatioS0, 2, GasFracThresh)
+
+        
+        plt.plot(Classes[index].AvaStellarMass[0], P_lentic[0], "-k",label = "STEEL, z = 0.1")
+        # z_plot = 1.0
+        # plt.plot(Classes[index].AvaStellarMass[np.digitize(z_plot, bins = Classes[index].z)], P_lentic[np.digitize(z_plot, bins = Classes[index].z)], "--C0", alpha = 0.9,label = "STEEL, z = {}".format(z_plot))
+        # z_plot = 2.0
+        # plt.plot(Classes[index].AvaStellarMass[np.digitize(z_plot, bins = Classes[index].z)], P_lentic[np.digitize(z_plot, bins = Classes[index].z)], "-.C3", alpha = 0.9,label = "STEEL, z = {}".format(z_plot))
+
+
+        # plt.text(10.2, 0.8, "{}".format(MassRatioS0) + r"< $\frac{M_{*, sat}}{M_{*,cen}} <$" + "{}".format(MassRatio))
+        plt.text(10.2, 0.55, r"GFT = " + "{}".format(GasFracThresh))
+        plt.legend(frameon = False)
+        plt.xlim(10,12)
+        plt.ylim(0,1)
+        plt.tight_layout()
+        plt.savefig("Figures/Paper2/Gas_Fraction_Hard_Threshold.png")
+        plt.savefig("Figures/Paper2/Gas_Fraction_Hard_Threshold.pdf")
+        plt.clf()
+
+
+        plt.plot(sm_bins[1:], F_Len, "k^", label = "SDSS", fillstyle = "none", markersize=15)
+        plt.xlabel("$log_{10}$ $M_*$ [$M_\odot$]")#, fontproperties = mpl.font_manager.FontProperties(size = 15))
+        plt.ylabel("$f_{lenticular}$")#, fontproperties = mpl.font_manager.FontProperties(size = 15))
+        
+        MassRatio = 0.25
+        MassRatioS0 = 0.05
+        GasFracThresh = 0.09
+        
+        # index = FitList.index(('1.0', True, True, True, 'G19_DPL', 'G19_SE'))
+        index = FitList.index(('1.0', False, False, True, 'CE', 'G19_SE'))
+        P_lentic = Classes[index].Return_Gas_Soft_Threshold_Plot(MassRatio, MassRatioS0, 2, GasFracThresh)
+
+        
+        plt.plot(Classes[index].AvaStellarMass[0], P_lentic[0], "-k",label = "STEEL, z = 0.1")
+
+        # plt.text(10.2, 0.8, "{}".format(MassRatioS0) + r"< $\frac{M_{*, sat}}{M_{*,cen}} <$" + "{}".format(MassRatio))
+        plt.text(10.2, 0.55, r"GFT = " + "{}".format(GasFracThresh))
+        plt.legend(frameon = False)
+        plt.xlim(10,12)
+        plt.ylim(0,1)
+        plt.tight_layout()
+        plt.savefig("Figures/Paper2/Gas_Fraction_Soft_Threshold.png")
+        plt.savefig("Figures/Paper2/Gas_Fraction_Soft_Threshold.pdf")
         plt.clf()
 
     #Satellite Accretion plot
