@@ -465,7 +465,7 @@ class PairFractionData:
                     if CurrentGasFrac >= GasFracThresh:
                         P_lentic[i,j] = Major_FracS0
                     else:
-                        P_lentic[i,j] = Major_FracS0 - abs(CurrentGasFrac - GasFracThresh)
+                        P_lentic[i,j] = Major_FracS0 - abs(CurrentGasFrac - GasFracThresh)/3.8
 
                 elif (z_start > self.z[i]):
                     if CurrentGasFrac >= GasFracThresh:
@@ -473,7 +473,7 @@ class PairFractionData:
                         P_lentic[i,j] = P_lentic[i+1,j] + Major_FracS0*(1 - P_lentic[i+1,j] - P_ellip[i+1,j])
                     else:
                         P_ellip[i,j] = P_ellip[i+1,j] + Major_Frac*(1 - P_ellip[i+1,j] - P_lentic[i+1,j])
-                        P_lentic[i,j] = P_lentic[i+1,j] + Major_FracS0*(1 - P_lentic[i+1,j] - P_ellip[i+1,j]) - abs(CurrentGasFrac - GasFracThresh)
+                        P_lentic[i,j] = P_lentic[i+1,j] + Major_FracS0*(1 - P_lentic[i+1,j] - P_ellip[i+1,j]) - abs(CurrentGasFrac - GasFracThresh)/3.8
                         # P_ellip[i,j] = P_ellip[i+1,j] + Major_Frac*(1 - P_ellip[i+1,j])
             if (z_start > self.z[i]):
                 FirstAddition = False
@@ -1338,27 +1338,19 @@ if __name__ == "__main__":
         Y_Len = np.log10(np.divide(hist_cent_Len, fracsky*sm_binwidth)*0.9195) #0.9195 correction of volume to Planck15
 
         F_Len = np.power(10, Y_Len - Y_All)
-        plt.plot(sm_bins[1:], F_Len, "k^", label = "SDSS", fillstyle = "none", markersize=15)
-        plt.xlabel("$log_{10}$ $M_*$ [$M_\odot$]")#, fontproperties = mpl.font_manager.FontProperties(size = 15))
-        plt.ylabel("$f_{lenticular}$")#, fontproperties = mpl.font_manager.FontProperties(size = 15))
-        
-        MassRatio = 0.25
+        plt.plot(sm_bins[1:], F_Len, "k^", label = "SDSS L", fillstyle = "none", markersize=15)
+
+
+
+        MassRatio = 0.23
         MassRatioS0 = 0.05
-        GasFracThresh = 0.09
+        GasFracThresh = 0.107
         
         # index = FitList.index(('1.0', True, True, True, 'G19_DPL', 'G19_SE'))
         index = FitList.index(('1.0', False, False, True, 'CE', 'G19_SE'))
         P_lentic = Classes[index].Return_Gas_Hard_Threshold_Plot(MassRatio, MassRatioS0, 2, GasFracThresh)
-
         
-        plt.plot(Classes[index].AvaStellarMass[0], P_lentic[0], "-k",label = "STEEL, z = 0.1")
-        # z_plot = 1.0
-        # plt.plot(Classes[index].AvaStellarMass[np.digitize(z_plot, bins = Classes[index].z)], P_lentic[np.digitize(z_plot, bins = Classes[index].z)], "--C0", alpha = 0.9,label = "STEEL, z = {}".format(z_plot))
-        # z_plot = 2.0
-        # plt.plot(Classes[index].AvaStellarMass[np.digitize(z_plot, bins = Classes[index].z)], P_lentic[np.digitize(z_plot, bins = Classes[index].z)], "-.C3", alpha = 0.9,label = "STEEL, z = {}".format(z_plot))
-
-
-        # plt.text(10.2, 0.8, "{}".format(MassRatioS0) + r"< $\frac{M_{*, sat}}{M_{*,cen}} <$" + "{}".format(MassRatio))
+        plt.plot(Classes[index].AvaStellarMass[0], P_lentic[0], "-k",label = "STEEL, z = 0.1")#, Lenitculars")
         plt.text(10.2, 0.55, r"GFT = " + "{}".format(GasFracThresh))
         plt.legend(frameon = False)
         plt.xlim(10,12)
@@ -1369,24 +1361,49 @@ if __name__ == "__main__":
         plt.clf()
 
 
-        plt.plot(sm_bins[1:], F_Len, "k^", label = "SDSS", fillstyle = "none", markersize=15)
+        #Lenticulars Only
+        plt.plot(sm_bins[1:], F_Len, "k^", label = "SDSS", fillstyle = "none", markersize=5)
         plt.xlabel("$log_{10}$ $M_*$ [$M_\odot$]")#, fontproperties = mpl.font_manager.FontProperties(size = 15))
         plt.ylabel("$f_{lenticular}$")#, fontproperties = mpl.font_manager.FontProperties(size = 15))
         
-        MassRatio = 0.25
-        MassRatioS0 = 0.05
-        GasFracThresh = 0.09
+        #Ellipticals Only
+        SM_Ell = np.array(df_cent.MsMendSerExp[(df_cent.TType<=0)&(df_cent.P_S0<0.5)])
+        Vmax_Ell = np.array(df_cent.Vmaxwt[(df_cent.TType<=0)&(df_cent.P_S0<0.5)])
+
+        Weights_Ell = Vmax_Ell
+        Weightsum_Ell = np.sum(Vmax_Ell)
+        totVmax_Ell = Weightsum_Ell/fracsky
+
+        hist_cent_Ell, edges = np.histogram(SM_Ell, bins = sm_bins, weights = Vmax_Ell)
+
+        Y_Ell = np.log10(np.divide(hist_cent_Ell, fracsky*sm_binwidth)*0.9195) #0.9195 correction of volume to Planck15
+
+        F_Ell = np.power(10, Y_Ell - Y_All)
+        plt.plot(sm_bins[1:], F_Ell, "r^", label = "SDSS E", fillstyle = "none", markersize=5)
+
+        #Spirals Only
+        F_Spir = 1 - F_Len - F_Ell
+        plt.plot(sm_bins[1:], F_Spir, "y^", label = "SDSS S", fillstyle = "none", markersize=5)
+
+
+        plt.xlabel("$log_{10}$ $M_*$ [$M_\odot$]")#, fontproperties = mpl.font_manager.FontProperties(size = 15))
+        plt.ylabel("$f_{lenticular}$")#, fontproperties = mpl.font_manager.FontProperties(size = 15))
         
         # index = FitList.index(('1.0', True, True, True, 'G19_DPL', 'G19_SE'))
         index = FitList.index(('1.0', False, False, True, 'CE', 'G19_SE'))
         P_lentic = Classes[index].Return_Gas_Soft_Threshold_Plot(MassRatio, MassRatioS0, 2, GasFracThresh)
+        P_ellip = Classes[index].Return_Morph_Plot(MassRatio, 2)
+        P_spiral = 1 - P_lentic - P_ellip
 
+        print(P_lentic + P_spiral + P_ellip)
         
         plt.plot(Classes[index].AvaStellarMass[0], P_lentic[0], "-k",label = "STEEL, z = 0.1")
+        plt.plot(Classes[index].AvaStellarMass[0], P_ellip[0], "-r", label = "STEEL, z = 0.1, Ellipticals")
+        plt.plot(Classes[index].AvaStellarMass[0], P_spiral[0], "-y", label = "STEEL, z = 0.1, Spirals")
 
         # plt.text(10.2, 0.8, "{}".format(MassRatioS0) + r"< $\frac{M_{*, sat}}{M_{*,cen}} <$" + "{}".format(MassRatio))
         plt.text(10.2, 0.55, r"GFT = " + "{}".format(GasFracThresh))
-        plt.legend(frameon = False)
+        # plt.legend(frameon = False)
         plt.xlim(10,12)
         plt.ylim(0,1)
         plt.tight_layout()
