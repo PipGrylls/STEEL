@@ -1,8 +1,51 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import wquantiles
 
 # Loading the catalog
+#Header = ["galcount",
+#          "z",
+#          "Vmaxwt",
+#          "MsMendSerExp",
+#          "AbsMag",
+#          "logReSerExp",
+#          "BT",
+#          "n_bulge",
+#          "NewLCentSat",
+#          "NewMCentSat",
+#          "MhaloL",
+#          "probaE",
+#          "probaEll",
+#          "probaS0",
+#          "probaSab",
+#          "probaScd",
+#          "TType",
+#          "AbsMagCent",
+#          "MsCent",
+#          "veldisp",
+#          "veldisperr",
+#          "AbsModel_newKcorr",
+#          "LCentSat",
+#          "raSDSS7",
+#          "decSDSS7",
+#          "Z",
+#          "sSFR",
+#          "FLAGsSFR",
+#          "MEDIANsSFR",
+#          "P16sSFR",
+#          "P84sSRF", 
+#          "SFR",
+#          "FLAGSFR",
+#          "MEDIANSFR",
+#          "P16SFR",
+#          "P84SRF",
+#          "RA_SDSS",
+#          "DEC_SDSS",
+#          "Z_2",
+#          "Seperation"]
+#df = pd.read_csv("/home/ssp1e17/Documents/STEEL/Data/Observational/Bernardi_SDSS/new_catalog_SFRs.dat", header = None, names = Header, skiprows = 1, delim_whitespace = True)
+
 Header=['galcount',
         'finalflag',
         'z',
@@ -26,8 +69,37 @@ Header=['galcount',
         'veldisperr',
         'raSDSS7',
         'decSDSS7']
+df = pd.read_csv('/home/ssp1e17/Documents/STEEL/Data/Observational/Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, delim_whitespace = True)
 
-df = pd.read_csv("/home/ssp1e17/Documents/STEEL/Data/Observational/Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat", header = None, names = Header, skiprows = 1, delim_whitespace = True)
+#Header = ["galcount",
+#          "zMeert",
+#          "Vmaxwt",
+#          "MsMendSerExp",
+#          "AbsMag",
+#          "logReSerExp",
+#          "BT",
+#          "n_bulge",
+#          "m_bulge",
+#          "r_bulge",
+#          "NewLCentSat",
+#          "NewMCentSat",
+#          "newMhaloL",
+#          "probaE",
+#          "probaEll",
+#          "probaS0",
+#          "probaSab",
+#          "probaScd",
+#          "TType",
+#          "P_S0",
+#          "AbsMagCent",
+#          "MsCent",
+#          "veldisp",
+#          "veldisperr",
+#          "AbsModel_newKcorr",
+#          "LCentSat",
+#          "raSDSS7",
+#          "decSDSS7"]
+#df = pd.read_csv("/home/ssp1e17/Documents/STEELinternship/Jay's Work/Notebooks - DO NOT DELETE OR EDIT/Catalogs/new_catalog_morph_Jay.dat", header = None, names = Header, skiprows = 1, delim_whitespace = True)
 
 # Making necessary cuts to the data to ensure all data is physical
 goodness_cut = (df.finalflag==3 ) | (df.finalflag==5) | (df.finalflag==1)
@@ -50,8 +122,8 @@ EllipticalGalaxy = EarlyGalaxy[EarlyGalaxy.P_S0 < 0.5]
 LenticularGalaxy = EarlyGalaxy[EarlyGalaxy.P_S0 >= 0.5]
 
 
-sm_binwidth = 0.2
-sm_bins = np.arange(9, 12.5, sm_binwidth)
+sm_binwidth = 0.1
+sm_bins = np.arange(9, 12.0, sm_binwidth)
 
 
 # This section puts the data into relevant mass bins
@@ -72,17 +144,20 @@ for i in range(len(sm_bins)):
         avg_BT_Ell[i] = float('NaN')    # adds NaN to prevent issues with index lengths
     else:
         avg_BT_Ell[i] = np.ma.average(tmpEll, weights = wtmpEll)    # calculates weighted average
+#        avg_BT_Ell[i] = wquantiles.median(tmpEll,np.log10(wtmpEll))
 
     if tmpLent.empty:
         avg_BT_Lent[i] = float('NaN')
     else:
         avg_BT_Lent[i] = np.ma.average(tmpLent, weights = wtmpLent)
+#        avg_BT_Lent[i] = wquantiles.median(tmpLent,np.log10(wtmpLent))
         
 
     if tmpLate.empty:
         avg_BT_Late[i] = float('NaN')
     else:
         avg_BT_Late[i] = np.ma.average(tmpLate, weights = wtmpLate)
+#        avg_BT_Late[i] = wquantiles.median(tmpLate,np.log10(wtmpLate))
 
 
 EllipticalBT = avg_BT_Ell
