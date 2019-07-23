@@ -577,14 +577,15 @@ if __name__ == "__main__":
                      ('1.0', True, False, True, 'G19_DPL', 'g_PFT2'),\
                      ('1.0', True, False, True, 'G19_DPL', 'g_PFT3'),\
                     ]"""
-    Tdyn_Factors += [('1.0', False, False, True, 'G19_DPL', 'HMevo_alt_0.0'),\
+    """Tdyn_Factors += [('1.0', False, False, True, 'G19_DPL', 'HMevo_alt_0.0'),\
                      ('1.0', False, False, True, 'G19_DPL', 'HMevo_alt_0.1'),\
                      ('1.0', False, False, True, 'G19_DPL', 'HMevo_alt_0.2'),\
                      ('1.0', False, False, True, 'G19_DPL', 'HMevo_alt_0.3'),\
                      ('1.0', False, False, True, 'G19_DPL', 'HMevo_alt_0.4'),\
                      ('1.0', False, False, True, 'G19_DPL', 'HMevo_alt_0.5')
-                    ]
+                    ]"""
     #Tdyn_Factors += [('1.0', False, False, True, 'G19_DPL', 'G19_cMod'), ('1.0', True, False, True, 'G19_DPL', 'G19_cMod')]
+    Tdyn_Factors += [('1.0', True, False, True, 'G19_DPL', 'G19_cMod')]
     
     msg = 'About to run' + str(Tdyn_Factors)
     shall = input("%s (y/N) " % msg).lower() != 'y'

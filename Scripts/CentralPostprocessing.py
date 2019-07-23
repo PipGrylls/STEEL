@@ -28,11 +28,11 @@ HMF_fun = F.Make_HMF_Interp() #N Mpc^-3 h^3 dex^-1, Args are (Mass, Redshift)
 h = Cosmo.h
 h_3 = h*h*h
 
-if "SDSS.pkl" in os.listdir("./Scripts/CentralPostprocessing"):
-    Add_SDSS = pickle.load(open("./Scripts/CentralPostprocessing/SDSS.pkl", 'rb'))
+if "SDSS.pkl" in os.listdir(AbsPath +"/CentralPostprocessing"):
+    Add_SDSS = pickle.load(open(AbsPath+"/CentralPostprocessing/SDSS.pkl", 'rb'))
 else:
     Add_SDSS = SDSS_Plots.SDSS_Plots(11.5,15,0.1) #pass this halomass:min, max, and binwidth for amting the SDSS plots
-    pickle.dump(Add_SDSS, open("./Scripts/CentralPostprocessing/SDSS.pkl", 'wb'))
+    pickle.dump(Add_SDSS, open(AbsPath+"/CentralPostprocessing/SDSS.pkl", 'wb'))
 
 #set plot paramaters here
 mpl.rcParams.update(mpl.rcParamsDefault)
@@ -415,7 +415,12 @@ if __name__ == "__main__":
                      ('1.0', False, False, True, 'G19_DPL', 'HMevo_alt_0.4'),\
                      ('1.0', False, False, True, 'G19_DPL', 'HMevo_alt_0.5')
                     ]
-    Total_Factors = Evo_Factors + DPL_Factors + cMod_Factors + M_Factors + N_Factors + b_Factors + g_Factors + Ill_Factors + HMevo_Factors
+    Reviewer_Factors = [('0.5', True, False, True, 'G19_DPL', 'G19_cMod'),\
+                         ('0.8', True, False, True, 'G19_DPL', 'G19_cMod'),\
+                         ('1.0', True, False, True, 'G19_DPL', 'G19_cMod'),\
+                         ('1.2', True, False, True, 'G19_DPL', 'G19_cMod'),\
+                         ('2.0', True, False, True, 'G19_DPL', 'G19_cMod')]
+    Total_Factors = Evo_Factors + DPL_Factors + cMod_Factors + M_Factors + N_Factors + b_Factors + g_Factors + Ill_Factors + HMevo_Factors + Reviewer_Factors
 
     if False:
         ClassList = []
@@ -888,7 +893,7 @@ if __name__ == "__main__":
         plt.clf()
         
     #ExtraplotsData
-    if True:
+    if False:
         Max = -1; Min = 1
         for i, Fit in enumerate([('1.0', True, False, True, 'G19_DPL', 'G19_SE'), ('1.0', False, False, True, 'G19_DPL', 'G19_cMod'), ('1.0', False, False, True, 'G19_DPL', 'HMevo_alt_0.0'), ('1.0', False, False, True, 'G19_DPL', 'HMevo_alt_0.3')]):
             index = FitList.index(Fit)
@@ -1080,11 +1085,11 @@ if __name__ == "__main__":
     if True:     
         #for k, Fit in enumerate([('1.0', True, True, True, 'G19_DPL', 'G19_SE')]):
         f, SubPlots = plt.subplots(3, 3, figsize = (12,7), sharex = 'col', sharey = 'row')
-        #colours = ["C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "k"]
-        colours = ["C0", "C2", "C3", "C6"]
+        colours = ["C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "k"]
+        #colours = ["C0", "C2", "C3", "C6"]
         colourcycler = cycle(colours)
         #[HMevo_Factors[0], HMevo_Factors[2], HMevo_Factors[3], HMevo_Factors[6]]
-        for k, Fit in enumerate([HMevo_Factors[0], HMevo_Factors[2], HMevo_Factors[3], HMevo_Factors[6]]):
+        for k, Fit in enumerate([('1.0', True, False, True, 'G19_DPL', 'G19_cMod')]):
             colour = next(colourcycler)
             #f, SubPlots = plt.subplots(3, 3, figsize = (12,7), sharex = 'col', sharey = 'row')
             #colours = ["C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "k"]
@@ -1095,6 +1100,10 @@ if __name__ == "__main__":
             Mass_Accretion_PerCentral = np.zeros_like(DataClass.AvaStellarMass)
             Mass_Accretion_PerCentral_Minor = np.zeros_like(DataClass.AvaStellarMass)
             Mass_Accretion_PerCentral_Major = np.zeros_like(DataClass.AvaStellarMass)
+            ICL_From_Mergers = np.zeros_like(DataClass.AvaStellarMass)
+            
+            #bool to switch off certian plotting
+            SF_on = Fit[2]
             
             
             #Open the file from Joel
@@ -1106,20 +1115,23 @@ if __name__ == "__main__":
                     #CutOff = np.digitize(DataClass.AvaStellarMass[i,j] - 4, DataClass.Surviving_Sat_SMF_MassRange)-1#set a mass ratio limit 
                     CutOff = np.digitize(9, DataClass.Surviving_Sat_SMF_MassRange)-1#set a mass ratio limit 
                     if CutOff<0:CutOff = 0  
-                    MassAcc = np.sum(DataClass.Accretion_History[i,j,CutOff:]*SatelliteMasses[CutOff:])*DataClass.SM_Bin*0.612 #Calculates the total acreted stellar mass per central mass factor of 0.612 from moster 2018 assuming in any given merger ~40% of the mass of the satellite is distributed to the ICM
+                    MassAcc = np.sum(DataClass.Accretion_History[i,j,CutOff:]*SatelliteMasses[CutOff:])*DataClass.SM_Bin*0.4#0.612 #Calculates the total acreted stellar mass per central mass factor of 0.612 from moster 2018 assuming in any given merger ~40% of the mass of the satellite is distributed to the ICM
+                    ICL = np.sum(DataClass.Accretion_History[i,j,CutOff:]*SatelliteMasses[CutOff:])*DataClass.SM_Bin*(1-0.4)#0.612)
                     if (j == None):
                         print(MassAcc)
                     if MassAcc > 0:
                         Mass_Accretion_PerCentral[i,j] = MassAcc
+                        ICL_From_Mergers[i,j] = ICL
                     else:
                         Mass_Accretion_PerCentral[i,j] = 0
+                        ICL_From_Mergers[i,j] = 0
                         
                         
             for i in range(np.shape(DataClass.AvaStellarMass)[0]-1, -1, -1):
                 for j in range(np.shape(DataClass.AvaStellarMass)[1]-1, -1, -1): 
                     MergerThreshold = np.digitize(DataClass.AvaStellarMass[i,j]+np.log10(0.3), bins = DataClass.Surviving_Sat_SMF_MassRange)-1
-                    MassAcc_Minor = np.sum(DataClass.Accretion_History[i,j,:MergerThreshold]*SatelliteMasses[:MergerThreshold])*DataClass.SM_Bin*0.612 #Calculates the total acreted stellar mass per central mass     factor of 0.612 from moster 2018 assuming in any given merger ~40% of the mass of the satellite is distributed to the ICM
-                    MassAcc_Major = np.sum(DataClass.Accretion_History[i,j,MergerThreshold:]*SatelliteMasses[MergerThreshold:])*DataClass.SM_Bin*0.612 #Calculates the total acreted stellar mass per central mass     factor of 0.612 from moster 2018 assuming in any given merger ~40% of the mass of the satellite is distributed to the ICM
+                    MassAcc_Minor = np.sum(DataClass.Accretion_History[i,j,:MergerThreshold]*SatelliteMasses[:MergerThreshold])*DataClass.SM_Bin*0.4#*0.612 #Calculates the total acreted stellar mass per central mass     factor of 0.612 from moster 2018 assuming in any given merger ~40% of the mass of the satellite is distributed to the ICM
+                    MassAcc_Major = np.sum(DataClass.Accretion_History[i,j,MergerThreshold:]*SatelliteMasses[MergerThreshold:])*DataClass.SM_Bin*0.4#*0.612 #Calculates the total acreted stellar mass per central mass factor of 0.612 from moster 2018 assuming in any given merger ~40% of the mass of the satellite is distributed to the ICM
                     if (j == None):
                         print(MassAcc)
                     if MassAcc_Minor > 0:
@@ -1240,7 +1252,8 @@ if __name__ == "__main__":
                 #Total
                 SubPlots[0, i_].plot(DataClass.z, DataClass.AvaStellarMass[:,i], "-", color = colour)
                 #SFH
-                #SubPlots[0, i_].plot(z_for_SFH, np.log10(Mass), ":", color = colour)
+                if SF_on:
+                    SubPlots[0, i_].plot(z_for_SFH, np.log10(Mass), ":", color = colour)
                 #Accretion
                 SubPlots[0, i_].plot(DataClass.z, np.flip(np.log10(np.cumsum(np.flip(Mass_Accretion_PerCentral[:,i], 0))), 0), "--", color = colour)
                 #SubPlots[0, i_].plot(DataClass.z, np.flip(np.log10(np.cumsum(np.flip(Mass_Accretion_PerCentral_Minor[:,i], 0))), 0), "-.", color = colour)
@@ -1299,7 +1312,8 @@ if __name__ == "__main__":
                 #The ratio from SFH
                 SFH_zbin3 = np.digitize(3, bins = z_for_SFH)
                 Ratio_SFH = np.divide(Mass[SFH_zbin3:]-Mass[SFH_zbin3], CM_interp(z_for_SFH[SFH_zbin3:])-CM_interp(z_for_SFH[SFH_zbin3]))
-                #SubPlots[1, i_].plot(z_for_SFH[SFH_zbin3:], Ratio_SFH, ":", color = colour)                
+                if SF_on:
+                    SubPlots[1, i_].plot(z_for_SFH[SFH_zbin3:], Ratio_SFH, ":", color = colour)                
                 
                 #The ratio from Satellite Accretion
                 Ratio_Acc = np.divide(Accretion_Interp(z_for_SFH[SFH_zbin3:]) - Accretion_Interp(z_for_SFH[SFH_zbin3]), CM_interp(z_for_SFH[SFH_zbin3:])-CM_interp(z_for_SFH[SFH_zbin3]))
@@ -1313,8 +1327,9 @@ if __name__ == "__main__":
                 N = 3
                 X_acc_hz, Y_acc_hz = np.convolve(DataClass.z, np.ones((N,))/N, mode='valid'), np.convolve( np.divide(Mass_Accretion_PerCentral[:,i], CentralMassGrowth), np.ones((N,))/N, mode='valid')
                 SubPlots[2, i_].plot(X_acc_hz[9:], Y_acc_hz[9:], "--", color = colour)
-                #SubPlots[2, i_].plot(z_for_SFH, np.divide(M_dot_noacc, CMG_dt_interp(z_for_SFH)), ":", color = colour)
-                #SubPlots[2, i_].plot(z_for_SFH, np.divide(M_dot, CMG_dt_interp(z_for_SFH)), "-", color = colour)               
+                if SF_on:
+                    SubPlots[2, i_].plot(z_for_SFH, np.divide(M_dot_noacc, CMG_dt_interp(z_for_SFH)), ":", color = colour)
+                    SubPlots[2, i_].plot(z_for_SFH, np.divide(M_dot, CMG_dt_interp(z_for_SFH)), "-", color = colour)               
                 
                 #Adding crosses from leja
                 """
@@ -1502,14 +1517,19 @@ if __name__ == "__main__":
             SubPlots[1,2].plot(Ratio11[0], Ratio11[1], "--", color = "k")
             #"""
             
-            
-            
+            if Fit[0] == "2.0":
+                SubPlots[0,1].plot([4,5,6], [0.5, 0.5, 0.5], "-", label = "Total", color = "k")
+                SubPlots[0,1].legend(ncol = 2,frameon = False, loc = 9, fontsize = 12)
             #Line labels
             #SubPlots[0,2].plot([4,5,6], [0.5, 0.5, 0.5], "--",label = "Accretion", color = "k")
             #SubPlots[0,2].plot([4,5,6], [0.5, 0.5, 0.5], ":", label = "SFH", color = "k")
             #SubPlots[0,2].plot([4,5,6], [0.5, 0.5, 0.5], "-", label = "Total", color = "k")
             
+            
+            SubPlots[0,2].plot([4,5,6], [0.5, 0.5, 0.5], "--", label = "Tdyn x {}".format(Fit[0]), color = colour)
+            
             #Legends
+            
             SubPlots[0,2].legend(ncol = 2,frameon = False, loc = 9, fontsize = 12)
             SubPlots[2,0].legend(ncol = 1, frameon = False, loc = 1, fontsize = 12)
             SubPlots[2,1].legend(ncol = 1, frameon = False, loc = 1, fontsize = 12) 
@@ -1603,10 +1623,11 @@ if __name__ == "__main__":
             plt.subplots_adjust(hspace=0, wspace=0)
             #plt.tight_layout()
             
-            #plt.savefig("Figures/Paper2/SatelliteAccretion{}.png".format(Fit_to_Str(Fit)))
-            #plt.savefig("Figures/Paper2/SatelliteAccretion{}.pdf".format(Fit_to_Str(Fit)))
+            plt.savefig("Figures/Paper2/SatelliteAccretion{}.png".format(Fit_to_Str(Fit)))
+            plt.savefig("Figures/Paper2/SatelliteAccretion{}.pdf".format(Fit_to_Str(Fit)))
             #plt.clf()
-        colours = ["C0", "C2", "C3", "C6"]
+        
+        """colours = ["C0", "C2", "C3", "C6"]
         colourcycler = cycle(colours)
         SubPlots[0,0].plot([],[], "-", color = next(colourcycler), label = "cmodel")
         for i in [HMevo_Factors[2], HMevo_Factors[3], HMevo_Factors[6]]:
@@ -1621,9 +1642,32 @@ if __name__ == "__main__":
         SubPlots[2,2].legend(ncol = 1, frameon = False, loc = 1, fontsize = 12)
         plt.savefig("Figures/Paper3/SatelliteAccretion.png".format(Fit_to_Str(Fit)))
         plt.savefig("Figures/Paper3/SatelliteAccretion.pdf".format(Fit_to_Str(Fit)))
+        plt.clf()"""
+            
+        f, Plot = plt.subplots(1,1, figsize = (8,5))
+        Plot.plot(DataClass.AvaHaloMass[0], np.log10(np.sum(ICL_From_Mergers, axis = 0)), label = "ICL")
+        Plot.plot(DataClass.AvaHaloMass[0],DataClass.AvaStellarMass[0], "k--", label = "Stellar Mass")
+        Plot.set_xlabel(r"Halo Mass $M_{h}$")
+        Plot.set_ylabel(r"ICL Mass $M_{\odot}$")
+        Plot.set_xlim(12, 15)
+        Plot.set_ylim(8.5, 12.5)
+        Plot.legend(frameon = False, loc = 4)
+        plt.tight_layout()
+        plt.savefig("Figures/Paper2/ICL.png")
+        plt.savefig("Figures/Paper2/ICL.pdf")
         plt.clf()
-            
-            
+        f, Plot = plt.subplots(1,1, figsize = (8,5))
+        Plot.plot(DataClass.AvaStellarMass[0], np.log10(np.sum(ICL_From_Mergers, axis = 0)), label = "ICL")
+        Plot.plot(DataClass.AvaStellarMass[0],DataClass.AvaStellarMass[0], "k--", label = "Stellar Mass")
+        Plot.set_xlabel(r"Stellar Mass $M_{\odot}$")
+        Plot.set_ylabel(r"ICL Mass $M_{\odot}$")
+        Plot.legend(frameon = False, loc = 4)
+        Plot.set_xlim(10.5, 12.5)
+        Plot.set_ylim(9, 12.5)
+        plt.tight_layout()
+        plt.savefig("Figures/Paper2/ICL_SM.png")
+        plt.savefig("Figures/Paper2/ICL_SM.pdf")
+        plt.clf()
             
 
     

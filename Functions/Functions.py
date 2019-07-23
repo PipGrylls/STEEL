@@ -365,6 +365,10 @@ def StarFormation(SM_Sat, TTZ0, Tdyf, z_infall, z_return, z_all, HM_infall, AvaH
     #GasMass
     MaxGas = np.power(10, GetGasMass(SM_Sat, z_all[z_bin_i], HM_infall, Paramaters))
     
+    #For reviwer
+    #StripFactor = StripFactor*2
+    #StripFactor[StripFactor > 1] = 1
+    
     #Call the accelerated Cython Function
     M_out, M_dot, SFH, GMLR = Functions_c.Starformation_c(SM_Sat, t, d_t, z_range, MaxGas, T_quench, Tau_f, StripFactor = StripFactor, z_infall = z_infall, SFR_Model = str(SFR_Model), Stripping = Stripping)
     #Calculate the Specific Star formation Rate
@@ -430,6 +434,9 @@ def StellarMassLoss(HM_c, HM_s, SM, TTZ0, Tdyf, factor_only = False):
     Strip = np.power(0.6, (1.428/(2*np.pi))*(Mh_Ms/np.log(1+Mh_Ms)))
     #Correct for factor
     Strip_f = np.log10(Strip + (1-Strip)*(1-Factor))
+    
+    Strip_f = Strip_f*2
+    Strip_f[Strip_f>1] = 1
     
     if factor_only:
         return Strip_f
