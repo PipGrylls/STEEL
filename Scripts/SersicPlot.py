@@ -3,50 +3,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import math as m
 import wquantiles
+import matplotlib as mpl
 
 # Loading the catalog
-#Header = ["galcount",
-#          "z",
-#          "Vmaxwt",
-#          "MsMendSerExp",
-#          "AbsMag",
-#          "logReSerExp",
-#          "BT",
-#          "n_bulge",
-#          "NewLCentSat",
-#          "NewMCentSat",
-#          "MhaloL",
-#          "probaE",
-#          "probaEll",
-#          "probaS0",
-#          "probaSab",
-#          "probaScd",
-#          "TType",
-#          "AbsMagCent",
-#          "MsCent",
-#          "veldisp",
-#          "veldisperr",
-#          "AbsModel_newKcorr",
-#          "LCentSat",
-#          "raSDSS7",
-#          "decSDSS7",
-#          "Z",
-#          "sSFR",
-#          "FLAGsSFR",
-#          "MEDIANsSFR",
-#          "P16sSFR",
-#          "P84sSRF", 
-#          "SFR",
-#          "FLAGSFR",
-#          "MEDIANSFR",
-#          "P16SFR",
-#          "P84SRF",
-#          "RA_SDSS",
-#          "DEC_SDSS",
-#          "Z_2",
-#          "Seperation"]
-#df = pd.read_csv("/home/ssp1e17/Documents/STEEL/Data/Observational/Bernardi_SDSS/new_catalog_SFRs.dat", header = None, names = Header, skiprows = 1, delim_whitespace = True)
-
 Header=['galcount',
         'finalflag',
         'z',
@@ -71,36 +30,6 @@ Header=['galcount',
         'raSDSS7',
         'decSDSS7']
 df = pd.read_csv('/home/ssp1e17/Documents/STEEL/Data/Observational/Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, delim_whitespace = True)
-#
-#Header = ["galcount",
-#          "zMeert",
-#          "Vmaxwt",
-#          "MsMendSerExp",
-#          "AbsMag",
-#          "logReSerExp",
-#          "BT",
-#          "n_bulge",
-#          "m_bulge",
-#          "r_bulge",
-#          "NewLCentSat",
-#          "NewMCentSat",
-#          "newMhaloL",
-#          "probaE",
-#          "probaEll",
-#          "probaS0",
-#          "probaSab",
-#          "probaScd",
-#          "TType",
-#          "P_S0",
-#          "AbsMagCent",
-#          "MsCent",
-#          "veldisp",
-#          "veldisperr",
-#          "AbsModel_newKcorr",
-#          "LCentSat",
-#          "raSDSS7",
-#          "decSDSS7"]
-#df = pd.read_csv("/home/ssp1e17/Documents/STEELinternship/Jay's Work/Notebooks - DO NOT DELETE OR EDIT/Catalogs/new_catalog_morph_Jay.dat", header = None, names = Header, skiprows = 1, delim_whitespace = True)
 
 # Making necessary cuts to the data to ensure all data is physical
 
@@ -121,51 +50,70 @@ EllipticalGalaxy = EarlyGalaxy[EarlyGalaxy.P_S0 < 0.5]
 LenticularGalaxy = EarlyGalaxy[EarlyGalaxy.P_S0 >= 0.5]
 
 
-sm_binwidth = 0.1
+sm_binwidth = 0.2
 sm_bins = np.arange(9, 12.5, sm_binwidth)
 
-
-EllipticalWeights = (EllipticalGalaxy.Vmaxwt)
-Elliptical_Data, throwaway = np.histogram(EllipticalGalaxy.MsMendSerExp, bins = sm_bins, weights = EllipticalWeights)
-Elliptical_Data = np.divide(Elliptical_Data, sm_binwidth*fracsky) #Corrections for skycoverage and binning
-
-
-SpiralWeights = (LateGalaxy.Vmaxwt)
-Spiral_Data, throwaway = np.histogram(LateGalaxy.MsMendSerExp, bins = sm_bins, weights = SpiralWeights)
-Spiral_Data = np.divide(Spiral_Data, sm_binwidth*fracsky) #Corrections for skycoverage and binning
+EllipticalIndex = np.zeros(len(sm_bins))
+SpiralIndex = np.zeros(len(sm_bins))
+LenticularIndex = np.zeros(len(sm_bins))
 
 
-LenticularWeights = (LenticularGalaxy.Vmaxwt)
-Lenticular_Data, throwaway = np.histogram(LenticularGalaxy.MsMendSerExp, bins = sm_bins, weights = LenticularWeights)
-Lenticular_Data = np.divide(Lenticular_Data, sm_binwidth*fracsky) #Corrections for skycoverage and binning
-
-
-Vmax_Only_weights = (df.Vmaxwt)
-Vmax_Only_Data, throwaway = np.histogram(df.MsMendSerExp, bins = sm_bins, weights = Vmax_Only_weights)
-Vmax_Only_Data = np.divide(Vmax_Only_Data, sm_binwidth*fracsky)
-
-
-Avg_HLR_Data = np.zeros(len(sm_bins))
-Std_Dev_HLR = np.zeros(len(sm_bins))
 for i in range(len(sm_bins)):
-    tmp = df.n_bulge[(df.MsMendSerExp < sm_bins[i] + sm_binwidth) & (df.MsMendSerExp >= sm_bins[i] )]
-    wtmp = df.Vmaxwt[(df.MsMendSerExp < sm_bins[i] + sm_binwidth) & (df.MsMendSerExp >= sm_bins[i] )]
-    Avg_HLR_Data[i] = np.ma.average(tmp, weights = wtmp)
-#    Avg_HLR_Data[i] = wquantiles.median(tmp,np.log10(wtmp))
-    Std_Dev_HLR[i] =  m.sqrt(np.ma.average((tmp)**2, weights=wtmp))
+    tmpEll = EllipticalGalaxy.n_bulge[(EllipticalGalaxy.MsMendSerExp < sm_bins[i] + sm_binwidth) & (EllipticalGalaxy.MsMendSerExp >= sm_bins[i] )]
+    wtmpEll = EllipticalGalaxy.Vmaxwt[(EllipticalGalaxy.MsMendSerExp < sm_bins[i] + sm_binwidth) & (EllipticalGalaxy.MsMendSerExp >= sm_bins[i] )]
 
-Avg_HLR_Data = np.divide(Avg_HLR_Data, sm_binwidth*fracsky)
+    tmpLen = LenticularGalaxy.n_bulge[(LenticularGalaxy.MsMendSerExp < sm_bins[i] + sm_binwidth) & (LenticularGalaxy.MsMendSerExp >= sm_bins[i] )]
+    wtmpLen = LenticularGalaxy.Vmaxwt[(LenticularGalaxy.MsMendSerExp < sm_bins[i] + sm_binwidth) & (LenticularGalaxy.MsMendSerExp >= sm_bins[i] )]
 
-SpiralIndex = np.log10((Spiral_Data/Vmax_Only_Data)*Avg_HLR_Data[:-1])
-LenticularIndex = np.log10((Lenticular_Data/Vmax_Only_Data)*Avg_HLR_Data[:-1])
-EllipticalIndex = np.log10((Elliptical_Data/Vmax_Only_Data)*Avg_HLR_Data[:-1])
+    tmpLate = LateGalaxy.n_bulge[(LateGalaxy.MsMendSerExp < sm_bins[i] + sm_binwidth) & (LateGalaxy.MsMendSerExp >= sm_bins[i] )]
+    wtmpLate = LateGalaxy.Vmaxwt[(LateGalaxy.MsMendSerExp < sm_bins[i] + sm_binwidth) & (LateGalaxy.MsMendSerExp >= sm_bins[i] )]
+
+    if tmpEll.empty:
+        EllipticalIndex[i] = float('NaN')    # adds NaN to prevent issues with index lengths
+    else:
+#        EllipticalIndex[i] = np.ma.average(tmpEll, weights = wtmpEll)    # calculates weighted average
+        EllipticalIndex[i] = wquantiles.median(tmpEll, weights = wtmpEll)
+#        
+    if tmpLen.empty:
+        LenticularIndex[i] = float('NaN')
+    else:
+#        LenticularIndex[i] = np.ma.average(tmpLen, weights = wtmpLen)
+        LenticularIndex[i] = wquantiles.median(tmpLen, weights = wtmpLen)
+    
+    if tmpLate.empty:
+        SpiralIndex[i] = float('NaN')
+    else:
+#        SpiralIndex[i] = np.ma.average(tmpLate, weights = wtmpLate)
+        SpiralIndex[i] = wquantiles.median(tmpLate, weights = wtmpLate)
 
 
 # Plots all the data on a graph
+
+mpl.rcParams.update(mpl.rcParamsDefault)
+plt.rcParams['ytick.minor.visible']=True
+plt.rcParams['xtick.minor.visible']=True
+plt.rcParams['axes.linewidth']=2
+plt.rcParams['xtick.major.size'] = 5
+plt.rcParams['ytick.major.size'] = 5
+plt.rcParams['xtick.minor.size'] = 3
+plt.rcParams['ytick.minor.size'] = 3
+plt.rcParams['xtick.major.width'] = 1
+plt.rcParams['ytick.major.width'] = 1
+plt.rcParams['xtick.minor.width'] = 1
+plt.rcParams['ytick.minor.width'] = 1
+mpl.rcParams['axes.titlepad'] = 20
+plt.rcParams['font.size']=22
+plt.rcParams['lines.linewidth']=3
+
 plt.ylabel('Sersic Index')
 plt.xlabel("$log_{10}$ $M_*$ [$M_\odot$]")
-plt.plot(sm_bins[5:-1], EllipticalIndex[5:], label = "Elliptical", marker = '^', linestyle = '')
-plt.plot(sm_bins[5:-1], LenticularIndex[5:], label = "Lenticular", marker = 'o', linestyle = '')
-plt.plot(sm_bins[5:-1], SpiralIndex[5:], label = "Spiral", marker = 'x', linestyle = '')
-plt.legend()
+
+
+plt.plot(sm_bins, EllipticalIndex, label = 'Elliptical', marker = '^', linestyle = '')
+plt.plot(sm_bins, LenticularIndex, label = 'Lenticular', marker = 'o', linestyle = '')
+plt.plot(sm_bins, SpiralIndex, label = 'Spiral', marker = 'x', linestyle = '')
+
+plt.legend(frameon = False, fontsize = 16)
+plt.tight_layout()
 plt.savefig('../Figures/Paper2/SersicPlot.png')
+plt.savefig('../Figures/Paper2/SersicPlot.pdf')
