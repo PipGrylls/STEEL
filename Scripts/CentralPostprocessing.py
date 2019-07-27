@@ -1130,8 +1130,8 @@ if __name__ == "__main__":
             for i in range(np.shape(DataClass.AvaStellarMass)[0]-1, -1, -1):
                 for j in range(np.shape(DataClass.AvaStellarMass)[1]-1, -1, -1): 
                     MergerThreshold = np.digitize(DataClass.AvaStellarMass[i,j]+np.log10(0.3), bins = DataClass.Surviving_Sat_SMF_MassRange)-1
-                    MassAcc_Minor = np.sum(DataClass.Accretion_History[i,j,:MergerThreshold]*SatelliteMasses[:MergerThreshold])*DataClass.SM_Bin*0.4#*0.612 #Calculates the total acreted stellar mass per central mass     factor of 0.612 from moster 2018 assuming in any given merger ~40% of the mass of the satellite is distributed to the ICM
-                    MassAcc_Major = np.sum(DataClass.Accretion_History[i,j,MergerThreshold:]*SatelliteMasses[MergerThreshold:])*DataClass.SM_Bin*0.4#*0.612 #Calculates the total acreted stellar mass per central mass factor of 0.612 from moster 2018 assuming in any given merger ~40% of the mass of the satellite is distributed to the ICM
+                    MassAcc_Minor = np.sum(DataClass.Accretion_History[i,j,:MergerThreshold]*SatelliteMasses[:MergerThreshold])*DataClass.SM_Bin*0.612 #Calculates the total acreted stellar mass per central mass     factor of 0.612 from moster 2018 assuming in any given merger ~40% of the mass of the satellite is distributed to the ICM
+                    MassAcc_Major = np.sum(DataClass.Accretion_History[i,j,MergerThreshold:]*SatelliteMasses[MergerThreshold:])*DataClass.SM_Bin*0.612 #Calculates the total acreted stellar mass per central mass factor of 0.612 from moster 2018 assuming in any given merger ~40% of the mass of the satellite is distributed to the ICM
                     if (j == None):
                         print(MassAcc)
                     if MassAcc_Minor > 0:
@@ -1644,29 +1644,29 @@ if __name__ == "__main__":
         plt.savefig("Figures/Paper3/SatelliteAccretion.pdf".format(Fit_to_Str(Fit)))
         plt.clf()"""
             
-        f, Plot = plt.subplots(1,1, figsize = (8,5))
-        Plot.plot(DataClass.AvaHaloMass[0], np.log10(np.sum(ICL_From_Mergers, axis = 0)), label = "ICL")
-        Plot.plot(DataClass.AvaHaloMass[0],DataClass.AvaStellarMass[0], "k--", label = "Stellar Mass")
-        Plot.set_xlabel(r"Halo Mass $M_{h}$")
-        Plot.set_ylabel(r"ICL Mass $M_{\odot}$")
-        Plot.set_xlim(12, 15)
-        Plot.set_ylim(8.5, 12.5)
-        Plot.legend(frameon = False, loc = 4)
+        f, Plot = plt.subplots(1,2, figsize = (14,5), sharey = True, gridspec_kw={'wspace': 0})
+        Plot[0].plot(DataClass.AvaHaloMass[0], np.log10(np.sum(ICL_From_Mergers, axis = 0)), label = "ICL")
+        Plot[0].plot(DataClass.AvaHaloMass[0],DataClass.AvaStellarMass[0], "k--", label = "Stellar Mass")
+        Plot[0].set_xlabel(r"Halo Mass $M_{h}$")
+        Plot[0].set_ylabel(r"ICL Mass $M_{\odot}$")
+        Plot[0].set_xlim(12, 14.9)
+        Plot[0].set_ylim(8.5, 12.5)
+        Plot[0].legend(frameon = False, loc = 4)
+        #plt.tight_layout()
+        #plt.savefig("Figures/Paper2/ICL.png")
+        #plt.savefig("Figures/Paper2/ICL.pdf")
+        #plt.clf()
+        #f, Plot = plt.subplots(1,1, figsize = (8,5))
+        Plot[1].plot(DataClass.AvaStellarMass[0], np.log10(np.sum(ICL_From_Mergers, axis = 0)), label = "ICL")
+        Plot[1].plot(DataClass.AvaStellarMass[0],DataClass.AvaStellarMass[0], "k--", label = "Stellar Mass")
+        Plot[1].set_xlabel(r"Stellar Mass $M_{\odot}$")
+        #Plot[1].set_ylabel(r"ICL Mass $M_{\odot}$")
+        Plot[1].legend(frameon = False, loc = 4)
+        Plot[1].set_xlim(10.6, 12.25)
+        Plot[1].set_ylim(9, 12.5)
         plt.tight_layout()
         plt.savefig("Figures/Paper2/ICL.png")
         plt.savefig("Figures/Paper2/ICL.pdf")
-        plt.clf()
-        f, Plot = plt.subplots(1,1, figsize = (8,5))
-        Plot.plot(DataClass.AvaStellarMass[0], np.log10(np.sum(ICL_From_Mergers, axis = 0)), label = "ICL")
-        Plot.plot(DataClass.AvaStellarMass[0],DataClass.AvaStellarMass[0], "k--", label = "Stellar Mass")
-        Plot.set_xlabel(r"Stellar Mass $M_{\odot}$")
-        Plot.set_ylabel(r"ICL Mass $M_{\odot}$")
-        Plot.legend(frameon = False, loc = 4)
-        Plot.set_xlim(10.5, 12.5)
-        Plot.set_ylim(9, 12.5)
-        plt.tight_layout()
-        plt.savefig("Figures/Paper2/ICL_SM.png")
-        plt.savefig("Figures/Paper2/ICL_SM.pdf")
         plt.clf()
             
 
