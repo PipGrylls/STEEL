@@ -263,17 +263,18 @@ def Halogrowth(log_M_h, FullReturn = False):
     PID = log_M_h
     print(PID, end = "\r")
     #Input String is written to a file to be paees into VDB14 as paramaters
+    O0, sig8, nspec, Ob = Cosmo.Om(0), Cosmo.sigma(8, 0), 1, Cosmo.Ob(0)*(h**2)
     Input_Str =("\
-    0.307                                        ! Omega_0\n\
-    0.678                                        ! h (= H_0/100)\n\
-    0.823                                        ! sigma8\n\
-    0.96                                         ! nspec\n\
-    0.02298                                      ! Omega_b_h2\n\
+    %.3f                                        ! Omega_0\n\
+    %.3f                                        ! h (= H_0/100)\n\
+    %.3f                                        ! sigma8\n\
+    %.3f                                         ! nspec\n\
+    %.3f                                      ! Omega_b_h2\n\
     %.1E                                         ! M_0  (h^{-1} Msun)\n\
     0.0                                          ! z_0\n\
     1                                            ! median (0) or averages (1)\n\
     %s.dat                                       !Output File\n\
-    " %(10**log_M_h, PID))
+    " %(O0, h, sig8, nspec, Ob, 10**log_M_h, PID))
     with open(AbsFP+"/../Functions/OtherModels/VDB13/%s.in" %(PID), "w") as f:
         f.write(Input_Str)
     #starts the system command to run VDB14
