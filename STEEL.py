@@ -21,17 +21,16 @@ from colossus.lss import mass_function
 from colossus.halo.concentration import concentration as get_c
 from colossus.halo.mass_so import M_to_R
 from halotools import empirical_models
-from astropy.cosmology import Planck15 as Cosmo_AstroPy
 plt = mpl.pyplot
 T1 = time.time()
-cosmology.setCosmology("millennium")
+cosmology.setCosmology("millennium")#'planck15')
 Cosmo = cosmology.getCurrent()
 h = Cosmo.h
 h_3 = h*h*h
 HMF_fun = F.Make_HMF_Interp()
 
 
-HighRes = False #set to True for better HM/SM resolution, takes MUCH longer
+HighRes = True #set to True for better HM/SM resolution, takes MUCH longer
 
 #Cuts in Satilitemass
 SM_Cuts = [9, 9.5, 10, 10.5, 11, 11.45]#[9,10,11]#
@@ -110,7 +109,7 @@ Unevolved = {\
 }
 
 #HaloMass Limits and Bins
-AnalyticHaloMass_min = 11.0; AnalyticHaloMass_max = 16.6
+AnalyticHaloMass_min = 11.0; AnalyticHaloMass_max = 16.6 #these numbers are in cosmology
 if HighRes:
     AnalyticHaloBin = 0.05
 else:
@@ -585,7 +584,7 @@ if __name__ == "__main__":
                      ('1.0', False, False, True, 'G19_DPL', 'HMevo_alt_0.5')
                     ]"""
     #Tdyn_Factors += [('1.0', False, False, True, 'G19_DPL', 'G19_cMod'), ('1.0', True, False, True, 'G19_DPL', 'G19_cMod')]
-    Tdyn_Factors += [('1.0', True, False, True, 'G19_DPL', 'G19_cMod')]
+    Tdyn_Factors += [('1.0', True, False, True, 'G19_DPL', 'G19_SE')]
     
     msg = 'About to run' + str(Tdyn_Factors)
     shall = input("%s (y/N) " % msg).lower() != 'y'
@@ -595,13 +594,13 @@ if __name__ == "__main__":
         quit()
     
     #Create the folders for saving the output from the model
-    F.PrepareToSave(Tdyn_Factors)
+    #F.PrepareToSave(Tdyn_Factors)
     
     #For runnning single runs without multiprocessing bugs
     #OneRealization(Tdyn_Factors[0])
     
     #run ecah instance on a seperate core
-    pool = multiprocessing.Pool(processes = len(Tdyn_Factors))
-    PoolReturn = pool.map(OneRealization, Tdyn_Factors)
-    pool.close()
-    print(PoolReturn)
+    #pool = multiprocessing.Pool(processes = len(Tdyn_Factors))
+    #PoolReturn = pool.map(OneRealization, Tdyn_Factors)
+    #pool.close()
+    #print(PoolReturn)

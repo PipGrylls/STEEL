@@ -14,13 +14,12 @@ from colossus.cosmology import cosmology
 import colossus.halo.mass_adv as massdefs
 from colossus.lss import mass_function
 from colossus.halo.mass_so import M_to_R
-from astropy.cosmology import Planck15 as Cosmo_AstroPy
 from halotools import empirical_models
 from astropy import constants
 from time import time
 from halotools import empirical_models as EM
 HM_SM = EM.Moster13SmHm(prim_haloprop_key = 'SM')
-cosmology.setCosmology("planck15")
+cosmology.setCosmology("millennium")#'planck15')
 Cosmo = cosmology.getCurrent()
 h = Cosmo.h
 
@@ -280,10 +279,10 @@ def Halogrowth(log_M_h, FullReturn = False):
     #starts the system command to run VDB14
     os.system(AbsFP+"/../Functions/OtherModels/VDB13/getPWGH < "+AbsFP+"/../Functions/OtherModels/VDB13/%s.in" %(PID))
     #Loads the output of VDB14
-    log_Mz_M0 = np.loadtxt(AbsFP+"/../%s.dat" %(PID))
+    log_Mz_M0 = np.loadtxt(AbsFP+"/../Functions/OtherModels/VDB13/%s.dat" %(PID))
     #Removes the file we made to run VDB14 and the file created by VDB14
     os.remove(AbsFP+"/../Functions/OtherModels/VDB13/%s.in"%(PID))
-    os.remove(AbsFP+"/../%s.dat" %(PID))
+    os.remove(AbsFP+"/../Functions/OtherModels/VDB13/%s.dat"%(PID))
 
 
     if FullReturn:
