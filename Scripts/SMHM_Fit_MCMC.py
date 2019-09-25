@@ -154,14 +154,15 @@ class StellarMassFunction:
     def Davidzon_17(self, Corr = False):
         SMR = self.StellarMassRange
         DavDat = []
-        DavDat.append(pd.read_csv("./Data/Observational/Dav17_SMF/mf_mass2b_fl5b_tot_Vmax0.dat", header=None, delim_whitespace=True, names = ["M", "Phi", "err_up", "err_down"]))
-        DavDat.append(pd.read_csv("./Data/Observational/Dav17_SMF/mf_mass2b_fl5b_tot_Vmax1.dat", header=None, delim_whitespace=True, names = ["M", "Phi", "err_up", "err_down"]))
-        DavDat.append(pd.read_csv("./Data/Observational/Dav17_SMF/mf_mass2b_fl5b_tot_Vmax2.dat", header=None, delim_whitespace=True, names = ["M", "Phi", "err_up", "err_down"]))
-        DavDat.append(pd.read_csv("./Data/Observational/Dav17_SMF/mf_mass2b_fl5b_tot_Vmax3.dat", header=None, delim_whitespace=True, names = ["M", "Phi", "err_up", "err_down"]))
-        DavDat.append(pd.read_csv("./Data/Observational/Dav17_SMF/mf_mass2b_fl5b_tot_Vmax4.dat", header=None, delim_whitespace=True, names = ["M", "Phi", "err_up", "err_down"]))
-        DavDat.append(pd.read_csv("./Data/Observational/Dav17_SMF/mf_mass2b_fl5b_tot_Vmax5.dat", header=None, delim_whitespace=True, names = ["M", "Phi", "err_up", "err_down"]))
-        DavDat.append(pd.read_csv("./Data/Observational/Dav17_SMF/mf_mass2b_fl5b_tot_Vmax6.dat", header=None, delim_whitespace=True, names = ["M", "Phi", "err_up", "err_down"]))
-        DavDat.append(pd.read_csv("./Data/Observational/Dav17_SMF/mf_mass2b_fl5b_tot_Vmax7.dat", header=None, delim_whitespace=True, names = ["M", "Phi", "err_up", "err_down"]))
+        print(AbsPath+"/Data/Observational/Dav17_SMF/mf_mass2b_fl5b_tot_Vmax0.dat")
+        DavDat.append(pd.read_csv(AbsPath+"/Data/Observational/Dav17_SMF/mf_mass2b_fl5b_tot_Vmax0.dat", header=None, delim_whitespace=True, names = ["M", "Phi", "err_up", "err_down"]))
+        DavDat.append(pd.read_csv(AbsPath+"/Data/Observational/Dav17_SMF/mf_mass2b_fl5b_tot_Vmax1.dat", header=None, delim_whitespace=True, names = ["M", "Phi", "err_up", "err_down"]))
+        DavDat.append(pd.read_csv(AbsPath+"/Data/Observational/Dav17_SMF/mf_mass2b_fl5b_tot_Vmax2.dat", header=None, delim_whitespace=True, names = ["M", "Phi", "err_up", "err_down"]))
+        DavDat.append(pd.read_csv(AbsPath+"/Data/Observational/Dav17_SMF/mf_mass2b_fl5b_tot_Vmax3.dat", header=None, delim_whitespace=True, names = ["M", "Phi", "err_up", "err_down"]))
+        DavDat.append(pd.read_csv(AbsPath+"/Data/Observational/Dav17_SMF/mf_mass2b_fl5b_tot_Vmax4.dat", header=None, delim_whitespace=True, names = ["M", "Phi", "err_up", "err_down"]))
+        DavDat.append(pd.read_csv(AbsPath+"/Data/Observational/Dav17_SMF/mf_mass2b_fl5b_tot_Vmax5.dat", header=None, delim_whitespace=True, names = ["M", "Phi", "err_up", "err_down"]))
+        DavDat.append(pd.read_csv(AbsPath+"/Data/Observational/Dav17_SMF/mf_mass2b_fl5b_tot_Vmax6.dat", header=None, delim_whitespace=True, names = ["M", "Phi", "err_up", "err_down"]))
+        DavDat.append(pd.read_csv(AbsPath+"/Data/Observational/Dav17_SMF/mf_mass2b_fl5b_tot_Vmax7.dat", header=None, delim_whitespace=True, names = ["M", "Phi", "err_up", "err_down"]))
         #DavDat.append(pd.read_csv("./Dav17_SMF/mf_mass2b_fl5b_tot_Vmax8.dat", header=None, delim_whitespace=True, names = ["M", "Phi", "err_up", "err_down"]))
         #DavDat.append(pd.read_csv("./Dav17_SMF/mf_mass2b_fl5b_tot_Vmax9.dat", header=None, delim_whitespace=True, names = ["M", "Phi", "err_up", "err_down"]))
         Redshifts = [0.37,0.668,0.938,1.286,1.735,2.220,2.683,3.271]

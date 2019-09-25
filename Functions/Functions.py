@@ -79,7 +79,8 @@ def StarFormationRate(SM, z, Parameters, ScatterOn =True, Quenching = False, P_e
     
     if Quenching:
         randints = np.random.random(size = np.shape(SM)) 
-        log10MperY[randints<P_ellip] = SM[randints<P_ellip] - 12 
+        log10MperY[randints<P_ellip] = SM[randints<P_ellip] - 12
+        log10MperY[randints>=P_ellip] = np.log10(np.power(10.0, log10MperY[randints>=P_ellip])-np.power(10.0, -12.0)*np.mean(P_ellip))-np.log10(1-np.mean(P_ellip))
     if ScatterOn:
         log10MperY = np.random.normal(log10MperY,0.2) # scatter in the MS
 

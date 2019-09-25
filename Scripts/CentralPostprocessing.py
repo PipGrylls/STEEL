@@ -461,7 +461,7 @@ if __name__ == "__main__":
     #=====================================================================================
     
     #Pair fraction systematic plot========================================================
-    if True:
+    if False:
         #using gridspec
         fig = plt.figure(figsize=[18,8])
         gs = GridSpec(8, 18, hspace=0.0,wspace=0.0,figure=fig)
@@ -954,7 +954,7 @@ if __name__ == "__main__":
         plt.clf()
         
     #Morphology Plot    
-    if False:
+    if True:
         mpl.rcParams.update(mpl.rcParamsDefault)
         plt.rcParams['ytick.minor.visible']=True
         plt.rcParams['xtick.minor.visible']=True
@@ -968,8 +968,8 @@ if __name__ == "__main__":
         plt.rcParams['xtick.minor.width'] = 1
         plt.rcParams['ytick.minor.width'] = 1
         mpl.rcParams['axes.titlepad'] = 20
-        plt.rcParams['font.size']=22
-        plt.rcParams['lines.linewidth']=3
+        plt.rcParams['font.size']= 15
+        plt.rcParams['lines.linewidth']=2
         Header=['galcount','finalflag','z','Vmaxwt','MsMendSerExp','AbsMag','logReSerExp',
                                   'BT','n_bulge','NewLCentSat','NewMCentSat'
                                   ,'MhaloL','probaE','probaEll',
@@ -977,6 +977,12 @@ if __name__ == "__main__":
                               'veldisp','veldisperr','raSDSS7','decSDSS7']
 
         df = pd.read_csv('Data/Observational/Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, delim_whitespace = True)
+        #Adds the cModel column
+        Header = ["galcount", "finalflag", "z", "Vmaxwt", "MsMendSerExp", "MsMendCmodel", "AbsMag", "logReSerExp", "BT", "n_bulge", "newLCentSat", "NewMCentSat", "newMhaloL", "probaE", "probaEll", "probaS0", "probaSab", "probaScd", "TType", "P_S0", "veldisp", "veldisperr", "raSDSS7", "decSDSS7"]
+        df_new = pd.read_csv("Data/Observational/Lorenzo_SDSS/new_catalog_cModel.dat", header = None, names = Header, delim_whitespace = True, skiprows = 1)
+        df_cut = df_new[["galcount","MsMendCmodel"]]
+        df = pd.merge(df, df_cut, on="galcount", how="inner")
+        
         goodness_cut = (df.finalflag==3 ) | (df.finalflag==5) | (df.finalflag==1)
 
         df = df[goodness_cut]
@@ -1007,6 +1013,7 @@ if __name__ == "__main__":
         Y_All = np.log10(np.divide(hist_cent_All, fracsky*sm_binwidth)*0.9195) #0.9195 correction of volume to Planck15
 
         #Ellipticals Only
+        #SM_Ell = np.array(df_cent.MsMendCmodel[(df_cent.TType<=0)&(df_cent.P_S0<0.5)])
         SM_Ell = np.array(df_cent.MsMendSerExp[(df_cent.TType<=0)&(df_cent.P_S0<0.5)])
         Vmax_Ell = np.array(df_cent.Vmaxwt[(df_cent.TType<=0)&(df_cent.P_S0<0.5)])
 
@@ -1023,9 +1030,9 @@ if __name__ == "__main__":
         plt.xlabel("$log_{10}$ $M_*$ [$M_\odot$]")#, fontproperties = mpl.font_manager.FontProperties(size = 15))
         plt.ylabel("$f_{elliptical}$")#, fontproperties = mpl.font_manager.FontProperties(size = 15))
         
-        MassRatio = 0.3
+        MassRatio = 0.25
         
-        index = FitList.index(('1.0', True, True, True, 'G19_DPL', 'G19_SE'))
+        index = FitList.index(('1.0', True, False, True, 'G19_DPL', 'G19_cMod'))
         P_ellip = Classes[index].Return_Morph_Plot(MassRatio, 3)
         
         #Create data for lorenzo
@@ -1041,14 +1048,14 @@ if __name__ == "__main__":
         
         
         plt.plot(Classes[index].AvaStellarMass[0], P_ellip[0], "-k",label = "STEEL")#, z = 0.1")
-        """
+        #"""
         z_plot = 1.0
         plt.plot(Classes[index].AvaStellarMass[np.digitize(z_plot, bins = Classes[index].z)], P_ellip[np.digitize(z_plot, bins = Classes[index].z)], "--C0", alpha = 0.9,label = "STEEL, z = {}".format(z_plot))
         z_plot = 2.0
         plt.plot(Classes[index].AvaStellarMass[np.digitize(z_plot, bins = Classes[index].z)], P_ellip[np.digitize(z_plot, bins = Classes[index].z)], "-.C3", alpha = 0.9,label = "STEEL, z = {}".format(z_plot))
         plt.xlim(10, 12.3)
-        """
-        plt.text(10.2, 0.4, r"$\frac{M_{*, sat}}{M_{*,cen}} >$" + "{}".format(MassRatio))
+        #"""
+        plt.text(11.4, 0.1, r"$\frac{M_{*, sat}}{M_{*,cen}} >$" + "{}".format(MassRatio))
         plt.legend(frameon = False)
         plt.xlim(10,12)
         plt.ylim(0,1)
@@ -1700,7 +1707,7 @@ if __name__ == "__main__":
         plt.clf()
         
     #Make the sSFR distribution
-    if False:
+    if True:
         f, SubPlots = plt.subplots(1, 3, figsize = (10,3), sharey = True)
         FirstPass = True
         No_Leg = False
