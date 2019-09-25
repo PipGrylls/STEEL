@@ -1,0 +1,32 @@
+from setuptools import setup
+setup(
+    name='STEEL',
+    version= 1.0,
+    description='A STastical sEmi-Empirical modeL designed to reproduce satellite galaxy districutions in massive haloes',
+    author='Philip Grylls',
+    author_email='P.Grylls@soton.ac.uk',
+    packages=['STEEL'],
+    url = 'https://github.com/PipGrylls/STEEL'
+    install_requires=['time', 
+                      'os', 
+                      'numpy', 
+                      'fast_histogram',
+                      'matplotlib',
+                      'colossus',
+                      'multiprocessing',
+                      'numba',
+                      'sys',
+                      'pickle',
+                      'pandas',
+                      'scipy',
+                      'itertools',
+                      'copy',
+                      'emcee',
+                      'corner',
+                      'math',
+                      'astropy',
+                      'cython',
+                      'cython_gsl',
+                      'lib_cpp',
+                      'lib_c']
+)
