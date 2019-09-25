@@ -11,7 +11,7 @@ from fast_histogram import histogram1d, histogram2d
 import matplotlib as mpl
 mpl.use('agg')
 import hmf
-from Functions import Functions as F
+from Functions import Functions as f
 import multiprocessing
 from numba import jit
 from colossus.cosmology import cosmology
@@ -98,34 +98,21 @@ Paramaters_Glob = \
 'AltDynamicalTimeB': False\
 }
 
+#making the central halo mass range and setting the bin width. ahb = analytic halo bin
+ahb = 0.05 if high_res else 0.1
+ahb_2 = np.power(ahb, 2)
+analytic_hm = np.arange(analytic_hm_min , analytic_hm_max , ahb) #Mvir [Msun]
+analytic_hm =+ np.log10(h) #Mvir [Msun h-1]
 
-#Subhalomass function parameters macc/M0
-Unevolved = {\
-'gamma' : 0.22,\
-'alpha' : -0.91,\
-'beta' : 6,\
-'omega' : 3,\
-'a' : 1,\
-}
-
-#HaloMass Limits and Bins
-AnalyticHaloMass_min = 11.0; AnalyticHaloMass_max = 16.6 #these numbers are in cosmology
-if HighRes:
-    AnalyticHaloBin = 0.05
-else:
-    AnalyticHaloBin = 0.1
-AHB_2 = AnalyticHaloBin*AnalyticHaloBin
-AnalyticHaloMass = np.arange(AnalyticHaloMass_min + np.log10(h), AnalyticHaloMass_max + np.log10(h), AnalyticHaloBin)
-#Units are Mvir h-1
 
 #This is the Halomass growth history
 #Generates redshfit steps that are small enough to avoid systematics.
-z, AvaHaloMass_wz = F.Get_HM_History(AnalyticHaloMass, AnalyticHaloMass_min, AnalyticHaloMass_max, AnalyticHaloBin)
-AvaHaloMass = AvaHaloMass_wz[:, 1:]
+z, ava_hm_wz = f.Get_HM_History(analytic_hm, analytic_hm_min , analytic_hm_max , ahb)
+ava_hm = ava_hm_wz[:, 1:]
 
 #Account for central bin shrinking
-AvaHaloMassBins = AvaHaloMass[:,1:] - AvaHaloMass[:,:-1] 
-AvaHaloMassBins = np.concatenate((AvaHaloMassBins, np.array([AvaHaloMassBins[:,-1]]).T), axis = 1)
+ava_hm_bins = AvaHaloMass[:,1:] - AvaHaloMass[:,:-1] 
+ava_hm_bins = np.concatenate((AvaHaloMassBins, np.array([AvaHaloMassBins[:,-1]]).T), axis = 1)
 
 
 #Arrays for tracing the time and indexing efficently the time to z = 0

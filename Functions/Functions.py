@@ -234,22 +234,19 @@ def Make_HMF_Interp():
 
 #Returns the Unevolved SHMF from Jiang, van den Bosch.
 #Units are Mvir h-1
-def dn_dlnX(Parameters, X):
+def dn_dlnX(x):
     """
     Caculates subahlo mass funtions
     Args:
-        Parameters: Dictonary containg 'gamma', 'alpha', 'beta', 'omega', 'a'
-        X: m/M arrays desired subhalo/parenthalo
+        x: m/M arrays desired subhalo/parenthalo
     Returns:
-        dn_dlogX_arr: Numberdensitys per dex #N dex-1
+        dn_dlogx_arr: Numberdensitys per dex #N dex-1
     """
-    Part1 = Parameters['gamma']*np.power(Parameters['a']*X, Parameters['alpha'])
-    Part2 = np.exp(-Parameters['beta']*np.power(Parameters['a']*X, Parameters['omega']))
-    dn_dlnX_arr = Part1*Part2
-    dn_dlogX_arr = dn_dlnX_arr*2.30
-    return dn_dlogX_arr #N dex-1
+    gamma = 0.22; alpha = -0.91; beta = 6; omega = 3; a = 1 #Subhalomass function parameters macc
+    dn_dlnx_arr = np.multiply(gamma,np.power(np.multiply(a,x), alpha)*np.exp(np.multiply(-beta,np.power(np.multiply(a,x), omega))))
+    dn_dlogx_arr = np.multiply(dn_dlnx_arr,2.30)#conversion to base10
+    return dn_dlogx_arr #N dex-1
 
-#
 #Units are Mvir h-1
 def Halogrowth(log_M_h, FullReturn = False):
     """
@@ -527,97 +524,48 @@ def DarkMatterToStellarMass(DM, z, Paramaters, ScatterOn = False, Scatter = 0.00
     Raises: 
         N/A
     """
+    #required to ensure a genuine random seed on each multiprocess
     np.random.seed(int(str(time()).split('.')[1])+os.getpid())
-    Paramaters = Paramaters['AbnMtch']
+    
+    #Switch for models which calabrate at redshift 0 or 0.1#
     if Paramaters['z_Evo']:
-        if Paramaters['Moster']:
+        if Paramaters['Moster10'] or Paramaters['Moster13']:
             zparameter = np.divide(z, z+1)
-        elif Paramaters['Override_0'] or Paramaters['Override_z'] or Paramaters['G18'] or Paramaters['G18_notSE']:
-            zparameter = np.divide(z-0.1, z+1)
         else:
             zparameter = np.divide(z-0.1, z+1)
     else:
         zparameter = 0
-
+    
     if ScatterOn:
         Scatter = Paramaters['Scatter']
     
-    if Paramaters['Override_0'] or Paramaters['Override_z']:
-        Override = Paramaters['Override']
-    
     #parameters from moster 2013
-    if(Paramaters['Moster']):
+    if(Paramaters['Moster13']):
         M10, SHMnorm10, beta10, gamma10, Scatter = 11.590, 0.0351, 1.376, 0.608, 0.15
         M11, SHMnorm11, beta11, gamma11 = 1.195, -0.0247, -0.826, 0.329
     if(Paramaters['Moster10']):
         M10, SHMnorm10, beta10, gamma10, Scatter = 11.884, 0.28320, 1.057, 0.556, 0.15
         M11, SHMnorm11, beta11, gamma11 = 1.195, -0.0247, -0.826, 0.329
-    #paremeters from centrals Paper1
-    if(Paramaters['G18']):
-        M10, SHMnorm10, beta10, gamma10, Scatter = 11.95, 0.032, 1.61, 0.54, 0.11
-        M11, SHMnorm11, beta11, gamma11 = 0.4, -0.02, -0.6, -0.1
-    #paremeters from centrals Paper1 with a slight (-0.15) correction away from sersicexp
-    if(Paramaters['G18_notSE']):
-        M10, SHMnorm10, beta10, gamma10, Scatter = 11.95, 0.032, 1.61, 0.62, 0.11 #12.00, 0.022, 1.56, 0.55, 0.15
-        M11, SHMnorm11, beta11, gamma11 = 0.4, -0.02, -0.6, 0.0 #0.4, 0.0, -0.5, 0.1
-    if(Paramaters['G19_SE']):
+    if(Paramaters['G19_PyMorph']):
         M10, SHMnorm10, beta10, gamma10, Scatter = 11.925, 0.032,1.639,0.532,0.15 #12.00, 0.022, 1.56, 0.55, 0.15
         M11, SHMnorm11, beta11, gamma11 = 0.576,-0.014,-0.693,0.03 #0.4, 0.0, -0.5, 0.1
-    if(Paramaters['G19_cMod']):
+    if(Paramaters['G19_cModel']):
         M10, SHMnorm10, beta10, gamma10, Scatter = 11.91,0.029,2.09,0.64,0.15 #12.0,0.032,1.74,0.66,0.15 #12.00, 0.022, 1.56, 0.55, 0.15
         M11, SHMnorm11, beta11, gamma11 = 0.644, -0.019, -1.422,  -0.043  #0.518,-0.018,-1.031,-0.084
     #parameters to recreate the illistrius M*Mh
     if(Paramaters['Illustris']):
         M10, SHMnorm10, beta10, gamma10, Scatter = 11.8,0.018,1.5,0.31,0.15 
         M11, SHMnorm11, beta11, gamma11 = 0.0,-0.01,0,-0.12
-    #allows user to sent in their own abundance matching parameters either fixed at redshift 0/0.1 or evolving
-    
-    if(Paramaters['Override_0']):
-        M10, SHMnorm10, beta10, gamma10 = Override['M10'], Override['SHMnorm10'], Override['beta10'], Override['gamma10']
-        M11, SHMnorm11, beta11, gamma11 = 0.4, -0.02, -0.6, -0.1 #1.195, -0.0247, -0.826, 0.329
+    #allows user to sent in their own abundance matching parameters
     if(Paramaters['Override_z']):
-        M10, SHMnorm10, beta10, gamma10 = Override['M10'], Override['SHMnorm10'], Override['beta10'], Override['gamma10']
-        M11, SHMnorm11, beta11, gamma11 = Override['M11'], Override['SHMnorm11'], Override['beta11'], Override['gamma11']
-    #For Pairfraction Testing
-    if Paramaters['PFT']:
-        M10, SHMnorm10, beta10, gamma10, Scatter = 11.925, 0.032,1.639,0.532,0.15 #12.00, 0.022, 1.56, 0.55, 0.15
-        M11, SHMnorm11, beta11, gamma11 = 0.576,-0.014,-0.693,0.03 #0.4, 0.0, -0.5, 0.1
-        if(Paramaters['M_PFT1']):
-            M10 = M10-0.25
-        if(Paramaters['M_PFT2']):
-            M11 = M11 + 0.1
-        if(Paramaters['M_PFT3']):
-            M11 = M11 - 0.1
-        if(Paramaters['N_PFT1']):
-            SHMnorm10 = SHMnorm10 + 0.004
-        if(Paramaters['N_PFT2']):
-            SHMnorm11 = SHMnorm11 + 0.007
-        if(Paramaters['N_PFT3']):
-            SHMnorm11 = SHMnorm11 - 0.007
-        if(Paramaters['b_PFT1']):
-            beta10 = beta10 - 0.3
-        if(Paramaters['b_PFT2']):
-            beta11 = beta11 + 0.3
-        if(Paramaters['b_PFT3']):
-            beta11 = beta11 - 0.3
-        if(Paramaters['g_PFT1']):
-            gamma10 = gamma10 + 0.06
-        if(Paramaters['g_PFT2']):
-            gamma11 = gamma11 + 0.2
-        if(Paramaters['g_PFT3']):
-            gamma11 = gamma11 - 0.2
-        if(Paramaters['g_PFT4']):
-            gamma10 = gamma10 - 0.1
-    if Paramaters['HMevo']:
-        M10, SHMnorm10, beta10, gamma10, Scatter = 11.91,0.029,2.09,0.64,0.15
-        M11, SHMnorm11, beta11 = 0.518,-0.018,-1.031 
-        gamma11 = Paramaters["HMevo_param"]
+        M10, SHMnorm10, beta10, gamma10 = Paramaters['Override_params']['M10'], Paramaters['Override_params']['SHMnorm10'], Paramaters['Override_params']['beta10'], Paramaters['Override_params']['gamma10']
+        M11, SHMnorm11, beta11, gamma11 = Paramaters['Override_params']['M11'], Paramaters['Override_params']['SHMnorm11'], Paramaters['Override_params']['beta11'], Paramaters['Override_params']['gamma11']
+    
     #putting the parameters together for inclusion in the Moster 2010 equation
     M = M10 + M11*zparameter
     N = SHMnorm10 + SHMnorm11*zparameter
     b = beta10 + beta11*zparameter
     g = gamma10 + gamma11*zparameter
-
     # Moster 2010 eq2
     if ((np.shape(DM) == np.shape(z)) or np.shape(z) == (1,) or np.shape(z) == ()) and Pairwise:
         SM =  np.power(10, DM) * (2*N*np.power( (np.power(np.power(10,DM-M), -b) + np.power(np.power(10,DM-M), g)), -1))
@@ -629,16 +577,17 @@ def DarkMatterToStellarMass(DM, z, Paramaters, ScatterOn = False, Scatter = 0.00
             g = np.full((np.size(DM), np.size(z)), g).T
             DM = np.full((np.size(z), np.size(DM)), DM)
         SM =  np.power(10, DM) * (2*N*np.power( (np.power(np.power(10,DM-M), -b) + np.power(np.power(10,DM-M), g)), -1))
+    
     #Adding Scatter
     if(ScatterOn):
         Scatter_Arr = np.random.normal(scale = Scatter, size = np.shape(SM))
-        return( np.log10(SM) + Scatter_Arr)
+        return( np.log10(SM) + Scatter_Arr) #log10 M* Msun
     else:
-        return( np.log10(SM))
+        return( np.log10(SM)) #log10 M* Msun
 
 def DarkMatterToStellarMass_Alt(DarkMatter, Redshift, Paramaters, ScatterOn = False, Scatter = 0.001):
-    np.random.seed()
-    Paramaters = Paramaters['AbnMtch']
+    #required to ensure a genuine random seed on each multiprocess
+    np.random.seed(int(str(time()).split('.')[1])+os.getpid())
     z = Redshift
     if(Paramaters['Behroozi18']):
         if(Paramaters['B18c']):
