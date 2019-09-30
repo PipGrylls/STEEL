@@ -1025,7 +1025,7 @@ if __name__ == "__main__":
             zbin5 = np.digitize(5, bins = DataClass.z)
             
             for i_, i in enumerate([np.digitize(12, bins = DataClass.AvaStellarMass[0])-1, np.digitize(11.5, bins = DataClass.AvaStellarMass[0])-1, np.digitize(11, bins = DataClass.AvaStellarMass[0])-1]):
-            #for i_, i in enumerate([np.digitize(10.5, bins = DataClass.AvaStellarMass[0])-1, np.digitize(9.5, bins = DataClass.AvaStellarMass[0])-1, np.digitize(9, bins = DataClass.AvaStellarMass[0])-1]):
+            #for i_, i in enumerate([np.digitize(11, bins = DataClass.AvaStellarMass[0])-1, np.digitize(10.5, bins = DataClass.AvaStellarMass[0])-1, np.digitize(10, bins = DataClass.AvaStellarMass[0])-1]):
                 colour = next(colourcycler)
                 
 
@@ -1084,7 +1084,7 @@ if __name__ == "__main__":
                 #Total
                 SubPlots[0, i_].plot(DataClass.z, DataClass.AvaStellarMass[:,i], "-", color = colour)
                 #SFH
-                #SubPlots[0, i_].plot(z_for_SFH, np.log10(Mass), ":", color = colour)
+                SubPlots[0, i_].plot(z_for_SFH, np.log10(Mass), ":", color = colour)
                 #Accretion
                 SubPlots[0, i_].plot(DataClass.z, np.flip(np.log10(np.cumsum(np.flip(Mass_Accretion_PerCentral[:,i], 0))), 0), "--", color = colour)
                 #SubPlots[0, i_].plot(DataClass.z, np.flip(np.log10(np.cumsum(np.flip(Mass_Accretion_PerCentral_Minor[:,i], 0))), 0), "-.", color = colour)
@@ -1143,22 +1143,22 @@ if __name__ == "__main__":
                 #The ratio from SFH
                 SFH_zbin3 = np.digitize(3, bins = z_for_SFH)
                 Ratio_SFH = np.divide(Mass[SFH_zbin3:]-Mass[SFH_zbin3], CM_interp(z_for_SFH[SFH_zbin3:])-CM_interp(z_for_SFH[SFH_zbin3]))
-                #SubPlots[1, i_].plot(z_for_SFH[SFH_zbin3:], Ratio_SFH, ":", color = colour)                
+                SubPlots[1, i_].plot(z_for_SFH[SFH_zbin3:], Ratio_SFH, ":", color = colour)                
                 
                 #The ratio from Satellite Accretion
                 Ratio_Acc = np.divide(Accretion_Interp(z_for_SFH[SFH_zbin3:]) - Accretion_Interp(z_for_SFH[SFH_zbin3]), CM_interp(z_for_SFH[SFH_zbin3:])-CM_interp(z_for_SFH[SFH_zbin3]))
                 SubPlots[1, i_].plot(z_for_SFH[SFH_zbin3:], Ratio_Acc, "--", color = colour)
                 
                 #Total
-                #SubPlots[1, i_].plot(z_for_SFH[SFH_zbin3:], Ratio_SFH+Ratio_Acc, "-", color = colour)
+                SubPlots[1, i_].plot(z_for_SFH[SFH_zbin3:], Ratio_SFH+Ratio_Acc, "-", color = colour)
                 
                 #Panel 3: Instaneous mass rates
                 #Moving averages here to smooth out the scatters in the instantaneous rates
                 N = 3
                 X_acc_hz, Y_acc_hz = np.convolve(DataClass.z, np.ones((N,))/N, mode='valid'), np.convolve( np.divide(Mass_Accretion_PerCentral[:,i], CentralMassGrowth), np.ones((N,))/N, mode='valid')
                 SubPlots[2, i_].plot(X_acc_hz[8:], Y_acc_hz[8:], "--", color = colour)
-                #SubPlots[2, i_].plot(z_for_SFH, np.divide(M_dot_noacc, CMG_dt_interp(z_for_SFH)), ":", color = colour)
-                #SubPlots[2, i_].plot(z_for_SFH, np.divide(M_dot, CMG_dt_interp(z_for_SFH)), "-", color = colour)               
+                SubPlots[2, i_].plot(z_for_SFH, np.divide(M_dot_noacc, CMG_dt_interp(z_for_SFH)), ":", color = colour)
+                SubPlots[2, i_].plot(z_for_SFH, np.divide(M_dot, CMG_dt_interp(z_for_SFH)), "-", color = colour)               
                 
                 #Adding crosses from leja
                 """
@@ -1220,10 +1220,10 @@ if __name__ == "__main__":
             SubPlots[2, 2].axhline(1, 0.001, 3, linestyle = "-", color = "k", alpha = 0.5)
             
             #Adding Illustris
-            """
+            #"""
             colours = ["C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "k"]
             colourcycler = cycle(colours)
-            for i_, i in enumerate([12,11.5,11]):#
+            for i_, i in enumerate([12,11.5,11]):
                 colour = next(colourcycler)
                 z = np.load("./Data/Observational/Illustris/z_{}.npy".format(i))
                 Mcen_l, Mcen_u = np.load("./Data/Observational/Illustris/Mcen_{}.npy".format(i))
@@ -1236,7 +1236,7 @@ if __name__ == "__main__":
                 SubPlots[2, i_].plot([10, 11],[1, 1])
             #"""
             #Adding Moster
-            """
+            #"""
             colours = ["C2", "C1", "C0"]
             colourcycler = cycle(colours)
             Emerge = h5py.File(AbsPath+"/../Data/Observational/Moster_EMERGE/mainbranches.S85.h5")
@@ -1322,7 +1322,7 @@ if __name__ == "__main__":
             #"""
             
             #Adding Menci
-            #"""
+            """
             Acc11 = np.loadtxt(AbsPath+"/../Data/Observational/Nicola_SAM/Macc_11.dat").T
             Acc11pt5 = np.loadtxt(AbsPath+"/../Data/Observational/Nicola_SAM/Macc_11.5.dat").T
             Acc12 = np.loadtxt(AbsPath+"/../Data/Observational/Nicola_SAM/Macc_12.dat").T
