@@ -1,25 +1,16 @@
 import sys
 import multiprocessing
 import os
-import hmf
 import pickle
-import math
 import numpy as np
 from Functions import Functions_c
-from numba import jit
 import scipy.interpolate as inter
-import matplotlib as mpl
 import matplotlib.pyplot as plt
 from colossus.cosmology import cosmology
-import colossus.halo.mass_adv as massdefs
 from colossus.lss import mass_function
 from colossus.halo.mass_so import M_to_R
-from halotools import empirical_models
-from astropy import constants
 from time import time
-from halotools import empirical_models as EM
-HM_SM = EM.Moster13SmHm(prim_haloprop_key = 'SM')
-cosmology.setCosmology("millennium")#'planck15')
+cosmology.setCosmology('planck15')
 Cosmo = cosmology.getCurrent()
 h = Cosmo.h
 
@@ -207,12 +198,6 @@ def Make_HMF_Interp():
     if AbsFP+"/../Data/Model/Input/hmf_fun.pkl" in os.listdir():
         HMF_fun = pickle.load(open(AbsFP+"/../Data/Model/Input/hmf_fun.pkl", 'rb'))
     else:
-        #Halo mass function from hmf
-        #http://hmf.icrar.org/hmf_finder/form/create/
-        #http://hmf.readthedocs.io/en/latest/index.html
-        #Default cosmology is Planck15
-        HMF_fit = hmf.fitting_functions.Tinker10
-
         #The mass and redshift range should be larger than the simulation
         #Mass
         Min_x =8; Max_x = 16; Step_x = 0.01
@@ -280,10 +265,10 @@ def Halogrowth(log_M_h, FullReturn = False):
     #starts the system command to run VDB14
     os.system(AbsFP+"/../Functions/OtherModels/VDB13/getPWGH < "+AbsFP+"/../Functions/OtherModels/VDB13/%s.in" %(PID))
     #Loads the output of VDB14
-    log_Mz_M0 = np.loadtxt(AbsFP+"/../Functions/OtherModels/VDB13/%s.dat" %(PID))
+    log_Mz_M0 = np.loadtxt(AbsFP+"/../Functions/OtherModels/VDB13/*%s.dat" %(PID))
     #Removes the file we made to run VDB14 and the file created by VDB14
     os.remove(AbsFP+"/../Functions/OtherModels/VDB13/%s.in"%(PID))
-    os.remove(AbsFP+"/../Functions/OtherModels/VDB13/%s.dat"%(PID))
+    os.remove(AbsFP+"/../Functions/OtherModels/VDB13/*%s.dat"%(PID))
 
 
     if FullReturn:
@@ -544,8 +529,11 @@ def DarkMatterToStellarMass(DM, z, Paramaters, ScatterOn = False, Scatter = 0.00
     
     if Paramaters['Override_0'] or Paramaters['Override_z']:
         Override = Paramaters['Override']
-    
-    #parameters from moster 2013
+
+    # Go to RP17 abundance matching
+    if Paramaters['RP17']:
+        return SHMR_RP17(z, DM)
+    # parameters from moster 2013
     if(Paramaters['Moster']):
         M10, SHMnorm10, beta10, gamma10, Scatter = 11.590, 0.0351, 1.376, 0.608, 0.15
         M11, SHMnorm11, beta11, gamma11 = 1.195, -0.0247, -0.826, 0.329
@@ -635,6 +623,59 @@ def DarkMatterToStellarMass(DM, z, Paramaters, ScatterOn = False, Scatter = 0.00
         return( np.log10(SM) + Scatter_Arr)
     else:
         return( np.log10(SM))
+
+
+def SHMR_func(alpha, delta, gamma, log10eps, log10M1, log10Mvir):  # SHMR functional form; Behroozi+2010
+
+    def g(x, a, g, d):
+        return (-np.log10(10 ** (-a * x) + 1.) +
+
+                d * (np.log10(1. + np.exp(x))) ** g / (1. + np.exp(10 ** (-x))))
+
+    x = log10Mvir - log10M1
+
+    g1 = g(x, alpha, gamma, delta)
+
+    g0 = g(0, alpha, gamma, delta)
+
+    log10Ms = log10eps + log10M1 + g1 - g0
+
+    return log10Ms
+
+
+def SHMR_RP17(z, log10Mvir):  # Best fitting model for the SHMR RP17.
+
+    def P(x, y, z):
+        return y * z - x * z / (1 + z)
+
+    def Q(z):
+        return np.exp(-4 / (1. + z) ** 2)
+
+    al = (1.975, 0.714, 0.042)
+
+    de = (3.390, -0.472, -0.931)
+
+    ga = (0.498, -0.157)
+
+    ep = (-1.758, 0.110, -0.061, -0.023)
+
+    M0 = (11.548, -1.297, -0.026)
+
+    alpha = al[0] + P(al[1], al[2], z) * Q(z)
+
+    delta = de[0] + P(de[1], de[2], z) * Q(z)
+
+    gamma = ga[0] + P(ga[1], 0, z) * Q(z)
+
+    log10eps = ep[0] + P(ep[1], ep[2], z) * Q(z) + P(ep[3], 0, z)
+
+    log10M1 = M0[0] + P(M0[1], M0[2], z) * Q(z)
+
+    log10Ms = SHMR_func(alpha, delta, gamma, log10eps, log10M1, log10Mvir)
+
+    return log10Ms
+
+
 
 def DarkMatterToStellarMass_Alt(DarkMatter, Redshift, Paramaters, ScatterOn = False, Scatter = 0.001):
     np.random.seed()

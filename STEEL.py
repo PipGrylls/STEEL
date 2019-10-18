@@ -10,27 +10,20 @@ import numpy as np
 from fast_histogram import histogram1d, histogram2d
 import matplotlib as mpl
 mpl.use('agg')
-import hmf
 from Functions import Functions as F
 import multiprocessing
-from numba import jit
 from colossus.cosmology import cosmology
-from colossus.halo.mass_defs import changeMassDefinition as CMD
-from colossus.halo.mass_defs import pseudoEvolve as PE
-from colossus.lss import mass_function
-from colossus.halo.concentration import concentration as get_c
 from colossus.halo.mass_so import M_to_R
-from halotools import empirical_models
 plt = mpl.pyplot
 T1 = time.time()
-cosmology.setCosmology("millennium")#'planck15')
+cosmology.setCosmology('planck15')
 Cosmo = cosmology.getCurrent()
 h = Cosmo.h
 h_3 = h*h*h
 HMF_fun = F.Make_HMF_Interp()
 
 
-HighRes = True #set to True for better HM/SM resolution, takes MUCH longer
+HighRes = False #set to True for better HM/SM resolution, takes MUCH longer
 
 #Cuts in Satilitemass
 SM_Cuts = [9, 9.5, 10, 10.5, 11, 11.45]#[9,10,11]#
@@ -38,74 +31,72 @@ SM_Cuts = [9, 9.5, 10, 10.5, 11, 11.45]#[9,10,11]#
 N = 5
 
 #Abundance Matching Parameters
-Override =\
-{\
-'M10':12.0,\
-'SHMnorm10':0.032,\
-'beta10':1.5,\
-'gamma10':0.56,\
-'M11':0.6,\
-'SHMnorm11':-0.014,\
-'beta11':-2,\
-'gamma11':0.08\
+Override = {
+'M10':12.0,
+'SHMnorm10':0.032,
+'beta10':1.5,
+'gamma10':0.56,
+'M11':0.6,
+'SHMnorm11':-0.014,
+'beta11':-2,
+'gamma11':0.08
 }
 
 
-AbnMtch =\
-{\
-'Behroozi13': False,\
-'Behroozi18': False,\
-'B18c':False,\
-'B18t':False,\
-'G18':False,\
-'G18_notSE':False,\
-'G19_SE':False,\
-'G19_cMod':False,\
-'Lorenzo18':False,\
-'Moster': False,\
-'Moster10': False,\
-'Illustris': False,\
-'z_Evo':True,\
-'Scatter': 0.15,\
-'Override_0': False,\
-'Override_z': False,\
-'Override': Override,\
-'PFT': False,\
-'M_PFT1': False,\
-'M_PFT2': False,\
-'M_PFT3': False,\
-'N_PFT1': False,\
-'N_PFT2': False,\
-'N_PFT3': False,\
-'b_PFT1': False,\
-'b_PFT2': False,\
-'b_PFT3': False,\
-'g_PFT1': False,\
-'g_PFT2': False,\
-'g_PFT3': False,\
-'g_PFT4': False,\
-'HMevo': False,\
-'HMevo_param': None\
+AbnMtch = {
+'Behroozi13': False,
+'Behroozi18': False,
+'B18c':False,
+'B18t':False,
+'G18':False,
+'G18_notSE':False,
+'G19_SE':False,
+'G19_cMod':False,
+'Lorenzo18':False,
+'Moster': False,
+'Moster10': False,
+'RP17': False,
+'Illustris': False,
+'z_Evo':True,
+'Scatter': 0.15,
+'Override_0': False,
+'Override_z': False,
+'Override': Override,
+'PFT': False,
+'M_PFT1': False,
+'M_PFT2': False,
+'M_PFT3': False,
+'N_PFT1': False,
+'N_PFT2': False,
+'N_PFT3': False,
+'b_PFT1': False,
+'b_PFT2': False,
+'b_PFT3': False,
+'g_PFT1': False,
+'g_PFT2': False,
+'g_PFT3': False,
+'g_PFT4': False,
+'HMevo': False,
+'HMevo_param': None
 }
 
-Paramaters_Glob = \
-{\
-'AbnMtch' : AbnMtch,\
-'AltDynamicalTime': 1,\
-'NormRnd': 0.5,\
-'SFR_Model': 'CE',\
-'PreProcessing': False,\
-'AltDynamicalTimeB': False\
+Paramaters_Glob = {
+'AbnMtch' : AbnMtch,
+'AltDynamicalTime': 1,
+'NormRnd': 0.5,
+'SFR_Model': 'CE',
+'PreProcessing': False,
+'AltDynamicalTimeB': False
 }
 
 
 #Subhalomass function parameters macc/M0
-Unevolved = {\
-'gamma' : 0.22,\
-'alpha' : -0.91,\
-'beta' : 6,\
-'omega' : 3,\
-'a' : 1,\
+Unevolved = {
+'gamma' : 0.22,
+'alpha' : -0.91,
+'beta' : 6,
+'omega' : 3,
+'a' : 1,
 }
 
 #HaloMass Limits and Bins
@@ -584,7 +575,7 @@ if __name__ == "__main__":
                      ('1.0', False, False, True, 'G19_DPL', 'HMevo_alt_0.5')
                     ]"""
     #Tdyn_Factors += [('1.0', False, False, True, 'G19_DPL', 'G19_cMod'), ('1.0', True, False, True, 'G19_DPL', 'G19_cMod')]
-    Tdyn_Factors += [('1.0', True, False, True, 'G19_DPL', 'G19_SE')]
+    Tdyn_Factors += [('1.0', False, False, True, 'G19_DPL', 'RP17')]
     
     msg = 'About to run' + str(Tdyn_Factors)
     shall = input("%s (y/N) " % msg).lower() != 'y'
