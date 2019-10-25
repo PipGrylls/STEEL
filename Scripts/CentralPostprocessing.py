@@ -86,6 +86,7 @@ AbnMtch =\
 'Lorenzo18':False,\
 'Moster': False,\
 'Moster10': False,\
+'RP17':False,\
 'Illustris': False,\
 'z_Evo':True,\
 'Scatter': 0.11,\
@@ -420,7 +421,7 @@ if __name__ == "__main__":
                          ('1.0', True, False, True, 'G19_DPL', 'G19_cMod'),\
                          ('1.2', True, False, True, 'G19_DPL', 'G19_cMod'),\
                          ('2.0', True, False, True, 'G19_DPL', 'G19_cMod')]
-    Total_Factors = Evo_Factors + DPL_Factors + cMod_Factors + M_Factors + N_Factors + b_Factors + g_Factors + Ill_Factors + HMevo_Factors + Reviewer_Factors
+    Total_Factors = Evo_Factors + DPL_Factors + cMod_Factors + M_Factors + N_Factors + b_Factors + g_Factors + Ill_Factors + HMevo_Factors + Reviewer_Factors + [('1.0', False, False, True, 'G19_DPL', 'RP17')]
 
     if False:
         ClassList = []
@@ -703,13 +704,14 @@ if __name__ == "__main__":
     #====================================================================
 
     #Make the Data comparision PF plot===================================
-    if False:
+    if True:
         f, SubPlots = plt.subplots(1, 2, figsize = (10, 4))
         Master_Interp = Classes[FitList.index(('1.0', True, False, True, 'G19_DPL', 'G19_cMod'))].ReturnInterp()
         colourcycler = cycle(colours)
         Max = -1; Min = 1
-        Fits = [('1.0', True, False, True, 'G19_DPL', 'G19_SE'), ('1.0', True, False, True, 'G19_DPL', 'G19_cMod')]
+        #Fits = [('1.0', True, False, True, 'G19_DPL', 'G19_SE'), ('1.0', True, False, True, 'G19_DPL', 'G19_cMod')]
         #Fits = [('1.0', True, False, True, 'G19_DPL', 'G19_SE'), ('1.0', True, False, True, 'Illustris', 'Illustris')]
+        Fits = [('1.0', False, False, True, 'G19_DPL', 'RP17')]
         ModelPlots = []
         for Fit in Fits:
             colour = next(colourcycler)
@@ -1096,7 +1098,7 @@ if __name__ == "__main__":
         #colours = ["C0", "C2", "C3", "C6"]
         colourcycler = cycle(colours)
         #[HMevo_Factors[0], HMevo_Factors[2], HMevo_Factors[3], HMevo_Factors[6]]
-        for k, Fit in enumerate([('1.0', True, False, True, 'G19_DPL', 'G19_cMod')]):
+        for k, Fit in enumerate([('1.0', False, False, True, 'G19_DPL', 'RP17'), ('1.0', True, True, True, 'G19_DPL', 'G19_SE')]):
             colour = next(colourcycler)
             #f, SubPlots = plt.subplots(3, 3, figsize = (12,7), sharex = 'col', sharey = 'row')
             #colours = ["C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "k"]
@@ -1199,8 +1201,9 @@ if __name__ == "__main__":
             zbin4 = np.digitize(4, bins = DataClass.z)
             zbin5 = np.digitize(5, bins = DataClass.z)
             
-            for i_, i in enumerate([np.digitize(12, bins = DataClass.AvaStellarMass[0])-1, np.digitize(11.5, bins = DataClass.AvaStellarMass[0])-1, np.digitize(11, bins = DataClass.AvaStellarMass[0])-1]):
-            #for i_, i in enumerate([np.digitize(10.5, bins = DataClass.AvaStellarMass[0])-1, np.digitize(9.5, bins = DataClass.AvaStellarMass[0])-1, np.digitize(9, bins = DataClass.AvaStellarMass[0])-1]):
+            #for i_, i in enumerate([np.digitize(12, bins = DataClass.AvaStellarMass[0])-1, np.digitize(11.5, bins = DataClass.AvaStellarMass[0])-1, np.digitize(11, bins = DataClass.AvaStellarMass[0])-1]):
+            #for i_, i in enumerate([np.digitize(11, bins = DataClass.AvaStellarMass[0])-1, np.digitize(10.5, bins = DataClass.AvaStellarMass[0])-1, np.digitize(10, bins = DataClass.AvaStellarMass[0])-1]):
+            for i_, i in enumerate([np.digitize(14.5, bins = DataClass.AvaHaloMass[0])-1, np.digitize(13.5, bins = DataClass.AvaHaloMass[0])-1, np.digitize(12.5, bins = DataClass.AvaHaloMass[0])-1]):
                 #colour = next(colourcycler)
                 
 
@@ -1679,7 +1682,7 @@ if __name__ == "__main__":
 
     
     #Make the SMF
-    if False:
+    if True:
         colours = ["C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "k"]
         colourcycler = cycle(colours)
         Redshifts = [0,1.5,3]

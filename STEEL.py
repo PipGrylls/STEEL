@@ -585,10 +585,10 @@ if __name__ == "__main__":
         quit()
     
     #Create the folders for saving the output from the model
-    #F.PrepareToSave(Tdyn_Factors)
+    F.PrepareToSave(Tdyn_Factors)
     
     #For runnning single runs without multiprocessing bugs
-    #OneRealization(Tdyn_Factors[0])
+    OneRealization(Tdyn_Factors[0])
     
     #run ecah instance on a seperate core
     #pool = multiprocessing.Pool(processes = len(Tdyn_Factors))
