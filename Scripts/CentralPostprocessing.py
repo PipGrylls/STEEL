@@ -423,7 +423,7 @@ class PairFractionData:
             fractions.append(np.array(yval[i])/totals[i])
         for i in range(len(yval)):
             # plotting fraction of total mass against redshift
-            plt.plot(np.log10(self.z + 1)[::-1], np.log10(fractions[i])*10, label = str(i))
+            plt.plot(np.log10(self.z + 1)[::-1], np.log10(fractions[i]), label = str(i))
         
         plt.xlabel("$\log_{10}[1+z]$")
         plt.ylabel("$\log_{10}[M_{*}(z)/M_0]$")
@@ -588,7 +588,7 @@ class PairFractionData:
             fractions.append(np.array(yval[i])/totals[i])
         for i in range(len(yval)):
             # plotting fraction of total mass against redshift
-            plt.plot(np.log10(self.z + 1)[::-1], fractions[i], label = str(i))
+            plt.plot(np.log10(self.z + 1)[::-1], np.log10(fractions[i]), label = str(i))
         
         plt.xlabel("$\log_{10}[1+z]$")
         plt.ylabel("$\log_{10}[M_{*}(z)/M_0]$")
