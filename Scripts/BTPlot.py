@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import wquantiles
+import matplotlib as mpl
 
 # Loading the catalog
 #Header = ["galcount",
@@ -166,10 +167,29 @@ SpiralBT = avg_BT_Late
 
 
 # Plots all the data on a graph
+
+mpl.rcParams.update(mpl.rcParamsDefault)
+plt.rcParams['ytick.minor.visible']=True
+plt.rcParams['xtick.minor.visible']=True
+plt.rcParams['axes.linewidth']=2
+plt.rcParams['xtick.major.size'] = 5
+plt.rcParams['ytick.major.size'] = 5
+plt.rcParams['xtick.minor.size'] = 3
+plt.rcParams['ytick.minor.size'] = 3
+plt.rcParams['xtick.major.width'] = 1
+plt.rcParams['ytick.major.width'] = 1
+plt.rcParams['xtick.minor.width'] = 1
+plt.rcParams['ytick.minor.width'] = 1
+mpl.rcParams['axes.titlepad'] = 20
+plt.rcParams['font.size']=22
+plt.rcParams['lines.linewidth']=3
+
 plt.plot(sm_bins, EllipticalBT, label = 'Elliptical', marker = '^', linestyle = '')
 plt.plot(sm_bins, LenticularBT, label = 'Lenticular', marker = 'o', linestyle = '')
 plt.plot(sm_bins, SpiralBT, label = 'Spiral', marker = 'x', linestyle = '')
-plt.legend()
-plt.ylabel('Bulge Mass to Total Mass Ratio')
+plt.legend(frameon = False, fontsize = 16)
+plt.ylabel('B/T')
 plt.xlabel("$log_{10}$ $M_*$ [$M_\odot$]")#, fontproperties = mpl.font_manager.FontProperties(size = 15))
+plt.tight_layout()
 plt.savefig('../Figures/Paper2/BTPlot.png')
+plt.savefig('../Figures/Paper2/BTPlot.pdf')
