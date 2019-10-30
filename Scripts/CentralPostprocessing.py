@@ -1001,10 +1001,10 @@ class PairFractionData:
         FirstAddition = True
         P_ellip = np.zeros_like(self.AvaHaloMass)
         MMR = np.log10(MassRatio) #mergermass ratio in log10
-        print(np.shape(self.AvaHaloMass)[0], np.shape(self.AvaHaloMass)[1], np.shape(self.z))
+        #print(np.shape(self.AvaHaloMass)[0], np.shape(self.AvaHaloMass)[1], np.shape(self.z))
         for i in range(np.shape(self.AvaHaloMass)[0]-1, -1, -1):
             for j in range(np.shape(self.AvaHaloMass)[1]-1, -1, -1):
-                Maj_Merge_Bin = np.digitize(self.AvaHaloMass[i,j]+MMR, bins = self.Surviving_Sat_SMF_MassRange) #find the bin of the Surviving_Sat_SMF_MassRange above which is major mergers
+                Maj_Merge_Bin = np.digitize(self.AvaStellarMass[i,j]+MMR, bins = self.Surviving_Sat_SMF_MassRange) #find the bin of the Surviving_Sat_SMF_MassRange above which is major mergers
                 Major_Frac = np.sum(self.Accretion_History[i,j,Maj_Merge_Bin:])*self.SM_Bin #sums the numberdensity of satellites causing major mergers
                 if FirstAddition and (z_start > self.z[i]):
                     P_ellip[i,j] = Major_Frac #if this is the first step then the number turned is just the fraction
@@ -2271,7 +2271,7 @@ if __name__ == "__main__":
         plt.clf()
 
 
-    # Final Model with Halo Mass on x axis
+    # Final Model with Halo Mass on x-axis
     """
     """
     if True:
@@ -2291,19 +2291,94 @@ if __name__ == "__main__":
         plt.rcParams['font.size']=22
         plt.rcParams['lines.linewidth']=3
 
+        Header=['galcount','finalflag','z','Vmaxwt','MsMendSerExp','AbsMag','logReSerExp',
+                                  'BT','n_bulge','NewLCentSat','NewMCentSat'
+                                  ,'MhaloL','probaE','probaEll',
+                                'probaS0','probaSab','probaScd','TType','P_S0',
+                              'veldisp','veldisperr','raSDSS7','decSDSS7']
+
+        df = pd.read_csv('Data/Observational/Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, delim_whitespace = True)
+        goodness_cut = (df.finalflag==3 ) | (df.finalflag==5) | (df.finalflag==1)
+
+        df = df[goodness_cut]
+
+        df = df[df.Vmaxwt>0]
+        df.loc[df.finalflag==5,'BT']=0
+        df.loc[df.finalflag==1,'BT']=1
+
+        fracper=len(df)/670722
+        skycov=8000.
+        fracsky=(skycov*fracper)/(4*np.pi*(180./np.pi)**2.)
+
+        df_cent = df[df.NewLCentSat == 1.0]
+        #Add SDSS Data to plot
+        sm_binwidth = 0.2
+        sm_bins = np.arange(9, 12.0, sm_binwidth)
+
+        #Total Population
+        SM_All = np.array(df_cent.MsMendSerExp)
+        Vmax_All = np.array(df_cent.Vmaxwt)
+
+        Weights_All = Vmax_All
+        Weightsum_All = np.sum(Vmax_All)
+        totVmax_All = Weightsum_All/fracsky
+
+        hist_cent_All, edges_All = np.histogram(SM_All, bins = sm_bins, weights = Vmax_All)
+
+        Y_All = np.log10(np.divide(hist_cent_All, fracsky*sm_binwidth)*0.9195) #0.9195 correction of volume to Planck15
+
+        #Lenticulars Only
+        SM_Len = np.array(df_cent.MsMendSerExp[(df_cent.TType<=0)&(df_cent.P_S0>=0.5)])
+        Vmax_Len = np.array(df_cent.Vmaxwt[(df_cent.TType<=0)&(df_cent.P_S0>=0.5)])
+
+        Weights_Len = Vmax_Len
+        Weightsum_Len = np.sum(Vmax_Len)
+        totVmax_Len = Weightsum_Len/fracsky
+
+        hist_cent_Len, edges = np.histogram(SM_Len, bins = sm_bins, weights = Vmax_Len)
+
+        Y_Len = np.log10(np.divide(hist_cent_Len, fracsky*sm_binwidth)*0.9195) #0.9195 correction of volume to Planck15
+
+        F_Len = np.power(10, Y_Len - Y_All)
+
+        plt.subplot(121)
+
+        # plt.plot(sm_bins[1:], F_Len, "k^", fillstyle = "none", markersize=15)
+        plt.xlabel("$log_{10}$ $M_*$ [$M_\odot$]")#, fontproperties = mpl.font_manager.FontProperties(size = 15))
+        plt.ylabel("$f_{lenticular}$")#, fontproperties = mpl.font_manager.FontProperties(size = 15))
+
+        #Ellipticals Only
+        SM_Ell = np.array(df_cent.MsMendSerExp[(df_cent.TType<=0)&(df_cent.P_S0<0.5)])
+        Vmax_Ell = np.array(df_cent.Vmaxwt[(df_cent.TType<=0)&(df_cent.P_S0<0.5)])
+
+        Weights_Ell = Vmax_Ell
+        Weightsum_Ell = np.sum(Vmax_Ell)
+        totVmax_Ell = Weightsum_Ell/fracsky
+
+        hist_cent_Ell, edges = np.histogram(SM_Ell, bins = sm_bins, weights = Vmax_Ell)
+
+        Y_Ell = np.log10(np.divide(hist_cent_Ell, fracsky*sm_binwidth)*0.9195) #0.9195 correction of volume to Planck15
+
+        F_Ell = np.power(10, Y_Ell - Y_All)
+        # plt.plot(sm_bins[1:], F_Ell, "r^", fillstyle = "none", markersize=15)
+
+        #Spirals Only
+        F_Spir = 1 - F_Len - F_Ell
+        # plt.plot(sm_bins[1:], F_Spir, "b^", fillstyle = "none", markersize=15)
+
         MassRatio = 0.25
         MassRatioS0 = 0.050
         GasFracThresh = 0.107
         GasFracThresh = 0.127
         # index = FitList.index(('1.0', True, True, True, 'G19_DPL', 'G19_SE'))
         index = FitList.index(('1.0', False, False, True, 'CE', 'G19_SE'))
-        P_lentic = Classes[index].Return_New_Gas_Inflow_Plot_Halo(MassRatio, MassRatioS0, 2, GasFracThresh)
-        P_ellip = Classes[index].Return_Morph_Plot_Halo(MassRatio, 2)
+        P_lentic = Classes[index].Return_New_Gas_Inflow_Plot(MassRatio, MassRatioS0, 2, GasFracThresh)
+        P_ellip = Classes[index].Return_Morph_Plot(MassRatio, 2)
         P_spiral = 1 - P_lentic - P_ellip
 
-        # plt.plot(Classes[index].AvaStellarMass[0], P_lentic[0], "-k",label = "Lenticulars")
+        plt.plot(Classes[index].AvaStellarMass[0], P_lentic[0], "-k",label = "Lenticulars")
         plt.plot(Classes[index].AvaStellarMass[0], P_ellip[0], "-r", label = "Ellipticals")
-        # plt.plot(Classes[index].AvaStellarMass[0], P_spiral[0], "-b", label = "Spirals")
+        plt.plot(Classes[index].AvaStellarMass[0], P_spiral[0], "-b", label = "Spirals")
 
         # plt.text(10.2, 0.8, "{}".format(MassRatioS0) + r"< $\frac{M_{*, sat}}{M_{*,cen}} <$" + "{}".format(MassRatio))
         # plt.text(10.2, 0.55, r"GFT = " + "{}".format(GasFracThresh))
@@ -2312,6 +2387,36 @@ if __name__ == "__main__":
         plt.ylim(0,1)
         # plt.text(10.2, 0.55, r"GFT = " + "{}".format(GasFracThresh))
         plt.tight_layout()
+        # plt.savefig("Figures/Paper2/Bulge_Growth_Final.png")
+        # plt.savefig("Figures/Paper2/Bulge_Growth_Final.pdf")
+        # plt.clf()
+
+        MassRatio = 0.25
+        MassRatioS0 = 0.050
+        GasFracThresh = 0.107
+        GasFracThresh = 0.127
+        # index = FitList.index(('1.0', True, True, True, 'G19_DPL', 'G19_SE'))
+        index = FitList.index(('1.0', False, False, True, 'CE', 'G19_SE'))
+        P_lentic = Classes[index].Return_New_Gas_Inflow_Plot(MassRatio, MassRatioS0, 2, GasFracThresh)
+        P_ellip = Classes[index].Return_Morph_Plot_Halo(MassRatio, 2)
+        P_spiral = 1 - P_lentic - P_ellip
+
+        plt.subplot(122)
+        plt.plot(Classes[index].AvaHaloMass[0], P_lentic[0], "-k",label = "Lenticulars")
+        plt.plot(Classes[index].AvaHaloMass[0], P_ellip[0], "-r", label = "Ellipticals")
+        plt.plot(Classes[index].AvaHaloMass[0], P_spiral[0], "-b", label = "Spirals")
+
+        plt.xlabel("$log_{10}$ $M_{halo}$ [$M_\odot$]")#, fontproperties = mpl.font_manager.FontProperties(size = 15))
+        plt.ylabel("$f_{lenticular}$")#, fontproperties = mpl.font_manager.FontProperties(size = 15))
+
+        # plt.text(10.2, 0.8, "{}".format(MassRatioS0) + r"< $\frac{M_{*, sat}}{M_{*,cen}} <$" + "{}".format(MassRatio))
+        # plt.text(10.2, 0.55, r"GFT = " + "{}".format(GasFracThresh))
+        # plt.legend(frameon = False, fontsize='x-small')
+        plt.xlim(12,15)
+        plt.ylim(0,1)
+        # plt.text(10.2, 0.55, r"GFT = " + "{}".format(GasFracThresh))
+        plt.tight_layout()
+        plt.show()
         plt.savefig("Figures/Paper2/Bulge_Growth_Final_Halo.png")
         plt.savefig("Figures/Paper2/Bulge_Growth_Final_Halo.pdf")
         plt.clf()
