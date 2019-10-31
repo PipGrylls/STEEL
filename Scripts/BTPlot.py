@@ -69,7 +69,7 @@ Header=['galcount',
         'veldisperr',
         'raSDSS7',
         'decSDSS7']
-df = pd.read_csv('/home/ssp1e17/Documents/STEEL/Data/Observational/Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, delim_whitespace = True)
+df = pd.read_csv('./Data/Observational/Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, delim_whitespace = True)
 
 #Header = ["galcount",
 #          "zMeert",
@@ -172,4 +172,4 @@ plt.plot(sm_bins, SpiralBT, label = 'Spiral', marker = 'x', linestyle = '')
 plt.legend()
 plt.ylabel('Bulge Mass to Total Mass Ratio')
 plt.xlabel("$log_{10}$ $M_*$ [$M_\odot$]")#, fontproperties = mpl.font_manager.FontProperties(size = 15))
-plt.savefig('../Figures/Paper2/BTPlot.png')
+plt.savefig('./Figures/Paper2/BTPlot.png')
