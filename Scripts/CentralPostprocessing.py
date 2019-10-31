@@ -1674,7 +1674,7 @@ if __name__ == "__main__":
         plt.clf()
         
     #Morphology Plot    
-    if True:
+    if False:
         mpl.rcParams.update(mpl.rcParamsDefault)
         plt.rcParams['ytick.minor.visible']=True
         plt.rcParams['xtick.minor.visible']=True
@@ -1787,7 +1787,7 @@ if __name__ == "__main__":
 
     Anything else is a spiral/late-type galaxy
     '''
-    if True:
+    if False:
         mpl.rcParams.update(mpl.rcParamsDefault)
         plt.rcParams['ytick.minor.visible']=True
         plt.rcParams['xtick.minor.visible']=True
@@ -1890,7 +1890,7 @@ if __name__ == "__main__":
         The hard threshold has no lenticulars forming if below gas threshold
         The soft threshold has less lenticulars forming the further below the gas threshold.
     '''
-    if True:
+    if False:
         mpl.rcParams.update(mpl.rcParamsDefault)
         plt.rcParams['ytick.minor.visible']=True
         plt.rcParams['xtick.minor.visible']=True
@@ -2035,7 +2035,7 @@ if __name__ == "__main__":
     3) Galaxies have inflowing Baryonic mass that causes a bulge to grow
     4) Galxies with BT ratio >0.15 are also considered lenticulars
     """
-    if True:
+    if False:
         mpl.rcParams.update(mpl.rcParamsDefault)
         plt.rcParams['ytick.minor.visible']=True
         plt.rcParams['xtick.minor.visible']=True
@@ -2157,7 +2157,7 @@ if __name__ == "__main__":
     This is currently broken as we need to use a time interval instead of redshift interval
     Use colossus function to convert redshift to time and use that as the cutoff instead of redshift
     '''
-    if True:
+    if False:
         index = FitList.index(('1.0', False, False, True, 'CE', 'G19_SE'))
         Classes[index].Return_NoMerger_Plot(MassRatio, 1, 0.1)
 
@@ -2170,7 +2170,7 @@ if __name__ == "__main__":
     those that grow to X% of final mass in epoch 2 are lenticulars, and those that grow to X%
     of final mass in epoch 3 are spirals.
     '''
-    if True:
+    if False:
         index = FitList.index(('1.0', False, False, True, 'CE', 'G19_SE'))
         Classes[index].CookModel(MassRatio, 1, 0.1)
 
@@ -2180,7 +2180,7 @@ if __name__ == "__main__":
     that lenticulars are formed through mergers between dark matter halos with mass ratio <0.25
     We then apply the gas fraction threshold to this model
     '''
-    if True:
+    if False:
         mpl.rcParams.update(mpl.rcParamsDefault)
         plt.rcParams['ytick.minor.visible']=True
         plt.rcParams['xtick.minor.visible']=True
@@ -2345,7 +2345,7 @@ if __name__ == "__main__":
 
         # plt.plot(sm_bins[1:], F_Len, "k^", fillstyle = "none", markersize=15)
         plt.xlabel("$log_{10}$ $M_*$ [$M_\odot$]")#, fontproperties = mpl.font_manager.FontProperties(size = 15))
-        plt.ylabel("$f_{lenticular}$")#, fontproperties = mpl.font_manager.FontProperties(size = 15))
+        plt.ylabel("$f_{Morphology}$")#, fontproperties = mpl.font_manager.FontProperties(size = 15))
 
         #Ellipticals Only
         SM_Ell = np.array(df_cent.MsMendSerExp[(df_cent.TType<=0)&(df_cent.P_S0<0.5)])
@@ -2407,7 +2407,7 @@ if __name__ == "__main__":
         plt.plot(Classes[index].AvaHaloMass[0], P_spiral[0], "-b", label = "Spirals")
 
         plt.xlabel("$log_{10}$ $M_{halo}$ [$M_\odot$]")#, fontproperties = mpl.font_manager.FontProperties(size = 15))
-        plt.ylabel("$f_{lenticular}$")#, fontproperties = mpl.font_manager.FontProperties(size = 15))
+        plt.ylabel("$f_{Morphology}$")#, fontproperties = mpl.font_manager.FontProperties(size = 15))
 
         # plt.text(10.2, 0.8, "{}".format(MassRatioS0) + r"< $\frac{M_{*, sat}}{M_{*,cen}} <$" + "{}".format(MassRatio))
         # plt.text(10.2, 0.55, r"GFT = " + "{}".format(GasFracThresh))
