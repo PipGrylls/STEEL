@@ -910,6 +910,7 @@ class PairFractionData:
 
 
     def Return_New_Gas_Inflow_Plot(self, MassRatio = 0.3, MassRatioS0 = 0.1, z_start = 10, GasFracThresh = 0.5):
+        print('Beginning Gas Inflow Plot function')
         FirstAddition = True
         FirstAdditionS0 = True
 
@@ -996,112 +997,6 @@ class PairFractionData:
                 FirstAddition = False
         return P_lentic
 
-
-    def Return_Morph_Plot_Halo(self, MassRatio = 0.3, z_start = 10):
-        FirstAddition = True
-        P_ellip = np.zeros_like(self.AvaHaloMass)
-        MMR = np.log10(MassRatio) #mergermass ratio in log10
-        #print(np.shape(self.AvaHaloMass)[0], np.shape(self.AvaHaloMass)[1], np.shape(self.z))
-        for i in range(np.shape(self.AvaHaloMass)[0]-1, -1, -1):
-            for j in range(np.shape(self.AvaHaloMass)[1]-1, -1, -1):
-                Maj_Merge_Bin = np.digitize(self.AvaStellarMass[i,j]+MMR, bins = self.Surviving_Sat_SMF_MassRange) #find the bin of the Surviving_Sat_SMF_MassRange above which is major mergers
-                Major_Frac = np.sum(self.Accretion_History[i,j,Maj_Merge_Bin:])*self.SM_Bin #sums the numberdensity of satellites causing major mergers
-                if FirstAddition and (z_start > self.z[i]):
-                    P_ellip[i,j] = Major_Frac #if this is the first step then the number turned is just the fraction
-                elif (z_start > self.z[i]):
-                    P_ellip[i,j] = P_ellip[i+1,j] + Major_Frac*(1 - P_ellip[i+1,j]) #otherwise correct for the prexisting elliptical population
-            if (z_start > self.z[i]):
-                FirstAddition = False
-        # print(self.AvaStellarMass)
-        return P_ellip
-
-
-    def Return_New_Gas_Inflow_Plot_Halo(self, MassRatio = 0.3, MassRatioS0 = 0.1, z_start = 10, GasFracThresh = 0.5):
-        FirstAddition = True
-        FirstAdditionS0 = True
-
-        GasFrac = np.zeros_like(self.AvaStellarMass)
-        for i in range(np.shape(self.AvaStellarMass)[0]-1, -1, -1):
-            for j in range(np.shape(self.AvaStellarMass)[1]-1, -1, -1):
-                alpha = 0.59 * ((1+self.z[i])**0.45)
-                GasFrac[i,j] = 0.04*(10**self.AvaStellarMass[i,j]/4.5e11)**(-1*alpha)
-
-
-        BulgeMass = np.zeros_like(self.AvaStellarMass)
-        for i in range(np.shape(self.AvaStellarMass)[0]-1, -1, -1):
-            for j in range(np.shape(self.AvaStellarMass)[1]-1, -1, -1):
-                BulgeMass[i,j] = self.Return_Baryonic_Inflow_Rate(self.AvaStellarMass[i,j], self.z[i])
-
-
-        BulgeRatios = np.zeros_like(self.AvaStellarMass)
-        for i in range(np.shape(self.AvaStellarMass)[0]-1, -1, -1):
-            for j in range(np.shape(self.AvaStellarMass)[1]-1, -1, -1):
-                BulgeRatios[i,j] = self.AvaStellarMass[i,j]/BulgeMass[i,j]
-
-        print('djaksdjklasjdlkasjdlkasjdlkasjdklasjslkdjas')
-        print(BulgeRatios)
-
-        P_ellip = np.zeros_like(self.AvaHaloMass)
-        P_lentic = np.zeros_like(self.AvaHaloMass)
-        
-        MMR = np.log10(MassRatio) #mergermass ratio in log10
-        MMRS0 = np.log10(MassRatioS0)
-        
-        print(np.shape(self.AvaStellarMass)[0], np.shape(self.AvaStellarMass)[1], np.shape(self.z), np.shape(P_lentic))
-        
-        for i in range(np.shape(self.AvaHaloMass)[0]-1, -1, -1):
-            for j in range(np.shape(self.AvaHaloMass)[1]-1, -1, -1):
-                Maj_Merge_Bin = np.digitize(self.AvaHaloMass[i,j]+MMR, bins = self.Surviving_Sat_SMF_MassRange) #find the bin of the Surviving_Sat_SMF_MassRange above which is major mergers
-                Major_Frac = np.sum(self.Accretion_History[i,j,Maj_Merge_Bin:])*self.SM_Bin #sums the numberdensity of satellites causing major mergers
-                
-                Maj_Merge_BinS0 = np.digitize(self.AvaHaloMass[i,j]+MMRS0, bins = self.Surviving_Sat_SMF_MassRange) #find the bin of the Surviving_Sat_SMF_MassRange above which is major mergers
-                Major_FracS0 = np.sum(self.Accretion_History[i,j,Maj_Merge_BinS0:])*self.SM_Bin
-
-                CurrentGasFrac = GasFrac[i,j]
-
-                # divisor = 3.8
-                divisor = 4.5
-                cutoff = 0.15
-                if BulgeRatios[i,j] > cutoff:
-                    addition = BulgeRatios[i,j]/9
-                    # addition = 0.0023
-                    if FirstAddition and (z_start > self.z[i]):
-                        P_ellip[i,j] = Major_Frac
-                        if CurrentGasFrac >= GasFracThresh:
-                            # P_lentic[i,j] = Major_FracS0
-                            P_lentic[i,j] = Major_FracS0 + addition
-                        else:
-                            P_lentic[i,j] = Major_FracS0 - abs(CurrentGasFrac - GasFracThresh)/divisor #arbitrary number
-
-                    elif (z_start > self.z[i]):
-                        if CurrentGasFrac >= GasFracThresh:
-                            P_ellip[i,j] = P_ellip[i+1,j] + Major_Frac*(1 - P_ellip[i+1,j])
-                            # P_lentic[i,j] = P_lentic[i+1,j] + (Major_FracS0)*(1 - P_lentic[i+1,j] - P_ellip[i+1,j])
-                            P_lentic[i,j] = P_lentic[i+1,j] + (Major_FracS0+addition)*(1 - P_lentic[i+1,j] - P_ellip[i+1,j])
-                        else:
-                            P_ellip[i,j] = P_ellip[i+1,j] + Major_Frac*(1 - P_ellip[i+1,j] - P_lentic[i+1,j])
-                            P_lentic[i,j] = P_lentic[i+1,j] + (Major_FracS0+addition)*(1 - P_lentic[i+1,j] - P_ellip[i+1,j]) - abs(CurrentGasFrac - GasFracThresh)/divisor #arbitrary number
-                            # P_ellip[i,j] = P_ellip[i+1,j] + Major_Frac*(1 - P_ellip[i+1,j])
-
-                else:
-                    if FirstAddition and (z_start > self.z[i]):
-                        P_ellip[i,j] = Major_Frac
-                        if CurrentGasFrac >= GasFracThresh:
-                            P_lentic[i,j] = Major_FracS0
-                        else:
-                            P_lentic[i,j] = Major_FracS0 - abs(CurrentGasFrac - GasFracThresh)/divisor #arbitrary number
-
-                    elif (z_start > self.z[i]):
-                        if CurrentGasFrac >= GasFracThresh:
-                            P_ellip[i,j] = P_ellip[i+1,j] + Major_Frac*(1 - P_ellip[i+1,j])
-                            P_lentic[i,j] = P_lentic[i+1,j] + Major_FracS0*(1 - P_lentic[i+1,j] - P_ellip[i+1,j])
-                        else:
-                            P_ellip[i,j] = P_ellip[i+1,j] + Major_Frac*(1 - P_ellip[i+1,j] - P_lentic[i+1,j])
-                            P_lentic[i,j] = P_lentic[i+1,j] + Major_FracS0*(1 - P_lentic[i+1,j] - P_ellip[i+1,j]) - abs(CurrentGasFrac - GasFracThresh)/divisor #arbitrary number
-                            # P_ellip[i,j] = P_ellip[i+1,j] + Major_Frac*(1 - P_ellip[i+1,j])
-            if (z_start > self.z[i]):
-                FirstAddition = False
-        return P_lentic
 
     
 def Fit_to_Str(Fit):
