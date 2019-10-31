@@ -34,6 +34,7 @@ dependencies. The environment can be activated with:
 ```
 conda activate STEEL
 ```
+This has been tested to work on both Ubuntu 18.04 and Mac OS 10.15.
 
 ### Using Pip
 If you are using Python's native package manager, you can install the necessary
