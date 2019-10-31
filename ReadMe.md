@@ -9,7 +9,7 @@ Future work here inclues making a runfile in which running parameters are set.
 ## Requirements
 * Python 3
 * GFortran compiler
-* C++ compiler
+* C compiler
 * GNU Scientific Library (optional - see below)
 
 Note, if you will be using conda to install all the dependencies, the GNU
