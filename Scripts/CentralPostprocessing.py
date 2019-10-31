@@ -1569,7 +1569,7 @@ if __name__ == "__main__":
         plt.clf()
         
     #Morphology Plot    
-    if False:
+    if True:
         mpl.rcParams.update(mpl.rcParamsDefault)
         plt.rcParams['ytick.minor.visible']=True
         plt.rcParams['xtick.minor.visible']=True
@@ -1682,7 +1682,7 @@ if __name__ == "__main__":
 
     Anything else is a spiral/late-type galaxy
     '''
-    if False:
+    if True:
         mpl.rcParams.update(mpl.rcParamsDefault)
         plt.rcParams['ytick.minor.visible']=True
         plt.rcParams['xtick.minor.visible']=True
@@ -1785,7 +1785,7 @@ if __name__ == "__main__":
         The hard threshold has no lenticulars forming if below gas threshold
         The soft threshold has less lenticulars forming the further below the gas threshold.
     '''
-    if False:
+    if True:
         mpl.rcParams.update(mpl.rcParamsDefault)
         plt.rcParams['ytick.minor.visible']=True
         plt.rcParams['xtick.minor.visible']=True
@@ -1930,7 +1930,7 @@ if __name__ == "__main__":
     3) Galaxies have inflowing Baryonic mass that causes a bulge to grow
     4) Galxies with BT ratio >0.15 are also considered lenticulars
     """
-    if False:
+    if True:
         mpl.rcParams.update(mpl.rcParamsDefault)
         plt.rcParams['ytick.minor.visible']=True
         plt.rcParams['xtick.minor.visible']=True
@@ -2168,6 +2168,8 @@ if __name__ == "__main__":
 
     # Final Model with Halo Mass on x-axis
     """
+    Uses the same model as the 'final model' with both gas fractions and bulge growth, but generates
+    a plot that uses Halo mass on x axis.
     """
     if True:
         mpl.rcParams.update(mpl.rcParamsDefault)
@@ -2311,7 +2313,6 @@ if __name__ == "__main__":
         plt.ylim(0,1)
         # plt.text(10.2, 0.55, r"GFT = " + "{}".format(GasFracThresh))
         plt.tight_layout()
-        plt.show()
         plt.savefig("Figures/Paper2/Bulge_Growth_Final_Halo.png")
         plt.savefig("Figures/Paper2/Bulge_Growth_Final_Halo.pdf")
         plt.clf()
