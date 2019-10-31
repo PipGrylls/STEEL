@@ -2293,7 +2293,7 @@ if __name__ == "__main__":
         # index = FitList.index(('1.0', True, True, True, 'G19_DPL', 'G19_SE'))
         index = FitList.index(('1.0', False, False, True, 'CE', 'G19_SE'))
         P_lentic = Classes[index].Return_New_Gas_Inflow_Plot(MassRatio, MassRatioS0, 2, GasFracThresh)
-        P_ellip = Classes[index].Return_Morph_Plot_Halo(MassRatio, 2)
+        P_ellip = Classes[index].Return_Morph_Plot(MassRatio, 2)
         P_spiral = 1 - P_lentic - P_ellip
 
         plt.subplot(122)
