@@ -64,8 +64,9 @@ This has been tested to work on both Ubuntu 18.04 and Mac OS 10.15.
 
 #### Using Pip
 If you are using Python's native package manager, you can install the necessary
-dependencies with the requirements.txt file. Navigate to the STEEL directory and
-run:
+dependencies with the requirements.txt file. This is not recommended as it may
+not work on all operating systems and may not install the non python
+dependencies.  Navigate to the STEEL directory and run:
 ```
 pip install -r requirements.txt
 ```
