@@ -2340,7 +2340,8 @@ if __name__ == "__main__":
         Y_Len = np.log10(np.divide(hist_cent_Len, fracsky*sm_binwidth)*0.9195) #0.9195 correction of volume to Planck15
 
         F_Len = np.power(10, Y_Len - Y_All)
-
+        
+        plt.figure(figsize=(10,4))
         plt.subplot(121)
 
         # plt.plot(sm_bins[1:], F_Len, "k^", fillstyle = "none", markersize=15)
@@ -2382,7 +2383,7 @@ if __name__ == "__main__":
 
         # plt.text(10.2, 0.8, "{}".format(MassRatioS0) + r"< $\frac{M_{*, sat}}{M_{*,cen}} <$" + "{}".format(MassRatio))
         # plt.text(10.2, 0.55, r"GFT = " + "{}".format(GasFracThresh))
-        plt.legend(frameon = False, fontsize='x-small')
+        
         plt.xlim(10,12)
         plt.ylim(0,1)
         # plt.text(10.2, 0.55, r"GFT = " + "{}".format(GasFracThresh))
@@ -2408,10 +2409,11 @@ if __name__ == "__main__":
 
         plt.xlabel("$log_{10}$ $M_{halo}$ [$M_\odot$]")#, fontproperties = mpl.font_manager.FontProperties(size = 15))
         plt.ylabel("$f_{Morphology}$")#, fontproperties = mpl.font_manager.FontProperties(size = 15))
-
+        plt.legend(frameon = False, fontsize=12)
         # plt.text(10.2, 0.8, "{}".format(MassRatioS0) + r"< $\frac{M_{*, sat}}{M_{*,cen}} <$" + "{}".format(MassRatio))
         # plt.text(10.2, 0.55, r"GFT = " + "{}".format(GasFracThresh))
         # plt.legend(frameon = False, fontsize='x-small')
+        
         plt.xlim(12,15)
         plt.ylim(0,1)
         # plt.text(10.2, 0.55, r"GFT = " + "{}".format(GasFracThresh))
