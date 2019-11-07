@@ -2,6 +2,7 @@
 /Data/Model/Input/*.pkl
 /Data/Model/Input/*.npy
 *.ipynb_checkpoints/
+*.pyc
 Data/Model/Output/Other/SMHM_Fitting/*.pkl
 Data/Model/Output/Other/SMHM_Fitting/*.png
 Data/Model/Output/Other/SMHM_Fitting/*.prof
