@@ -32,6 +32,7 @@ HMF_fun = F.Make_HMF_Interp()
 
 
 HighRes = False #set to True for better HM/SM resolution, takes MUCH longer
+#HighRes = True
 
 #Cuts in Satilitemass
 SM_Cuts = [9, 9.5, 10, 10.5, 11, 11.45]#[9,10,11]#
@@ -56,8 +57,8 @@ AbnMtch =\
 {\
 'Behroozi13': False,\
 'Behroozi18': False,\
-'B18c':False,\
-'B18t':False,\
+'B18c':True,\
+'B18t':True,\
 'G18':False,\
 'G18_notSE':False,\
 'G19_SE':False,\
@@ -317,7 +318,9 @@ def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
                     
                                         
                     #Calculate N galaxies from abundace matching====================
-                    SM_Sat = F.DarkMatterToStellarMass(np.full(N, SatHaloMass[k]-np.log10(h)), z[i], Paramaters, ScatterOn=True) #Mass Msun                    
+                    #print('\nCiao, sono qui 1.\n')#Hao
+                    SM_Sat = F.DarkMatterToStellarMass_Alt(np.full(N, SatHaloMass[k]-np.log10(h)), z[i], Paramaters, ScatterOn=True) #Mass Msun #Hao
+                    #print('Ciao, sono qui 2.\n')#Hao
                     #Calculate the mass after stripping and starformation
                     if (z_bin < i):
                         #Stellar Mass Stripping/SF
@@ -540,12 +543,14 @@ def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
 if __name__ == "__main__":
     #Pick the Running paramters for the model each tuple is one run
     #Tuple is (Tdyn_Factor (str), Stripping (bool), Star Fomation (bool), z_evo (Bool), Starformation ('str'), AbnMtch (Str))
+    #CE = Continuity equation
     Tdyn_Factors = []
     #Tdyn_Factors += [('1.0', True, True, True, 'S16CE', 'G19_SE'), ('1.0_Alt', True, True, True, 'S16CE', 'G19_SE')]               
     #Tdyn_Factors += [('1.0', False, False, True, 'CE', 'G19_SE')]
     #Tdyn_Factors += [('1.0', True, False, True, 'CE', 'G19_SE')]
     #Tdyn_Factors += [('1.0', False, True, True, 'CE', 'G19_SE')]
     #Tdyn_Factors += [('1.0', True, True, True, 'CE', 'G19_SE')]
+    Tdyn_Factors += [('1.0', False, True, True, 'CE', 'Behroozi18')]
     #Tdyn_Factors += [('1.0', False, True, True, 'G19_DPL', 'G19_SE')]
     #Tdyn_Factors += [('1.0', True, True, True, 'G19_DPL', 'G19_SE')]
     #Tdyn_Factors += [('1.0', True, True, True, 'G19_DPL_PP', 'G19_SE')]
@@ -584,14 +589,17 @@ if __name__ == "__main__":
                      ('1.0', False, False, True, 'G19_DPL', 'HMevo_alt_0.4'),\
                      ('1.0', False, False, True, 'G19_DPL', 'HMevo_alt_0.5')
                     ]"""
-    Tdyn_Factors += [('1.0', False, False, True, 'G19_DPL', 'G19_cMod')]
+    #Tdyn_Factors += [('1.0', False, False, True, 'G19_DPL', 'G19_cMod')]
     
     msg = 'About to run' + str(Tdyn_Factors)
+    print(msg)
+    ''' #Hao
     shall = input("%s (y/N) " % msg).lower() != 'y'
     if shall:
         print(shall)
         print("abort")
         quit()
+    '''
     
     #Create the folders for saving the output from the model
     F.PrepareToSave(Tdyn_Factors)

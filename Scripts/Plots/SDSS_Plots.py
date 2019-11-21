@@ -1,6 +1,7 @@
 import os
 import sys
-AbsPath = str(__file__)[:-len("/SDSS_Plots.py")]+"/../.."
+#AbsPath = str(__file__)[:-len("/SDSS_Plots.py")]+"/../.."
+AbsPath = '/Users/haofu/PycharmProjects/STEEL/Data/Observational/SDSS_catalog'
 sys.path.append(AbsPath)
 import numpy as np
 import numpy.ma as ma
@@ -42,14 +43,16 @@ class SDSS_Plots:
         
         #Lorenzo File sSFR inc
         Header = ["galcount", "z", "Vmaxwt", "MsMendSerExp", "AbsMag", "logReSerExp", "BT", "n_bulge", "newLcentsat", "NewMCentSat", "newMhaloL", "probaE", "probaEll", "probaS0", "probaSab", "probaScd", "TType", "AbsMagCent", "MsCent", "veldisp", "veldisperr", "AbsModel_newKcorr", "LCentSat", "raSDSS7", "decSDSS7", "Z", "sSFR", "FLAGsSFR", "MEDIANsSFR", "P16sSFR", "P84sSRF", "SFR", "FLAGSFR", "MEDIANSFR", "P16SFR", "P84SRF", "RA_SDSS", "DEC_SDSS", "Z_2", "Seperation"]
-        df = pd.read_csv(AbsPath +"/Data/Observational/Bernardi_SDSS/new_catalog_SFRs.dat", header = None, names = Header, delim_whitespace = True, skiprows = 1)
+        #df = pd.read_csv(AbsPath +"/Data/Observational/Bernardi_SDSS/new_catalog_SFRs.dat", header = None, names = Header, delim_whitespace = True, skiprows = 1)
+        df = pd.read_csv(AbsPath +"/new_catalog_SFRs.dat", header = None, names = Header, delim_whitespace = True, skiprows = 1)
         df['SerExpsSFR'] = df.apply(lambda row: row.SFR - row.MsMendSerExp, axis = 1) # Make a sSFR colum using the sersic exp photomotry
         fracper=0.724
         Lorenzo = True
         
         #Adds the cModel column
         Header = ["galcount", "finalflag", "z", "Vmaxwt", "MsMendSerExp", "MsMendCmodel", "AbsMag", "logReSerExp", "BT", "n_bulge", "newLCentSat", "NewMCentSat", "newMhaloL", "probaE", "probaEll", "probaS0", "probaSab", "probaScd", "TType", "P_S0", "veldisp", "veldisperr", "raSDSS7", "decSDSS7"]
-        df_new = pd.read_csv(AbsPath +"/Data/Observational/Lorenzo_SDSS/new_catalog_cModel.dat", header = None, names = Header, delim_whitespace = True, skiprows = 1)
+        #df_new = pd.read_csv(AbsPath +"/Data/Observational/Lorenzo_SDSS/new_catalog_cModel.dat", header = None, names = Header, delim_whitespace = True, skiprows = 1)
+        df_new = pd.read_csv(AbsPath +"/new_catalog_cModel.dat", header = None, names = Header, delim_whitespace = True, skiprows = 1)
         df_cut = df_new[["galcount","MsMendCmodel"]]
         df = pd.merge(df, df_cut, on="galcount", how="inner")
         
@@ -85,11 +88,13 @@ class SDSS_Plots:
             self.df_sat = self.df_z[self.df_z.newLcentsat == 2.0]
         #just update massdef for satilites
         self.df_sat = self.df_sat[self.df_sat.newMhaloL > 0]
+        '''
         if "sdssVir.npy" in os.listdir(path=AbsPath +"/Data/Observational/Bernardi_SDSS"):
             self.df_sat.insert(loc= len(Header), column = "mhVir", value = np.load(AbsPath +"/Data/Observational/Bernardi_SDSS/sdssVir.npy")+0.025) #+0.025 is correction to planc15 cosmology 
         else:
             self.df_sat.insert(loc= len(Header), column = "mhVir", value = np.log10(massdefs.changeMassDefinitionCModel(M=np.power(10, self.df_sat.newMhaloL.values + np.log10(h)), z=0.1, mdef_in='178c', mdef_out='vir')[0]) - np.log10(h)) 
             np.save(AbsPath +"/Data/Observational/Bernardi_SDSS/sdssVir", self.df_sat.mhVir)
+        '''
         
         self.df_cent.loc[self.Photomotry] = self.df_cent[self.Photomotry] + 0.025
         self.df_sat.loc[self.Photomotry] = self.df_sat[self.Photomotry] + 0.025

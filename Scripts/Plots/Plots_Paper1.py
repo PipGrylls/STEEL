@@ -29,7 +29,7 @@ DPI = 200
 
 
 #gets the HMF interpolation function
-HMF_fun = Make_HMF_Interp()
+#HMF_fun = Make_HMF_Interp()
 
 #Abundance Matching Parameters
 Override =\

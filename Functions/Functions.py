@@ -150,13 +150,14 @@ def Get_HM_History(AnalyticHaloMass, AnalyticHaloMass_min, AnalyticHaloMass_max,
     #If we have created this array before load it else make it
     FileName = "{}{}{}{}.dat".format(AnalyticHaloMass_min, AnalyticHaloMass_max, AnalyticHaloBin, h)
     if FileName in os.listdir(path=AbsFP+"/../Data/Model/Input/"):
-        AvaHaloMass_wz = np.loadtxt(AbsFP+"/../Data/Model/Input/"+FileName)
-    else:
+        #AvaHaloMass_wz = np.loadtxt(AbsFP+"/../Data/Model/Input/"+FileName) #Hao
+    #else: #Hao
         #We create the array like:
         #Redshift / M1 / M2 / M3 ...
         #   0      12  12.1  12.2 ...
         #runs N(20) concurent process of Halogrowth(M) creating and destroying files used/created by vandenbosch 14
         #output is the array AvaHaloMass_wz as detailed above
+        M = 1000 #Hao
         with multiprocessing.Pool(processes = 20) as pool:
             PoolReturn = pool.map(Halogrowth, AnalyticHaloMass)
         Switch = True
@@ -190,6 +191,7 @@ def Get_HM_History(AnalyticHaloMass, AnalyticHaloMass_min, AnalyticHaloMass_max,
         #Save this array to speed up subsequent runs
         np.savetxt(AbsFP+"/../Data/Model/Input/"+FileName, AvaHaloMass_wz)
     z = AvaHaloMass_wz[:,0]
+    print(z)
     AvaHaloMass = AvaHaloMass_wz[:,1:]
     
     #We here cut the arrays so the code stops at z=0.1 where we have SDSS data change this to go to 0.
@@ -630,7 +632,9 @@ def DarkMatterToStellarMass(DM, z, Paramaters, ScatterOn = False, Scatter = 0.00
 
 def DarkMatterToStellarMass_Alt(DarkMatter, Redshift, Paramaters, ScatterOn = False, Scatter = 0.001):
     np.random.seed()
+    #print(Paramaters) #Hao
     Paramaters = Paramaters['AbnMtch']
+    #print(Paramaters) #Hao
     z = Redshift
     if(Paramaters['Behroozi18']):
         if(Paramaters['B18c']):
@@ -663,7 +667,8 @@ def DarkMatterToStellarMass_Alt(DarkMatter, Redshift, Paramaters, ScatterOn = Fa
         a      = 1/(1+Redshift)
         afac   = a-1
 
-
+        
+        #print('\nCiao sono qui.\n') #Hao
         log10_M  = M[0]     + (M[1]*afac)     - (M[2]*np.log(a))     + (M[3]*z)
         e_       = e[0]     + (e[1]*afac)     - (e[2]*np.log(a))     + (e[3]*z)
         alpha_   = alpha[0] + (alpha[1]*afac) - (alpha[2]*np.log(a)) + (alpha[3]*z)
