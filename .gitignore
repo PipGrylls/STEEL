@@ -24,3 +24,4 @@ Figures/Paper2/*.png
 Figures/Paper2/*.pdf
 *.so
 *.o
+*.txt
