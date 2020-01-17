@@ -5,7 +5,8 @@ import hmf
 import pickle
 import math
 import numpy as np
-from Functions import Functions_c
+#from Functions import Functions_c
+import Functions_c
 from numba import jit
 import scipy.interpolate as inter
 import matplotlib as mpl
@@ -25,7 +26,7 @@ Cosmo = cosmology.getCurrent()
 h = Cosmo.h
 
 AbsFP = str(__file__)[:-len("/Functions.py")]
-
+        
 def StarFormationRate(SM, z, Parameters, ScatterOn =True, Quenching = False, P_ellip = None):
     """
     Calculates Starformation rate
@@ -57,7 +58,7 @@ def StarFormationRate(SM, z, Parameters, ScatterOn =True, Quenching = False, P_e
         s0 = 0.6 + 1.22*(z) - 0.2*(z**2)
         logM0 = 10.3 + 0.753*(z) - 0.15*(z**2)
         Gamma = -(1.3 - 0.1*(z))# - 0.03*(z[i]**2))#including -ve here to avoid it later
-        log10MperY = s0 - np.log10(1 +np.power(np.power(10, (SM - logM0) ), Gamma))
+        log10MperY = s0 - np.log10(1 +np.power(np.power(10, (SM - logM0) ), Gamma)) #Eq. 7 Grylls 2019 - STEEL I
         
     elif Parameters['SFR_Model'] == "Illustris":
         s0 = 0.6+ 1.22*(z) - 0.2*(z**2)
@@ -65,11 +66,15 @@ def StarFormationRate(SM, z, Parameters, ScatterOn =True, Quenching = False, P_e
         Gamma = -(1.6 - 0.25*(z) + 0.01*(z**2))#including -ve here to avoid it later
         log10MperY = s0 - np.log10(1 + np.power(np.power(10, (SM - logM0) ), Gamma))
     elif Parameters['SFR_Model'] == 'G19_DPL':
-        M_n = np.power(10, 10.7 + 0.34*z - 0.079*(z**2))
+        """M_n = np.power(10, 10.7 + 0.34*z - 0.079*(z**2))
         Norm = 0.74 + 0.71*z - 0.087*(z**2)
-        Alpha = 1.035 - 0.022*z + 0.0077*(z**2)#
-        Beta = 1.55 - 0.35*z - 0.02*(z**2)
-        MperY = 2*(10**Norm)*np.power( np.power(np.divide(10**SM, M_n), -Alpha) + np.power(np.divide(10**SM, M_n), Beta), -1)
+        Alpha = 1.035 - 0.022*z + 0.0077*(z**2)
+        Beta = 1.55 - 0.35*z - 0.02*(z**2)"""
+        M_n = np.power(10, 0.69 + 0.71*z - 0.088*(z**2)) #Parameters from Grylls 2019 - STEEL II
+        Norm = 10.65 + 0.33*z - 0.08*(z**2)
+        Alpha = 1.0 - 0.022*z + 0.009*(z**2)
+        Beta = 1.8 - 1.0*z - 0.1*(z**2)
+        MperY = 2*(10**Norm)*np.power( np.power(np.divide(10**SM, M_n), -Alpha) + np.power(np.divide(10**SM, M_n), Beta), -1) #Eq. B1 Grylls 2019 - STEEL II
         log10MperY = np.log10(MperY)    
     else:
         #Default to Grylls19 continuity fit
@@ -150,15 +155,15 @@ def Get_HM_History(AnalyticHaloMass, AnalyticHaloMass_min, AnalyticHaloMass_max,
     #If we have created this array before load it else make it
     FileName = "{}{}{}{}.dat".format(AnalyticHaloMass_min, AnalyticHaloMass_max, AnalyticHaloBin, h)
     if FileName in os.listdir(path=AbsFP+"/../Data/Model/Input/"):
-        #AvaHaloMass_wz = np.loadtxt(AbsFP+"/../Data/Model/Input/"+FileName) #Hao
-    #else: #Hao
+        AvaHaloMass_wz = np.loadtxt(AbsFP+"/../Data/Model/Input/"+FileName)
+    else:
         #We create the array like:
         #Redshift / M1 / M2 / M3 ...
         #   0      12  12.1  12.2 ...
         #runs N(20) concurent process of Halogrowth(M) creating and destroying files used/created by vandenbosch 14
         #output is the array AvaHaloMass_wz as detailed above
-        M = 1000 #Hao
         with multiprocessing.Pool(processes = 20) as pool:
+            #Get z array (M,) and Halo masses for each z array (M,N)
             PoolReturn = pool.map(Halogrowth, AnalyticHaloMass)
         Switch = True
         for z, M in PoolReturn:
@@ -191,7 +196,7 @@ def Get_HM_History(AnalyticHaloMass, AnalyticHaloMass_min, AnalyticHaloMass_max,
         #Save this array to speed up subsequent runs
         np.savetxt(AbsFP+"/../Data/Model/Input/"+FileName, AvaHaloMass_wz)
     z = AvaHaloMass_wz[:,0]
-    print(z)
+    #print(z)
     AvaHaloMass = AvaHaloMass_wz[:,1:]
     
     #We here cut the arrays so the code stops at z=0.1 where we have SDSS data change this to go to 0.
@@ -555,7 +560,7 @@ def DarkMatterToStellarMass(DM, z, Paramaters, ScatterOn = False, Scatter = 0.00
         M10, SHMnorm10, beta10, gamma10, Scatter = 11.95, 0.032, 1.61, 0.62, 0.11 #12.00, 0.022, 1.56, 0.55, 0.15
         M11, SHMnorm11, beta11, gamma11 = 0.4, -0.02, -0.6, 0.0 #0.4, 0.0, -0.5, 0.1
     if(Paramaters['G19_SE']):
-        M10, SHMnorm10, beta10, gamma10, Scatter = 11.925, 0.032,1.639,0.532,0.15 #12.00, 0.022, 1.56, 0.55, 0.15
+        M10, SHMnorm10, beta10, gamma10, Scatter = 11.925, 0.032,1.639,0.53,0.15 #12.00, 0.022, 1.56, 0.55, 0.15
         M11, SHMnorm11, beta11, gamma11 = 0.576,-0.014,-0.693,0.03 #0.4, 0.0, -0.5, 0.1
     if(Paramaters['G19_cMod']):
         M10, SHMnorm10, beta10, gamma10, Scatter = 11.91,0.029,2.09,0.64,0.15 #12.0,0.032,1.74,0.66,0.15 #12.00, 0.022, 1.56, 0.55, 0.15
@@ -611,6 +616,9 @@ def DarkMatterToStellarMass(DM, z, Paramaters, ScatterOn = False, Scatter = 0.00
     N = SHMnorm10 + SHMnorm11*zparameter
     b = beta10 + beta11*zparameter
     g = gamma10 + gamma11*zparameter
+    
+    #### MAGHEGGIO
+    M, N, b, g = 11.925, 0.032, 1.7, 0.53 #Magheggio 11.925, 0.032, 1.639, 0.53
 
     # Moster 2010 eq2
     if ((np.shape(DM) == np.shape(z)) or np.shape(z) == (1,) or np.shape(z) == ()) and Pairwise:
@@ -644,12 +652,24 @@ def DarkMatterToStellarMass_Alt(DarkMatter, Redshift, Paramaters, ScatterOn = Fa
             beta = np.array([0.500,-0.219,-0.168,0.305])
             gamma = np.array([-0.848,-2.115,-0.664])
             delta = 0.350"""
-            e = np.array([-1.340,0.404,-0.048,0.133])
+            """e = np.array([-1.340,0.404,-0.048,0.133])
             M = np.array([12.027,2.582,2.594,-0.409])
             alpha = np.array([1.999,-1.710,-1.393,0.192])
             beta = np.array([0.502,-0.267,-0.197])
             gamma = np.array([-0.788,-1.947,-0.658])
-            delta = 0.340
+            delta = 0.340"""
+            """e = np.array([-1.435, 1.813, 1.353, -0.214])
+            M = np.array([12.081, 4.696, 4.485, -0.740])
+            alpha = np.array([1.957, -2.650, -1.953, 0.204])
+            beta = np.array([0.474, -0.903, -0.492])
+            gamma = ([-1.065, -3.243, -1.107])
+            delta = 0.386""" #Numbers from Behroozi et al. 2019, Obs. Q/SF Cen
+            e = np.array([-1.431, 1.757, 1.350, -0.218])
+            M = np.array([12.074, 4.600, 4.423, -0.732])
+            alpha = np.array([1.974, -2.468, -1.816, 0.182])
+            beta = np.array([0.470, -0.875, -0.487])
+            gamma = ([-1.160, -3.634, -1.219])
+            delta = 0.382 #Numbers from Behroozi et al. 2019, True Q/SF Cen Excl.
         elif(Paramaters['B18t']):
             """e = np.array([-1.505,0.607,0.002,0.124])         
             M = np.array([11.979,2.293,2.393,-0.380])
@@ -657,18 +677,23 @@ def DarkMatterToStellarMass_Alt(DarkMatter, Redshift, Paramaters, ScatterOn = Fa
             beta = np.array([0.512,-0.181,-0.160])
             gamma = np.array([-0.738,-1.697,-0.573])
             delta = 0.382"""
-            e = np.array([-1.357,0.139,-0.230,0.157])
+            """e = np.array([-1.357,0.139,-0.230,0.157])
             M = np.array([11.968,2.231,2.359,-0.374])
             alpha = np.array([2.025,-1.365,-1.174,0.167])
             beta = np.array([0.520,-0.135,-0.161])
             gamma = np.array([-0.729,-1.764,-0.639])
-            delta = 0.351
+            delta = 0.351"""
+            e = np.array([-1.435, 1.831, 1.368, -0.217])
+            M = np.array([12.035, 4.556, 4.417, -0.731])
+            alpha = np.array([1.963, -2.316, -1.732, 0.178])
+            beta = np.array([0.482, -0.841, -0.471])
+            gamma = ([-1.034, -3.100, -1.055])
+            delta = 0.411 #Numbers from Behroozi et al. 2019, Obs. Q/SF Cen/Sat
 
         a      = 1/(1+Redshift)
         afac   = a-1
 
         
-        #print('\nCiao sono qui.\n') #Hao
         log10_M  = M[0]     + (M[1]*afac)     - (M[2]*np.log(a))     + (M[3]*z)
         e_       = e[0]     + (e[1]*afac)     - (e[2]*np.log(a))     + (e[3]*z)
         alpha_   = alpha[0] + (alpha[1]*afac) - (alpha[2]*np.log(a)) + (alpha[3]*z)
@@ -676,6 +701,7 @@ def DarkMatterToStellarMass_Alt(DarkMatter, Redshift, Paramaters, ScatterOn = Fa
         log10_g  = gamma[0] + (gamma[1]*afac)                        + (gamma[2]*z)
 
 
+        #print('DarkMatter shape = {}'.format(np.shape(DarkMatter)))
         x = DarkMatter-log10_M
         gamma_ = np.power(10, log10_g)
 
@@ -782,6 +808,68 @@ def Gauss_Scatt(X, Y, Scatt = 0.1):
     DM_Out = np.random.normal(DM_In, Scatt)
     Y_Out, X_Out = np.histogram(DM_Out, bins = np.append(X, X[-1] + X_Bin)-(X_Bin/2), weights = Wt)
     return X_Out[:-1]+(X_Bin/2), Y_Out
+    
+    
+#=========================================
+# Stellar Mass Function (Leja et al. 2019)
+#=========================================
+
+def schechter(logm, logphi, logmstar, alpha, m_lower=None):
+    """
+    Generate a Schechter function (in dlogm).
+    """
+    phi = ((10**logphi) * np.log(10) * 10**((logm - logmstar) * (alpha + 1)) * np.exp(-10**(logm - logmstar)))
+    return phi
+    
+def parameter_at_z0(y,z0,z1=0.2,z2=1.6,z3=3.0):
+    """
+    Compute parameter at redshift `z0` as a function of the polynomial parameters `y` and the redshift anchor points `z1`, `z2`, and `z3`.
+    """
+    y1, y2, y3 = y
+    a = (((y3 - y1) + (y2 - y1) / (z2 - z1) * (z1 - z3)) / (z3**2 - z1**2 + (z2**2 - z1**2) / (z2 - z1) * (z1 - z3)))
+    b = ((y2 - y1) - a * (z2**2 - z1**2)) / (z2 - z1)
+    c = y1 - a * z1**2 - b * z1
+    return a * z0**2 + b * z0 + c
+    
+def Leja_SMF (logm=np.linspace(8, 12, 100)[:, None], z0=np.arange(0.2,3.1,0.2)):
+    """
+    logm and z0 array-like please
+    z0 should be included between 0.2 and 3
+    """
+    # Continuity model median parameters + 1-sigma uncertainties.
+    pars = {'logphi1': [-2.44, -3.08, -4.14],
+    'logphi1_err': [0.02, 0.03, 0.1],
+    'logphi2': [-2.89, -3.29, -3.51],
+    'logphi2_err': [0.04, 0.03, 0.03],
+    'logmstar': [10.79,10.88,10.84],
+    'logmstar_err': [0.02, 0.02, 0.04],
+    'alpha1': [-0.28],
+    'alpha1_err': [0.07],
+    'alpha2': [-1.48],
+    'alpha2_err': [0.1]}
+    # Draw samples from posterior assuming independent Gaussian uncertainties.
+    # Then convert to mass function at `z=z0`.
+    draws = {}
+    ndraw = 1000 #increase for better quality, 1000 recommended by Leja et al. 2019
+    PHI = np.zeros((z0.size, logm.size))
+    for j in range(0, z0.size):
+        for par in ['logphi1', 'logphi2', 'logmstar', 'alpha1', 'alpha2']:
+            samp = np.array([np.random.normal(median,scale=err,size=ndraw) for median, err in zip(pars[par], pars[par+'_err'])])
+            if par in ['logphi1', 'logphi2', 'logmstar']:
+                draws[par] = parameter_at_z0(samp,z0[j])
+            else:
+                draws[par] = samp.squeeze()
+        # Generate Schechter functions.
+        phi1 = schechter(logm, draws['logphi1'], # primary component
+        draws['logmstar'], draws['alpha1'])
+        phi2 = schechter(logm, draws['logphi2'], # secondary component
+        draws['logmstar'], draws['alpha2'])
+        phi = phi1 + phi2 # combined mass function
+        # Compute median and 1-sigma uncertainties as a function of mass.
+        #phi_50, phi_84, phi_16 = np.percentile(phi, [50, 84, 16], axis=1)
+        for i in range(0,logm.size):
+            PHI[j,i] = np.mean(phi[i,:])
+    return PHI #array-like [phi/Mpc^-3/dex]
 
 
 #==========================Saving Output========================================
@@ -950,10 +1038,10 @@ def LoadData_z_infall(RunParam):
     z = np.load(OutputFolder +"RunParam_{}/z_infall_z.npy".format("".join(("{}_".format(i) for i in RunParam))))
     z_infall = np.load(OutputFolder +"RunParam_{}/z_infall.npy".format("".join(("{}_".format(i) for i in RunParam))))
     return Surviving_Sat_SMF_MassRange, z, z_infall
-def LoadData_sSFR(RunParam):
-    Surviving_Sat_SMF_MassRange = np.load(OutputFolder +"RunParam_{}/sSFR_Surviving_Sat_SMF_MassRange.npy".format("".join(("{}_".format(i) for i in RunParam))))
-    sSFR_Range = np.load(OutputFolder +"RunParam_{}/sSFR_Range.npy".format("".join(("{}_".format(i) for i in RunParam))))
-    Satellite_sSFR = np.load(OutputFolder +"RunParam_{}/Satellite_sSFR.npy".format("".join(("{}_".format(i) for i in RunParam))))
+def LoadData_sSFR(RunParam_List):
+    Surviving_Sat_SMF_MassRange = np.load(OutputFolder +"RunParam_{}/sSFR_Surviving_Sat_SMF_MassRange.npy".format("".join(("{}_".format(i) for i in RunParam_List[0]))))
+    sSFR_Range = np.load(OutputFolder +"RunParam_{}/sSFR_Range.npy".format("".join(("{}_".format(i) for i in RunParam_List[0]))))
+    Satellite_sSFR = np.load(OutputFolder +"RunParam_{}/Satellite_sSFR.npy".format("".join(("{}_".format(i) for i in RunParam_List[0]))))
     return Surviving_Sat_SMF_MassRange, sSFR_Range, Satellite_sSFR
 def LoadData_Sat_SMHM(RunParam):
     z = np.load(OutputFolder +"RunParam_{}/Sat_SMHM_z.npy".format("".join(("{}_".format(i) for i in RunParam))))

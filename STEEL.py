@@ -4,6 +4,23 @@ Author: Philip Grylls
 If this code or its output is used please cite Grylls+2019 "A statistical semi-empirical model: satellite galaxies in groups and clusters" and any relavent followup papers by the authors.
 If you wish to devlop the code please contact pipgryllsastro"at"gmail.com or if unavalible F.Shankar"at"soton.ac.uk
 """
+
+with open ('default.conf') as conf_file:
+    input_params = conf_file.readlines()
+for i in range(0, len(input_params)):
+    if 'path_to_STEEL' in input_params[i]:
+        for j in range(0, len(input_params[i])):
+            if input_params[i][len(input_params[i])-1-j] == "\'":
+                if input_params[i][len(input_params[i])-2-j] == '/':
+                    exec(input_params[i])
+                    break
+                else:
+                    exec( input_params[i][0:len(input_params[i])-1-j] + "/\'")
+                    break
+        break
+
+import sys
+sys.path.append(path_to_STEEL+'Functions') #Hao
 import time
 import os
 import numpy as np
@@ -11,7 +28,8 @@ from fast_histogram import histogram1d, histogram2d
 import matplotlib as mpl
 mpl.use('agg')
 import hmf
-from Functions import Functions as F
+#from Functions import Functions as F #Pip
+import Functions as F #Hao
 import multiprocessing
 from numba import jit
 from colossus.cosmology import cosmology
@@ -28,13 +46,15 @@ cosmology.setCosmology("planck15")
 Cosmo = cosmology.getCurrent()
 h = Cosmo.h
 h_3 = h*h*h
+
+#Get the HMF (Halo Mass Function) according to Murray et al. 2013
+#https://arxiv.org/abs/1306.6721
 HMF_fun = F.Make_HMF_Interp()
 
+#set to True for better HM/SM resolution, takes MUCH longer
+HighRes = False
 
-HighRes = False #set to True for better HM/SM resolution, takes MUCH longer
-#HighRes = True
-
-#Cuts in Satilitemass
+#Cuts in Satellite mass
 SM_Cuts = [9, 9.5, 10, 10.5, 11, 11.45]#[9,10,11]#
 #When using Abundance matching do N realisations to capture upscatter effects
 N = 5
@@ -51,14 +71,14 @@ Override =\
 'beta11':-2,\
 'gamma11':0.08\
 }
-
+#beta=1.5
 
 AbnMtch =\
 {\
 'Behroozi13': False,\
-'Behroozi18': False,\
+'Behroozi18': True,\
 'B18c':True,\
-'B18t':True,\
+'B18t':False,\
 'G18':False,\
 'G18_notSE':False,\
 'G19_SE':False,\
@@ -116,14 +136,15 @@ if HighRes:
     AnalyticHaloBin = 0.05
 else:
     AnalyticHaloBin = 0.1
-AHB_2 = AnalyticHaloBin*AnalyticHaloBin
-AnalyticHaloMass = np.arange(AnalyticHaloMass_min + np.log10(h), AnalyticHaloMass_max + np.log10(h), AnalyticHaloBin)
-#Units are Mvir h-1
+#AHB_2 = AnalyticHaloBin*AnalyticHaloBin #Not used
+AnalyticHaloMass = np.arange(AnalyticHaloMass_min + np.log10(h), AnalyticHaloMass_max + np.log10(h), AnalyticHaloBin) #Create array in the Halo Mass range
+#Units are in M_virial * h^-1
+#Read https://arxiv.org/abs/1308.4150
 
 #This is the Halomass growth history
 #Generates redshfit steps that are small enough to avoid systematics.
 z, AvaHaloMass_wz = F.Get_HM_History(AnalyticHaloMass, AnalyticHaloMass_min, AnalyticHaloMass_max, AnalyticHaloBin)
-AvaHaloMass = AvaHaloMass_wz[:, 1:]
+AvaHaloMass = AvaHaloMass_wz[:, 1:] #Avarage Halo Mass for each redshift (M,N), units of [log10 Msun]
 
 #Account for central bin shrinking
 AvaHaloMassBins = AvaHaloMass[:,1:] - AvaHaloMass[:,:-1] 
@@ -136,18 +157,17 @@ Time_To_0 = Times[0] - Times
 #=========================Creating SubHalos=====================================
 
 """Creating subhalo mass arrays going back in time"""
-#range of satilite masses (Slightly lower max and much lower min than AnaHaloMass)
-
+#range of satellite masses (Slightly lower max and much lower min than AnaHaloMass)
 
 if HighRes:
     Min_Corr = -3 #For Continuity satellites
 else:
     Min_Corr = -1
-SatHaloMass = np.arange(AnalyticHaloMass_min+Min_Corr + np.log10(h), AnalyticHaloMass_max-0.1 + np.log10(h), AnalyticHaloBin)
+SatHaloMass = np.arange(AnalyticHaloMass_min+Min_Corr + np.log10(h), AnalyticHaloMass_max-0.1 + np.log10(h), AnalyticHaloBin) #Create array of satellite halo mass (SHM)
 SHM_min, SHM_max = np.min(SatHaloMass), np.max(SatHaloMass)
 #Units are Mvir h-1
 
-"""for each array create SHMF"""
+"""for each array create SubHalo Mass Function (SHMF)"""
 #Shapes
 a, b = np.shape(AvaHaloMass)
 c = np.shape(SatHaloMass)[0]
@@ -155,7 +175,7 @@ SubHaloFile = "SHMFs_Entering_{}{}{}{}{}{}{}.npy".format(AnalyticHaloMass_min+Mi
 if SubHaloFile in os.listdir(path="./Data/Model/Input/"):
     SHMFs_Entering = np.load("./Data/Model/Input/"+SubHaloFile)
 else:
-    #Make  m_M to FOR uSHMF from Jing et al
+    #Make  m_M to FOR uSHMF from Jiang et al https://academic.oup.com/mnras/article/458/3/2848/2589187
     m_M = np.array([[SatHaloMass - AvaHaloMass[i][j] for j in range(b)] for i in range(a)])
     #Create SHMF arrays (no redshift evolution)
     SHMFs = np.array([[F.dn_dlnX(Unevolved, np.power(10, m_M[i][j])) for j in range(b)] for i in range(a)])
@@ -229,7 +249,7 @@ def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
     #2d array where i is parent halomass and j is Surviving_Sat_SMF_MassRange
     Surviving_Sat_SMF_Weighting = np.zeros((b, np.size(Surviving_Sat_SMF_MassRange[:-1])))
     Surviving_Sat_SMF_Weighting_highz = np.zeros( (a, b, len(Surviving_Sat_SMF_MassRange[:-1])) )
-    #For saving satilite massases and associated halo/subhalo masses
+    #For saving satellite masses and associated halo/subhalo masses
     Sat_SMHM = np.zeros((a, c+1, len(Surviving_Sat_SMF_Weighting_Totals))) #redshift, subhalo, SM
     Sat_SMHM_Host = np.zeros((a, b+1, len(Surviving_Sat_SMF_Weighting_Totals))) #redshift, parent halo, SM
     
@@ -319,7 +339,7 @@ def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
                                         
                     #Calculate N galaxies from abundace matching====================
                     #print('\nCiao, sono qui 1.\n')#Hao
-                    SM_Sat = F.DarkMatterToStellarMass_Alt(np.full(N, SatHaloMass[k]-np.log10(h)), z[i], Paramaters, ScatterOn=True) #Mass Msun #Hao
+                    SM_Sat = F.DarkMatterToStellarMass(np.full(N, SatHaloMass[k]-np.log10(h)), z[i], Paramaters, ScatterOn = True, Scatter = 0.2) #Mass Msun #Hao
                     #print('Ciao, sono qui 2.\n')#Hao
                     #Calculate the mass after stripping and starformation
                     if (z_bin < i):
@@ -544,14 +564,14 @@ if __name__ == "__main__":
     #Pick the Running paramters for the model each tuple is one run
     #Tuple is (Tdyn_Factor (str), Stripping (bool), Star Fomation (bool), z_evo (Bool), Starformation ('str'), AbnMtch (Str))
     #CE = Continuity equation
-    Tdyn_Factors = []
+    #Tdyn_Factors = []
     #Tdyn_Factors += [('1.0', True, True, True, 'S16CE', 'G19_SE'), ('1.0_Alt', True, True, True, 'S16CE', 'G19_SE')]               
     #Tdyn_Factors += [('1.0', False, False, True, 'CE', 'G19_SE')]
     #Tdyn_Factors += [('1.0', True, False, True, 'CE', 'G19_SE')]
     #Tdyn_Factors += [('1.0', False, True, True, 'CE', 'G19_SE')]
     #Tdyn_Factors += [('1.0', True, True, True, 'CE', 'G19_SE')]
-    Tdyn_Factors += [('1.0', False, True, True, 'CE', 'Behroozi18')]
-    #Tdyn_Factors += [('1.0', False, True, True, 'G19_DPL', 'G19_SE')]
+    #Tdyn_Factors += [('1.0', False, False, True, 'CE', 'Behroozi18')]
+    #Tdyn_Factors += [('1.0', False, False, True, 'G19_DPL', 'G19_SE')]
     #Tdyn_Factors += [('1.0', True, True, True, 'G19_DPL', 'G19_SE')]
     #Tdyn_Factors += [('1.0', True, True, True, 'G19_DPL_PP', 'G19_SE')]
     #Tdyn_Factors += [('1.2', True, True, True, 'G19_DPL_PP', 'G19_SE')]
@@ -569,6 +589,7 @@ if __name__ == "__main__":
     #Tdyn_Factors += [('1.0', True, True, True, 'Illustris_PP', 'Illustris')]
     #Tdyn_Factors += [('1.0', True, False, True, 'Illustris', 'Illustris')]
     #Tdyn_Factors += [('1.0', True, False, True, 'G19_DPL', 'G19_SE'), ('1.0', True, False, True, 'G19_DPL', 'G19_cMod')]
+    #Tdyn_Factors += [('1.0', False, False, True, 'G19_DPL', 'Moster')]
     """Tdyn_Factors += [('1.0', True, False, True, 'G19_DPL', 'M_PFT1'),\
                      ('1.0', True, False, True, 'G19_DPL', 'M_PFT2'),\
                      ('1.0', True, False, True, 'G19_DPL', 'M_PFT3'),\
@@ -590,6 +611,16 @@ if __name__ == "__main__":
                      ('1.0', False, False, True, 'G19_DPL', 'HMevo_alt_0.5')
                     ]"""
     #Tdyn_Factors += [('1.0', False, False, True, 'G19_DPL', 'G19_cMod')]
+  
+#---------------------
+# Read Tdyn_Factors from file
+# Hao
+#---------------------
+    with open ('default.conf') as conf_file:
+        input_params = conf_file.readlines()
+    for i in range(0, len(input_params)):
+        if 'Tdyn_Factors' in input_params[i]:
+            exec(input_params[i])
     
     msg = 'About to run' + str(Tdyn_Factors)
     print(msg)

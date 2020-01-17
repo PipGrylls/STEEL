@@ -1,7 +1,23 @@
+with open ('../default.conf') as conf_file:
+    input_params = conf_file.readlines()
+for i in range(0, len(input_params)):
+    if 'path_to_STEEL' in input_params[i]:
+        for j in range(0, len(input_params[i])):
+            if input_params[i][len(input_params[i])-1-j] == "\'":
+                if input_params[i][len(input_params[i])-2-j] == '/':
+                    exec(input_params[i])
+                    break
+                else:
+                    exec( input_params[i][0:len(input_params[i])-1-j] + "/\'")
+                    break
+        break
+
 import os
 import sys
 AbsPath = str(__file__)[:-len("/SMHM_Fit_MCMC.py")]+"/.."
 sys.path.append(AbsPath)
+sys.path.append(path_to_STEEL+'Functions') #Hao
+sys.path.append(path_to_STEEL+'Scripts/Plots') #Hao
 import numpy as np
 import pandas as pd
 import pickle
@@ -9,14 +25,15 @@ import emcee
 import corner
 from scipy.interpolate import interp1d, interp2d
 import matplotlib.pyplot as plt
-from Functions import Functions as F
+import Functions as F
 from colossus.cosmology import cosmology
-from Scripts.Plots import SDSS_Plots #imports the SDSS file
-if "SDSS_Plots.pkl" in os.listdir(AbsPath+"/Data/Observational/Bernardi_SDSS"):
+#from Scripts.Plots import SDSS_Plots #imports the SDSS file
+import SDSS_Plots #Hao
+"""if "SDSS_Plots.pkl" in os.listdir(AbsPath+"/Data/Observational/Bernardi_SDSS"):
     Add_SDSS = pickle.load(open(AbsPath+"/Data/Observational/Bernardi_SDSS/SDSS_Plots.pkl", 'rb'))
 else:
     Add_SDSS = SDSS_Plots.SDSS_Plots(11.5,15,0.1) #pass this halomass:min, max, and binwidth for amting 
-    pickle.dump(Add_SDSS, open(AbsPath+"/Data/Observational/Bernardi_SDSS/SDSS_Plots.pkl", 'wb'))
+    pickle.dump(Add_SDSS, open(AbsPath+"/Data/Observational/Bernardi_SDSS/SDSS_Plots.pkl", 'wb'))"""
 
 
 
@@ -35,7 +52,8 @@ class HaloMassFunction:
         self.HMR_L = 10
         self.HMR_U = 16
         self.HMR_BW = 0.1
-        self.HaloMassRange = np.arange(self.HMR_L, self.HMR_U , self.HMR_BW) #log10 Mvir h-1 Msun
+        #self.HaloMassRange = np.arange(self.HMR_L, self.HMR_U , self.HMR_BW) #log10 Mvir h-1 Msun
+        self.HaloMassRange = np.linspace(self.HMR_L, self.HMR_U, 100)
         self.HaloMassFunction = F.Make_HMF_Interp() #loads the HMF/COLOSSUS hmf from STEEL
     
     #Functions for returning defaults
@@ -95,7 +113,8 @@ class HaloMassFunction:
             return HMF_fun
     
     def SHMF_STEEL(self, z_in):
-        RunParam = (1.0, False, False, True, 'CE', 'G19_SE')
+        #RunParam = (1.0, False, False, True, 'CE', 'G19_SE')
+        RunParam = (1.0, False, False, True, 'G19_DPL', 'G19_SE')
         z, SubHaloMass, NumberDensities = F.LoadData_MultiEpoch_SubHalos(RunParam)
         z_bin = np.digitize(z_in, bins = z) - 1
         return SubHaloMass, NumberDensities[z_bin], z
@@ -114,6 +133,49 @@ class StellarMassFunction:
     #Functions for returning defaults
     def ReturnDefaultMassRange(self):
         return self.StellarMassRange, self.SMR_L, self.SMR_U , self.SMR_BW
+        
+    def Leja19(self, logm=np.linspace(8, 12, 100)[:, None], z0=np.arange(0.2,3.1,0.2)):
+        """
+        logm and z0 array-like please
+        z0 should be included between 0.2 and 3
+        """
+        # Continuity model median parameters + 1-sigma uncertainties.
+        pars = {'logphi1': [-2.44, -3.08, -4.14],
+        'logphi1_err': [0.02, 0.03, 0.1],
+        'logphi2': [-2.89, -3.29, -3.51],
+        'logphi2_err': [0.04, 0.03, 0.03],
+        'logmstar': [10.79,10.88,10.84],
+        'logmstar_err': [0.02, 0.02, 0.04],
+        'alpha1': [-0.28],
+        'alpha1_err': [0.07],
+        'alpha2': [-1.48],
+        'alpha2_err': [0.1]}
+        # Draw samples from posterior assuming independent Gaussian uncertainties.
+        # Then convert to mass function at `z=z0`.
+        draws = {}
+        ndraw = 1000 #increase for better quality, 1000 recommended by Leja et al. 2019
+        PHI = np.zeros((z0.size, logm.size))
+        PHI_interp = []
+        for j in range(0, z0.size):
+            for par in ['logphi1', 'logphi2', 'logmstar', 'alpha1', 'alpha2']:
+                samp = np.array([np.random.normal(median,scale=err,size=ndraw) for median, err in zip(pars[par], pars[par+'_err'])])
+                if par in ['logphi1', 'logphi2', 'logmstar']:
+                    draws[par] = F.parameter_at_z0(samp,z0[j])
+                else:
+                    draws[par] = samp.squeeze()
+            # Generate Schechter functions.
+            phi1 = F.schechter(logm, draws['logphi1'], # primary component
+            draws['logmstar'], draws['alpha1'])
+            phi2 = F.schechter(logm, draws['logphi2'], # secondary component
+            draws['logmstar'], draws['alpha2'])
+            phi = phi1 + phi2 # combined mass function
+            # Compute median and 1-sigma uncertainties as a function of mass.
+            #phi_50, phi_84, phi_16 = np.percentile(phi, [50, 84, 16], axis=1)
+            for i in range(0,logm.size):
+                PHI[j,i] = np.mean(phi[i,:])
+            PHI_interp.append(interp1d(logm[:,0], PHI[j,:], bounds_error = False))
+        #return PHI, z0 #array-like [phi/Mpc^-3/dex]
+        return PHI_interp, z0
     
     def Bernardi_SDSS(self):
         """
@@ -193,8 +255,12 @@ class HaloMassToStellarMass:
     #Functions should come in pairs one to define the fit one to return that runtion and an inital guess array for fitting
    
     def Moster(self, DM, Inputs, z, Pairwise = False):
+        #SMHM_Model(DM_In, Paramaters, Redshift, Pairwise = Pairwise)
+        #print('ciao 1')
         M10, M11, SHMnorm10, SHMnorm11, beta10, beta11, gamma10, gamma11, Scatter = Inputs
+        #print(z.shape)
         zparameter = np.divide(z-0.1, z+1)
+        #print('ciao 2')
         #putting the parameters together for inclusion in the Moster 2010 equation
         M = M10 + M11*zparameter
         N = SHMnorm10 + SHMnorm11*zparameter
@@ -225,8 +291,8 @@ class HaloMassToStellarMass:
     
     
     
-def DM_to_SM(SMF_X, SMF_Bin, Halo_MR, HMF_Bin, HMF, Paramaters, Redshift, SMHM_Model, N = 1000, Pairwise = False):
-    """   
+def DM_to_SM(SMF_X, SMF_Bin, Halo_MR, HMF_Bin, HMF, Paramaters, Redshift, SMHM_Model, N = 100, Pairwise = False):
+    """
     Args:
         SMF_X: Stellar Mass Function Mass Range log10[$M_\odot$]
         HMF: Halo Mass Function Weights [$\Phi$ Mpc^{-3} h^3]
@@ -240,15 +306,22 @@ def DM_to_SM(SMF_X, SMF_Bin, Halo_MR, HMF_Bin, HMF, Paramaters, Redshift, SMHM_M
     Returns:
         SMF_X: Stellar Mass Function Mass Range log10[$M_\odot$], SMF numberdensties Phi [Mpc^-3] 
     """
-
+    
     DM_In = np.repeat(Halo_MR - np.log10(h), N) #log Mh [Msun]
-    Wt = np.repeat(np.divide(HMF*h_3*HMF_Bin, N), N) #Phi/N [Mpc^-3]
+    #Wt = np.repeat(np.divide(np.array(HMF) *h_3*HMF_Bin, np.float(N)), N) #Phi/N [Mpc^-3]
+    Wt = np.divide(np.array(HMF) *h_3*HMF_Bin, np.float(N)) #Phi/N [Mpc^-3]
+    Pairwise = False
     if Pairwise:
         Redshift = np.repeat(Redshift, N)
-
+        
     SM = SMHM_Model(DM_In, Paramaters, Redshift, Pairwise = Pairwise) #log M* [Msun]
+    #print(DM_In.shape)
+    #print(SM.shape)
+    #print(Wt.shape)
+    #print(np.append(SMF_X, SMF_X[-1]+SMF_Bin)-(SMF_Bin/2))
     
     SMF_Y, Bin_Edge = np.histogram(SM, bins = np.append(SMF_X, SMF_X[-1]+SMF_Bin)-(SMF_Bin/2), weights = Wt, density = False) #Phi [Mpc^-3], M* [Msun]
+    #print('ciao 1'); sys.exit('Exit introduced by me!') #Hao
     
     return np.log10(np.divide(SMF_Y, SMF_Bin)) #M* [Msun], Phi [Mpc^-3]
 
@@ -273,14 +346,27 @@ class Fitting_Functions:
         self.Low_z = []
         self.High_z = []
         
-        self.HMR = self.HMF_Class.ReturnDefaultMassRange()
-        self.SMR = self.SMF_Class.ReturnDefaultMassRange()
+        if "Leja19" in SMF:
+            AnalyticHaloMass_min = 11.0; AnalyticHaloMass_max = 16.6; AnalyticHaloBin = 0.1
+            AnalyticHaloMass = np.arange(AnalyticHaloMass_min + np.log10(h), AnalyticHaloMass_max + np.log10(h), AnalyticHaloBin)
+            self.HMR = AnalyticHaloMass, AnalyticHaloMass_min, AnalyticHaloMass_max, AnalyticHaloBin
+            self.SMR = np.linspace(8,12,100), 8., 12., 0.040404040404039776
+        else:
+            self.HMR = self.HMF_Class.ReturnDefaultMassRange()
+            self.SMR = self.SMF_Class.ReturnDefaultMassRange()
         #Pick SMHM relation and initial parameters
         if SMHM == "Moster":
             self.SMHM_Model, self.Parameters, self.Bounds = self.SMHM_Class.ReturnMosterFit()
         else:
             print("Error: SMHM model not defined")
         #Pick SMF data
+        if "Leja19" in SMF:
+            AnalyticHaloMass_min = 11.0; AnalyticHaloMass_max = 16.6; AnalyticHaloBin = 0.1
+            AnalyticHaloMass = np.arange(AnalyticHaloMass_min + np.log10(h), AnalyticHaloMass_max + np.log10(h), AnalyticHaloBin)
+            z, AvaHaloMass_wz = F.Get_HM_History(AnalyticHaloMass, AnalyticHaloMass_min, AnalyticHaloMass_max, AnalyticHaloBin)
+            Leja_SMF, Redshifts = self.SMF_Class.Leja19(logm=np.linspace(8, 12, 100)[:, None], z0=z)
+            self.SMF_Redshifts.append(Redshifts)
+            self.SMF_Total.append(Leja_SMF)
         if "Bernardi16" in SMF:
             Y_t, Y_t_e, Y_sat, Y_sat_e, Y_cen, Y_cen_e, Redshifts = self.SMF_Class.Bernardi_SDSS() 
             self.SMF_Redshifts += Redshifts
@@ -333,6 +419,31 @@ class Fitting_Functions:
                         for i3 in np.arange(self.Bounds[7][0], self.Bounds[7][1], (self.Bounds[7][1] - self.Bounds[7][0])/10):
                             self.High_z.append([i0, i1, i2, i3])
 
+def lnlike_Leja(Params, Inputs):
+    z, HMR, HM_Bin, SMR, SM_Bin, SMHM_Model = Inputs
+    Params = [Params[0], 0, Params[1], 0, Params[2], 0, Params[3], 0, 0.15]
+    #CSMF_0_edge = CSMF_0[1:-1] #do this to avoid the edge effects of histogram
+    SMF_From_SMHM = DM_to_SM(SMR[1:-1], SM_Bin, HMR, HM_Bin, CHMF_0, Params, z, SMHM_Model, N = 2500)
+    mask = np.logical_and(np.isfinite(SMF_From_SMHM), np.isfinite(CSMF_0_edge))
+    if len(SMF_From_SMHM[mask])/len(SMF_From_SMHM) > 0.9:
+        return -0.5*np.sum(np.power(SMF_From_SMHM[mask] - CSMF_0_edge[mask], 2))
+    else:
+        return -np.inf
+
+def lnprior_Leja(theta):
+    M,N,b,g = theta
+    if (11.0<M<13) and (0.0<N<0.06) and (0.2<b<4.0) and (0.3<g<1.2):
+        return 0.0
+    else:
+        return -np.inf
+
+def lnprob_Leja(theta, z, HMR, HM_bin, SMR, SM_bin, SMHM_Model):
+    Inputs = [z, HMR, HM_bin, SMR, SM_bin, SMHM_Model]
+    lp = lnprior_Leja(theta)
+    if not np.isfinite(lp):
+        return -np.inf
+    return lp + lnlike_Leja(theta, Inputs)
+
 def lnlike_lz(Params, Inputs):
     """
     Takes the input to multiprocessing and makes it usable for DM_to_SM then does the fit.
@@ -360,6 +471,7 @@ def lnprior_lz(theta):
         return 0.0
     else:
         return -np.inf
+        
 def lnprob_lz(theta, z, HMR, HM_bin, CHMF_0, SMR, SM_bin, CSMF_0, SMHM_Model):
     Inputs = [z, HMR, HM_bin, CHMF_0, SMR, SM_bin, CSMF_0, SMHM_Model]
     lp = lnprior_lz(theta)
@@ -378,18 +490,33 @@ def lnlike_hz(Params, Inputs):
         likelyhood value to be maximised
     
     """
+    #Input = [Params_lz, HaloRed, HaloMasses, HM_bin, HaloWts, SMR, SM_bin, FittingClass.SMF_Total, SMHM_Model]
     Params_lz, z, HMR, HM_Bin, HMF_wts, SMR, SM_Bin, SMF, SMHM_Model = Inputs
     Params = [Params_lz[0], Params[0], Params_lz[1], Params[1], Params_lz[2], Params[2], Params_lz[3], Params[3], 0.15]
     Fit = 0
     
     for i in range(len(HMR)):
+        #DM_to_SM(SMF_X, SMF_Bin, Halo_MR, HMF_Bin, HMF, Paramaters, Redshift, SMHM_Model, N = 1000, Pairwise = False):
         SMF_From_SMHM = DM_to_SM(SMR, SM_Bin, HMR[i], HM_Bin, HMF_wts[i], Params, z[i], SMHM_Model, Pairwise = True)
-        mask = np.logical_and(np.isfinite(SMF_From_SMHM), np.isfinite(SMF[i]))
-        Fit += -0.5*np.sum(np.power(SMF_From_SMHM[mask] - SMF[i][mask], 2))
-        #if len(SMF_From_SMHM[mask])/len(SMF_From_SMHM) > 0.5:
-        #    Fit += np.sqrt(np.sum(np.power(SMF_From_SMHM[mask] - SMF[i][mask], 2))/len(SMF_From_SMHM[mask]))
-        # else:
-        #     Fit += np.inf
+        """print('xxx')
+        print(type(SMF_From_SMHM))
+        print(SMF_From_SMHM.shape)
+        print(np.isfinite(SMF_From_SMHM))
+        xx = SMF[i][0](HMR[i])
+        print(xx.size)
+        print(np.isfinite(SMF[i][0](HMR[i])))
+        print('xxx')"""
+        #mask = np.logical_and(np.isfinite(SMF_From_SMHM), np.isfinite(SMF[i]))
+        mask = np.logical_and(np.isfinite(SMF_From_SMHM), np.isfinite(SMF[i][0](HMR[i]))) ###indice 0 in SMF indica z[0]
+        #print('mask = {}'.format(mask))
+        print(SMF_From_SMHM[mask])
+        print(SMF[i][0][mask])
+        Fit += -0.5*np.sum(np.power(SMF_From_SMHM[mask] - SMF[i][0][mask], 2))
+        print(i); print('ciao 1'); sys.exit('Exit introduced by me!') #Hao
+        if len(SMF_From_SMHM[mask])/len(SMF_From_SMHM) > 0.5:
+            Fit += np.sqrt(np.sum(np.power(SMF_From_SMHM[mask] - SMF[i][mask], 2))/len(SMF_From_SMHM[mask]))
+        else:
+             Fit += np.inf
     return Fit
        
 def lnprior_hz(theta):
@@ -403,27 +530,30 @@ def lnprob_hz(theta, Params_lz, HaloRed, HaloMasses, HM_bin, HaloWts, SMR, SM_bi
     lp = lnprior_hz(theta)
     if not np.isfinite(lp):
         return -np.inf
+    #print('lnlike_hz = {}'.format(lnlike_hz(theta, Inputs)))
     return lp + lnlike_hz(theta, Inputs)
 
 if __name__ == "__main__":
     #Make FttingFuctionsCass
     #FittingClass = Fitting_Functions(SMHM = "Moster", SMF = ["Bernardi16", "Davidzon17_corr"], HMF_central = "HMF_Collosus", HMF_sub = "STEEL")
-    FittingClass = Fitting_Functions(SMHM = "Moster", SMF = ["cModel", "Davidzon17"], HMF_central = "HMF_Collosus", HMF_sub = "STEEL")
+    #FittingClass = Fitting_Functions(SMHM = "Moster", SMF = ["cModel", "Davidzon17"], HMF_central = "HMF_Collosus", HMF_sub = "STEEL")
+    FittingClass = Fitting_Functions(SMHM = "Moster", SMF = ["Leja19"], HMF_central = "HMF_Collosus", HMF_sub = "STEEL")
     
     
-    #Fit at redshift 0.1:
+    """#Fit at redshift 0.1:
     z = 0.1
-    index_0 = np.digitize(z, bins = FittingClass.SMF_Redshifts) - 1
+    index_0 = np.digitize(z, bins = FittingClass.SMF_Redshifts[0], right=True) - 1
     HMR, HM_min, HM_max, HM_bin = FittingClass.HMR
     CHMF_0 = FittingClass.CHMF[index_0]
-    SHMF_0 = FittingClass.SHMF[index_0]
+    #SHMF_0 = FittingClass.SHMF[index_0]
     SMR, SM_min, SM_max, SM_bin = FittingClass.SMR
-    TSMF_0 = FittingClass.SMF_Total[index_0]
-    CSMF_0 = FittingClass.SMF_Central[index_0]
-    SSMF_0 = FittingClass.SMF_Satellite[index_0]
-    SMHM_Model = FittingClass.SMHM_Model
-    """
-    Input = [z, HMR, HM_bin, CHMF_0, SMR, SM_bin, CSMF_0, SMHM_Model]
+    #TSMF_0 = FittingClass.SMF_Total[index_0]
+    #CSMF_0 = FittingClass.SMF_Central[index_0]
+    #SSMF_0 = FittingClass.SMF_Satellite[index_0]
+    SMHM_Model = FittingClass.SMHM_Model"""
+    
+    
+    """Input = [z, HMR, HM_bin, CHMF_0, SMR, SM_bin, CSMF_0, SMHM_Model]
     #set up initial conditions
     ndim, nwalkers = 4, 20
     pos = [[12.0,0.03,1.5,0.6] + 1e-3*np.random.randn(ndim) for i in range(nwalkers)]
@@ -450,14 +580,30 @@ if __name__ == "__main__":
     plt.ylabel("$\mathrm{log_{10}}$ $\mathrm{\phi}$ $\mathrm{[Mpc^{-3}dex^{-1}]}$")
     plt.legend(frameon = False)
     plt.savefig("./Figures/SMHM_Fit/SMF_lz.png")
-    plt.clf()
-    #"""
+    plt.clf()"""
+
+ 
+    #My MCMC
+    #z = np.array(FittingClass.SMF_Redshifts)
+    z = np.array(FittingClass.SMF_Redshifts)[0]
+    SMR, SM_min, SM_max, SM_bin = FittingClass.SMR
+    HMR, HM_min, HM_max, HM_bin = FittingClass.HMR
+    HMF = FittingClass.CHMF[0]
+    SMHM_Model = FittingClass.SMHM_Model
+    Params = 11.91,0.029,2.09,0.64, 0.15 #cmodel
+    Input = [Params, z, HMR, HM_bin, HMF, SMR, SM_bin, FittingClass.SMF_Total, SMHM_Model]
+    ndim, nwalkers = 4, 20
+    pos = [[0.6,-0.014,-0.7,0.03] + 1e-3*np.random.randn(ndim) for i in range(nwalkers)]
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob_hz, args=Input, threads=20)
+    #print('I am here 1')
+    sampler.run_mcmc(pos, 1000)
+    samples = sampler.chain[:, 50:, :].reshape((-1, ndim))
+    #sys.exit('Exit introduced by me!') #Hao
     
     
-    
-    #Params_lz = M[0], N[0], b[0], g[0]
+    """#Params_lz = M[0], N[0], b[0], g[0]
     #Params_lz = 11.925, 0.032,1.639,0.532,0.15
-    Params_lz = 11.91,0.029,2.09,0.64,0.15
+    Params_lz = 11.91,0.029,2.09,0.64,0.15 #cmodel
     #Greater than 0.1
     SMHM_Model = FittingClass.SMHM_Model
     HaloMasses = [[] for i in range(len(FittingClass.SMF_Redshifts))]
@@ -466,26 +612,29 @@ if __name__ == "__main__":
     
     #make repeating list of DM length of the redshift steps in steel
     for i, z_ in enumerate(FittingClass.SMF_Redshifts):
+        #print('Beginning i = {}'.format(i))
         #Centrals
         HaloMasses[i] += list(HMR)
         HaloWts[i] += list(FittingClass.CHMF[i])
         HaloRed[i] += [z_ for temp in range(len(FittingClass.CHMF[i]))]
         #Subhaloes
         for j, z_sub_inf in enumerate(FittingClass.SHMF[0][2]):
+            #print('j = {}  z_sub_inf = {}'.format(j,z_sub_inf))
             HaloMasses[i] += list(FittingClass.SHMF[i][0])
             HaloWts[i] += list(FittingClass.SHMF[i][1][j])
             HaloRed[i] += [z_sub_inf for temp in range(len(FittingClass.SHMF[i][1][j]))]
+            #print('{}-th cicle finished'.format(j))
     HaloMasses = np.array(HaloMasses)
     HaloWts = np.array(HaloWts)
     HaloRed = np.array(HaloRed)
-    
     
     Input = [Params_lz, HaloRed, HaloMasses, HM_bin, HaloWts, SMR, SM_bin, FittingClass.SMF_Total, SMHM_Model]
     #set up initial conditions
     ndim, nwalkers = 4, 16
     pos = [[0.6,-0.014,-0.7,0.03] + 1e-3*np.random.randn(ndim) for i in range(nwalkers)]
-    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob_hz, args=(Input), threads = 20)
-    sampler.run_mcmc(pos, 1000)
+    #pos = [11.91,0.029,2.09,0.64]
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob_hz, args=Input, threads = 20)
+    #sampler.run_mcmc(pos, 5)
     samples = sampler.chain[:, 50:, :].reshape((-1, ndim))
     
     Mz, Nz, bz, gz = map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),zip(*np.percentile(samples, [16, 50, 84],axis=0)))
@@ -499,7 +648,7 @@ if __name__ == "__main__":
                         show_titles = True, title_fmt= ".3f")
     fig.savefig("./Figures/SMHM_Fit/MCMC_plot_hz.png")
     fig.clf()
-    #"""
+    
     f, SubPlots = plt.subplots(3, 3, figsize = (12,12), sharex = True, sharey = True)
     k = 0
     for i in range(3):
@@ -508,5 +657,4 @@ if __name__ == "__main__":
             SubPlots[i][j].plot(SMR, FittingClass.SMF_Total[k], label = "Total")
             k+=1
     plt.savefig("./SMHM_Fitting/HighzSMF_cMod.png")
-    plt.clf()
-    #"""
+    plt.clf()"""

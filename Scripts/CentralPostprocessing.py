@@ -1,8 +1,23 @@
+with open ('../default.conf') as conf_file:
+    input_params = conf_file.readlines()
+for i in range(0, len(input_params)):
+    if 'path_to_STEEL' in input_params[i]:
+        for j in range(0, len(input_params[i])):
+            if input_params[i][len(input_params[i])-1-j] == "\'":
+                if input_params[i][len(input_params[i])-2-j] == '/':
+                    exec(input_params[i])
+                    break
+                else:
+                    exec( input_params[i][0:len(input_params[i])-1-j] + "/\'")
+                    break
+        break
+
 import os
 import sys
 import h5py
 AbsPath = str(__file__)[:-len("/CentralPostprocessing.py")]
 sys.path.append(AbsPath+"/..")
+sys.path.append(path_to_STEEL+'Functions') #Hao
 import multiprocessing
 import pickle
 import numpy as np
@@ -14,9 +29,11 @@ from matplotlib.gridspec import GridSpec
 # mpl.use('agg')
 import matplotlib.pyplot as plt
 import matplotlib.ticker as tik
-from Scripts.Plots import SDSS_Plots
-from Functions import Functions as F
-from Functions import Functions_c as F_c
+from Plots import SDSS_Plots
+#from Functions import Functions as F #Pip
+import Functions as F
+#from Functions import Functions_c as F_c #Pip
+import Functions_c as F_c
 from scipy import interpolate
 from scipy.integrate import cumtrapz
 from itertools import cycle
@@ -28,11 +45,17 @@ HMF_fun = F.Make_HMF_Interp() #N Mpc^-3 h^3 dex^-1, Args are (Mass, Redshift)
 h = Cosmo.h
 h_3 = h*h*h
 
-if "SDSS.pkl" in os.listdir("./Scripts/CentralPostprocessing"):
-    Add_SDSS = pickle.load(open("./Scripts/CentralPostprocessing/SDSS.pkl", 'rb'))
+#-----------------------
+
+#-----------------------
+
+'''
+if "SDSS.pkl" in os.listdir('/Users/haofu/PycharmProjects/STEEL/Scripts/CentralPostprocessing/'):
+    Add_SDSS = pickle.load(open('/Users/haofu/PycharmProjects/STEEL/Scripts/CentralPostprocessing/SDSS.pkl', 'rb'))
 else:
     Add_SDSS = SDSS_Plots.SDSS_Plots(11.5,15,0.1) #pass this halomass:min, max, and binwidth for amting the SDSS plots
     pickle.dump(Add_SDSS, open("./Scripts/CentralPostprocessing/SDSS.pkl", 'wb'))
+'''
 
 #set plot paramaters here
 mpl.rcParams.update(mpl.rcParamsDefault)
@@ -65,7 +88,7 @@ Override =\
 {\
 'M10':11.95,\
 'SHMnorm10':0.03,\
-'beta10':1.6,\
+'beta10':1.5,\
 'gamma10':0.7,\
 'M11':0.5,\
 'SHMnorm11':-0.01,\
@@ -76,12 +99,12 @@ Override =\
 AbnMtch =\
 {\
 'Behroozi13': False,\
-'Behroozi18': False,\
-'B18c':False,\
+'Behroozi18': True,\
+'B18c':True,\
 'B18t':False,\
 'G18':False,\
 'G18_notSE':False,\
-'G19_SE':False,\
+'G19_SE':True,\
 'G19_cMod':False,\
 'Lorenzo18':False,\
 'Moster': False,\
@@ -115,7 +138,7 @@ Paramaters = \
 'AbnMtch' : AbnMtch,\
 'AltDynamicalTime': 1,\
 'NormRnd': 0.5,\
-'SFR_Model': 'CE'\
+'SFR_Model': 'G19_DPL'\
 }
 
 
@@ -171,7 +194,9 @@ class PairFractionData:
         self.z_step = self.z[1:] - self.z[:-1]
         self.t_step = Cosmo.age(self.z[:-1]) - Cosmo.age(self.z[1:])
     
-    def CreateAverageSM(self):
+    def CreateAverageSM(self,ScatterOn=False,Scatter=0.2,Use_Alt=True):
+    
+        #print('I AM RUNNING CREATEAVERAGESM')
         AbnMtch[self.Fit] = True
         if "PFT" in self.Fit:
             AbnMtch["PFT"] = True
@@ -179,14 +204,52 @@ class PairFractionData:
             AbnMtch["HMevo"] = True
             AbnMtch["HMevo_param"] = float(self.Fit[-3:])
 
+        #print('DM shape = {}'.format(np.shape(self.AvaHaloMass)))
         AvaStellarMass = []
+        #print(Use_Alt)
+        scatt=np.linspace(0.15,0.15,self.z.size)
         for i, HM_Arr in enumerate(self.AvaHaloMass):
-            AvaStellarMass.append(F.DarkMatterToStellarMass(HM_Arr-np.log10(h), self.z[i], Paramaters))
+        
+            ######## Scatter fisso
+            """if Use_Alt:
+                AvaStellarMass.append(F.DarkMatterToStellarMass_Alt(HM_Arr-np.log10(h), self.z[i], Paramaters, ScatterOn=ScatterOn, Scatter = Scatter))
+            else:
+                AvaStellarMass.append(F.DarkMatterToStellarMass(HM_Arr-np.log10(h), self.z[i], Paramaters, ScatterOn=ScatterOn, Scatter = Scatter))"""
+            ########
+            
+            ######## Scatter variato col redshift
+            if Use_Alt:
+                if (self.z[i]<0.7):
+                    AvaStellarMass.append(F.DarkMatterToStellarMass_Alt(HM_Arr-np.log10(h), self.z[i], Paramaters, ScatterOn=ScatterOn, Scatter = scatt[i]))
+                else:
+                    AvaStellarMass.append(F.DarkMatterToStellarMass_Alt(HM_Arr-np.log10(h), self.z[i], Paramaters, ScatterOn=ScatterOn, Scatter = scatt[i]))
+            else:
+                if (self.z[i]<0.7):
+                    AvaStellarMass.append(F.DarkMatterToStellarMass(HM_Arr-np.log10(h), self.z[i], Paramaters, ScatterOn=ScatterOn, Scatter = scatt[i]))
+                else:
+                    AvaStellarMass.append(F.DarkMatterToStellarMass(HM_Arr-np.log10(h), self.z[i], Paramaters, ScatterOn=ScatterOn, Scatter = scatt[i]))
+            ########
+            
+            ######## Scarto
+            """if (i==0):
+                AvaStellarMass.append(F.DarkMatterToStellarMass_Alt(HM_Arr-np.log10(h), self.z[i], Paramaters, ScatterOn=ScatterOn, Scatter = Scatter))
+            else:
+                while True:
+                    interrupt=True
+                    AvaStellarMass_prova = F.DarkMatterToStellarMass_Alt(HM_Arr-np.log10(h), self.z[i], Paramaters, ScatterOn=ScatterOn, Scatter = Scatter)
+                    for j in range(0,len(AvaStellarMass)):
+                        for i in range(0,AvaStellarMass_prova.size):
+                            if (AvaStellarMass_prova[i] >= AvaStellarMass[j-1][i]):
+                                interrupt=False
+                    if (interrupt==True):
+                        break
+                AvaStellarMass.append(AvaStellarMass_prova)"""
+            ########
         AvaStellarMass = np.array(AvaStellarMass)
 
         #Where I have decreased the binsize the SMHM relation is occasionaly not monotomically increasing 
         #This smooths it out for np.digitize
-    
+        
         AvaStellarMass2 = copy(AvaStellarMass)
         for i, SM_Arr in enumerate(AvaStellarMass):
             try:
@@ -204,7 +267,7 @@ class PairFractionData:
                 if AvaStellarMass2[i, -1] < AvaStellarMass2[i, -1]:
                     AvaStellarMass2[i, -1] = AvaStellarMass2[i, -1] + (AvaStellarMass2[i, -2] - AvaStellarMass2[i, -3])
         AvaStellarMass = AvaStellarMass2
-
+        
 
         AvaStellarMassBins = AvaStellarMass[:,1:] - AvaStellarMass[:,:-1] 
         AvaStellarMassBins = np.concatenate((AvaStellarMassBins, np.array([AvaStellarMassBins[:,-1]]).T), axis = 1)
@@ -226,7 +289,7 @@ class PairFractionData:
             AbnMtch["PFT"] = True
         HM_Bin = 0.01
         HM_Range = np.arange(9, 15, HM_Bin)
-        cSMF_X, cSMF_Y = F.DM_to_SM(SMF_X, np.log10(HMF_fun(HM_Range, z_in)), HM_Range, HM_Bin, SMF_X_Bin, Paramaters, Redshift = z_in, N = 3000)    
+        cSMF_X, cSMF_Y = F.DM_to_SM(SMF_X, np.log10(HMF_fun(HM_Range, z_in)), HM_Range, HM_Bin, SMF_X_Bin, Paramaters, Redshift = z_in, N = 3000, UseAlt = False)
         AbnMtch[self.Fit] = False
         if "PFT" in self.Fit:
             AbnMtch["PFT"] = False
@@ -1009,7 +1072,7 @@ def Fit_to_Str(Fit):
 def MakeClass(Fit):
     Class = PairFractionData(Fit)
     FitName = Fit_to_Str(Fit)
-    pickle.dump(Class, open("./Scripts/CentralPostprocessing/"+FitName+".pkl", 'wb'))
+    pickle.dump(Class, open("/Users/haofu/PycharmProjects/STEEL_mio/Scripts/CentralPostprocessing/"+FitName+".pkl", 'wb'))
     return [Fit, Class]   
 
 if __name__ == "__main__":
@@ -1056,28 +1119,33 @@ if __name__ == "__main__":
                      ('1.0', False, False, True, 'G19_DPL', 'HMevo_alt_0.4'),\
                      ('1.0', False, False, True, 'G19_DPL', 'HMevo_alt_0.5')
                     ]
-    Total_Factors = Evo_Factors + DPL_Factors + cMod_Factors + M_Factors + N_Factors + b_Factors + g_Factors + Ill_Factors + HMevo_Factors
+    #Total_Factors = Evo_Factors + DPL_Factors + cMod_Factors + M_Factors + N_Factors + b_Factors + g_Factors + Ill_Factors + HMevo_Factors
+    #Total_Factors = [('1.0', False, False, True, 'CE', 'G19_SE')]
+    #Total_Factors = [('1.0', False, False, True, 'CE', 'Behroozi18')]
+    #Total_Factors = [('1.0', False, False, True, 'G19_DPL', 'Behroozi18')]
+    #Total_Factors = [('1.0', False, False, True, 'G19_DPL', 'Moster')]
+    Total_Factors = [('1.0', False, False, True, 'G19_DPL', 'G19_SE')]
 
     if False:
         ClassList = []
-        SucessfulData = os.listdir("./Scripts/CentralPostprocessing/")
+        SucessfulData = os.listdir("/Users/haofu/PycharmProjects/STEEL_mio/Scripts/CentralPostprocessing/")
         for Fit in Total_Factors:
             FitName = Fit_to_Str(Fit)
             if FitName+".pkl" in SucessfulData:
-                ClassList.append([Fit, pickle.load(open("./Scripts/CentralPostprocessing/"+FitName+".pkl", 'rb'))])
+                ClassList.append([Fit, pickle.load(open("/Users/haofu/PycharmProjects/STEEL_mio/Scripts/CentralPostprocessing/"+FitName+".pkl", 'rb'))])
             else:
                 try:
-                    pickle.dump(PairFractionData(Fit), open("./Scripts/CentralPostprocessing/"+FitName+".pkl", 'wb'))
+                    pickle.dump(PairFractionData(Fit), open("/Users/haofu/PycharmProjects/STEEL_mio/Scripts/CentralPostprocessing/"+FitName+".pkl", 'wb'))
                 except Exception as e:
                     print(Fit + "excepted with:", e)
     else:
         ClassList = []
         FitToRun = []
-        SucessfulData = os.listdir("./Scripts/CentralPostprocessing/")
+        SucessfulData = os.listdir("/Users/haofu/PycharmProjects/STEEL_mio/Scripts/CentralPostprocessing/")
         for Fit in Total_Factors:
             FitName = Fit_to_Str(Fit)
             if FitName+".pkl" in SucessfulData:
-                ClassList.append([Fit, pickle.load(open("./Scripts/CentralPostprocessing/"+FitName+".pkl", 'rb'))])
+                ClassList.append([Fit, pickle.load(open("/Users/haofu/PycharmProjects/STEEL_mio/Scripts/CentralPostprocessing/"+FitName+".pkl", 'rb'))])
             else:
                 if FitName not in FitToRun:
                     FitToRun.append(Fit)
@@ -1591,7 +1659,7 @@ if __name__ == "__main__":
                                 'probaS0','probaSab','probaScd','TType','P_S0',
                               'veldisp','veldisperr','raSDSS7','decSDSS7']
 
-        df = pd.read_csv('Data/Observational/Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, delim_whitespace = True)
+        df = pd.read_csv('/Users/haofu/PycharmProjects/STEEL_mio/Data/Observational/Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, delim_whitespace = True)
         goodness_cut = (df.finalflag==3 ) | (df.finalflag==5) | (df.finalflag==1)
 
         df = df[goodness_cut]
@@ -1641,7 +1709,12 @@ if __name__ == "__main__":
         MassRatio = 0.5
         
         # index = FitList.index(('1.0', True, True, True, 'G19_DPL', 'G19_SE'))
-        index = FitList.index(('1.0', False, False, True, 'CE', 'G19_SE'))
+        #index = FitList.index(('1.0', False, False, True, 'CE', 'G19_SE'))
+        #index = FitList.index(('1.0', False, False, True, 'CE', 'Behroozi18'))
+        #index = FitList.index(('1.0', False, False, True, 'G19_DPL', 'Moster'))
+        index = FitList.index(('1.0', False, False, True, 'G19_DPL', 'G19_SE'))
+        #index = FitList.index(('1.0', False, False, True, 'G19_DPL', 'Behroozi18'))
+        #index = FitList.index(('1.0', True, True, True, 'CE', 'Behroozi18'))
         # P_ellip = Classes[index].Return_Morph_Plot(MassRatio, 10)
         for MassRatio in [0.25, 0.375, 0.50, 0.625, 0.75, 0.875]:
             P_ellip = Classes[index].Return_Morph_Plot(MassRatio, 2)
@@ -1669,8 +1742,8 @@ if __name__ == "__main__":
         plt.xlim(10,12)
         plt.ylim(0,1)
         plt.tight_layout()
-        plt.savefig("Figures/Paper2/GalaxyMorphologies.png")
-        plt.savefig("Figures/Paper2/GalaxyMorphologies.pdf")
+        plt.savefig("/Users/haofu/PycharmProjects/STEEL_mio/Figures/Paper2/GalaxyMorphologies.png")
+        plt.savefig("/Users/haofu/PycharmProjects/STEEL_mio/Figures/Paper2/GalaxyMorphologies.pdf")
         plt.clf()
     
 
@@ -1704,7 +1777,7 @@ if __name__ == "__main__":
                                 'probaS0','probaSab','probaScd','TType','P_S0',
                               'veldisp','veldisperr','raSDSS7','decSDSS7']
 
-        df = pd.read_csv('Data/Observational/Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, delim_whitespace = True)
+        df = pd.read_csv('/Users/haofu/PycharmProjects/STEEL_mio/Data/Observational/Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, delim_whitespace = True)
         goodness_cut = (df.finalflag==3 ) | (df.finalflag==5) | (df.finalflag==1)
 
         df = df[goodness_cut]
@@ -1755,7 +1828,12 @@ if __name__ == "__main__":
         MassRatioS0 = 0.05
         
         # index = FitList.index(('1.0', True, True, True, 'G19_DPL', 'G19_SE'))
-        index = FitList.index(('1.0', False, False, True, 'CE', 'G19_SE'))
+        #index = FitList.index(('1.0', False, False, True, 'CE', 'G19_SE'))
+        #index = FitList.index(('1.0', False, False, True, 'CE', 'Behroozi18'))
+        #index = FitList.index(('1.0', False, False, True, 'G19_DPL', 'Moster'))
+        index = FitList.index(('1.0', False, False, True, 'G19_DPL', 'G19_SE'))
+        #index = FitList.index(('1.0', False, False, True, 'G19_DPL', 'Behroozi18'))
+        #index = FitList.index(('1.0', True, True, True, 'CE', 'Behroozi18'))
         P_lentic = Classes[index].Return_Second_Order_Lenticular_Plot(MassRatio, MassRatioS0, 2)
 
         
@@ -1771,8 +1849,8 @@ if __name__ == "__main__":
         plt.xlim(10,12)
         plt.ylim(0,1)
         plt.tight_layout()
-        plt.savefig("Figures/Paper2/Second_Order_Lenticular.png")
-        plt.savefig("Figures/Paper2/Second_Order_Lenticular.pdf")
+        plt.savefig("/Users/haofu/PycharmProjects/STEEL_mio/Figures/Paper2/Second_Order_Lenticular.png")
+        plt.savefig("/Users/haofu/PycharmProjects/STEEL_mio/Figures/Paper2/Second_Order_Lenticular.pdf")
         plt.clf()
 
 
@@ -1807,7 +1885,7 @@ if __name__ == "__main__":
                                 'probaS0','probaSab','probaScd','TType','P_S0',
                               'veldisp','veldisperr','raSDSS7','decSDSS7']
 
-        df = pd.read_csv('Data/Observational/Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, delim_whitespace = True)
+        df = pd.read_csv('/Users/haofu/PycharmProjects/STEEL_mio/Data/Observational/Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, delim_whitespace = True)
         goodness_cut = (df.finalflag==3 ) | (df.finalflag==5) | (df.finalflag==1)
 
         df = df[goodness_cut]
@@ -1861,7 +1939,12 @@ if __name__ == "__main__":
         GasFracThresh = 0.107
         
         # index = FitList.index(('1.0', True, True, True, 'G19_DPL', 'G19_SE'))
-        index = FitList.index(('1.0', False, False, True, 'CE', 'G19_SE'))
+        #index = FitList.index(('1.0', False, False, True, 'CE', 'G19_SE'))
+        #index = FitList.index(('1.0', False, False, True, 'CE', 'Behroozi18'))
+        #index = FitList.index(('1.0', False, False, True, 'G19_DPL', 'Moster'))
+        index = FitList.index(('1.0', False, False, True, 'G19_DPL', 'G19_SE'))
+        #index = FitList.index(('1.0', False, False, True, 'G19_DPL', 'Behroozi18'))
+        #index = FitList.index(('1.0', True, True, True, 'CE', 'Behroozi18'))
         P_lentic = Classes[index].Return_Gas_Hard_Threshold_Plot(MassRatio, MassRatioS0, 2, GasFracThresh)
         
         plt.plot(Classes[index].AvaStellarMass[0], P_lentic[0], "-k",label = "STEEL, z = 0.1")#, Lenitculars")
@@ -1870,8 +1953,8 @@ if __name__ == "__main__":
         plt.xlim(10,12)
         plt.ylim(0,1)
         plt.tight_layout()
-        plt.savefig("Figures/Paper2/Gas_Fraction_Hard_Threshold.png")
-        plt.savefig("Figures/Paper2/Gas_Fraction_Hard_Threshold.pdf")
+        plt.savefig("/Users/haofu/PycharmProjects/STEEL_mio/Figures/Paper2/Gas_Fraction_Hard_Threshold.png")
+        plt.savefig("/Users/haofu/PycharmProjects/STEEL_mio/Figures/Paper2/Gas_Fraction_Hard_Threshold.pdf")
         plt.clf()
 
 
@@ -1900,7 +1983,12 @@ if __name__ == "__main__":
         # plt.plot(sm_bins[1:], F_Spir, "b^", fillstyle = "none", markersize=15)
 
         # index = FitList.index(('1.0', True, True, True, 'G19_DPL', 'G19_SE'))
-        index = FitList.index(('1.0', False, False, True, 'CE', 'G19_SE'))
+        #index = FitList.index(('1.0', False, False, True, 'CE', 'G19_SE'))
+        #index = FitList.index(('1.0', False, False, True, 'CE', 'Behroozi18'))
+        #index = FitList.index(('1.0', False, False, True, 'G19_DPL', 'Moster'))
+        index = FitList.index(('1.0', False, False, True, 'G19_DPL', 'G19_SE'))
+        #index = FitList.index(('1.0', False, False, True, 'G19_DPL', 'Behroozi18'))
+        #index = FitList.index(('1.0', True, True, True, 'CE', 'Behroozi18'))
         P_lentic = Classes[index].Return_Gas_Soft_Threshold_Plot(MassRatio, MassRatioS0, 2, GasFracThresh)
         P_ellip = Classes[index].Return_Morph_Plot(MassRatio, 2)
         P_spiral = 1 - P_lentic - P_ellip
@@ -1917,8 +2005,8 @@ if __name__ == "__main__":
         plt.ylim(0,1)
         plt.text(10.2, 0.55, r"GFT = " + "{}".format(GasFracThresh))
         plt.tight_layout()
-        plt.savefig("Figures/Paper2/Gas_Fraction_Soft_Threshold.png")
-        plt.savefig("Figures/Paper2/Gas_Fraction_Soft_Threshold.pdf")
+        plt.savefig("/Users/haofu/PycharmProjects/STEEL_mio/Figures/Paper2/Gas_Fraction_Soft_Threshold.png")
+        plt.savefig("/Users/haofu/PycharmProjects/STEEL_mio/Figures/Paper2/Gas_Fraction_Soft_Threshold.pdf")
         plt.clf()
         
         
@@ -1952,7 +2040,7 @@ if __name__ == "__main__":
                                 'probaS0','probaSab','probaScd','TType','P_S0',
                               'veldisp','veldisperr','raSDSS7','decSDSS7']
 
-        df = pd.read_csv('Data/Observational/Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, delim_whitespace = True)
+        df = pd.read_csv('/Users/haofu/PycharmProjects/STEEL_mio/Data/Observational/Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, delim_whitespace = True)
         goodness_cut = (df.finalflag==3 ) | (df.finalflag==5) | (df.finalflag==1)
 
         df = df[goodness_cut]
@@ -2023,7 +2111,12 @@ if __name__ == "__main__":
         GasFracThresh = 0.107
         GasFracThresh = 0.127
         # index = FitList.index(('1.0', True, True, True, 'G19_DPL', 'G19_SE'))
-        index = FitList.index(('1.0', False, False, True, 'CE', 'G19_SE'))
+        #index = FitList.index(('1.0', False, False, True, 'CE', 'G19_SE'))
+        #index = FitList.index(('1.0', False, False, True, 'CE', 'Behroozi18'))
+        #index = FitList.index(('1.0', False, False, True, 'G19_DPL', 'Moster'))
+        index = FitList.index(('1.0', False, False, True, 'G19_DPL', 'G19_SE'))
+        #index = FitList.index(('1.0', False, False, True, 'G19_DPL', 'Behroozi18'))
+        #index = FitList.index(('1.0', True, True, True, 'CE', 'Behroozi18'))
         P_lentic = Classes[index].Return_New_Gas_Inflow_Plot(MassRatio, MassRatioS0, 2, GasFracThresh)
         P_ellip = Classes[index].Return_Morph_Plot(MassRatio, 2)
         P_spiral = 1 - P_lentic - P_ellip
@@ -2039,8 +2132,8 @@ if __name__ == "__main__":
         plt.ylim(0,1)
         plt.text(10.2, 0.55, r"GFT = " + "{}".format(GasFracThresh))
         plt.tight_layout()
-        plt.savefig("Figures/Paper2/Bulge_Growth_Final.png")
-        plt.savefig("Figures/Paper2/Bulge_Growth_Final.pdf")
+        plt.savefig("/Users/haofu/PycharmProjects/STEEL_mio/Figures/Paper2/Bulge_Growth_Final.png")
+        plt.savefig("/Users/haofu/PycharmProjects/STEEL_mio/Figures/Paper2/Bulge_Growth_Final.pdf")
         plt.clf()
 
     # Preprogrammed Lenticular Growth Plot
@@ -2053,7 +2146,12 @@ if __name__ == "__main__":
     Use colossus function to convert redshift to time and use that as the cutoff instead of redshift
     '''
     if False:
-        index = FitList.index(('1.0', False, False, True, 'CE', 'G19_SE'))
+        #index = FitList.index(('1.0', False, False, True, 'CE', 'G19_SE'))
+        #index = FitList.index(('1.0', False, False, True, 'CE', 'Behroozi18'))
+        #index = FitList.index(('1.0', False, False, True, 'G19_DPL', 'Moster'))
+        index = FitList.index(('1.0', False, False, True, 'G19_DPL', 'G19_SE'))
+        #index = FitList.index(('1.0', False, False, True, 'G19_DPL', 'Behroozi18'))
+        #index = FitList.index(('1.0', True, True, True, 'CE', 'Behroozi18'))
         Classes[index].Return_NoMerger_Plot(MassRatio, 1, 0.1)
 
 
@@ -2066,7 +2164,12 @@ if __name__ == "__main__":
     of final mass in epoch 3 are spirals.
     '''
     if False:
-        index = FitList.index(('1.0', False, False, True, 'CE', 'G19_SE'))
+        #index = FitList.index(('1.0', False, False, True, 'CE', 'G19_SE'))
+        #index = FitList.index(('1.0', False, False, True, 'CE', 'Behroozi18'))
+        #index = FitList.index(('1.0', False, False, True, 'G19_DPL', 'Moster'))
+        index = FitList.index(('1.0', False, False, True, 'G19_DPL', 'G19_SE'))
+        #index = FitList.index(('1.0', False, False, True, 'G19_DPL', 'Behroozi18'))
+        #index = FitList.index(('1.0', True, True, True, 'CE', 'Behroozi18'))
         Classes[index].CookModel(MassRatio, 1, 0.1)
 
     # Sai's Model Idea
@@ -2097,7 +2200,7 @@ if __name__ == "__main__":
                                 'probaS0','probaSab','probaScd','TType','P_S0',
                               'veldisp','veldisperr','raSDSS7','decSDSS7']
 
-        df = pd.read_csv('Data/Observational/Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, delim_whitespace = True)
+        df = pd.read_csv('/Users/haofu/PycharmProjects/STEEL_mio/Data/Observational/Bernardi_SDSS/Slog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, delim_whitespace = True)
         goodness_cut = (df.finalflag==3 ) | (df.finalflag==5) | (df.finalflag==1)
 
         df = df[goodness_cut]
@@ -2148,7 +2251,12 @@ if __name__ == "__main__":
         GasFracThresh = 0.0
         
         # index = FitList.index(('1.0', True, True, True, 'G19_DPL', 'G19_SE'))
-        index = FitList.index(('1.0', False, False, True, 'CE', 'G19_SE'))
+        #index = FitList.index(('1.0', False, False, True, 'CE', 'G19_SE'))
+        #index = FitList.index(('1.0', False, False, True, 'CE', 'Behroozi18'))
+        #index = FitList.index(('1.0', False, False, True, 'G19_DPL', 'Moster'))
+        index = FitList.index(('1.0', False, False, True, 'G19_DPL', 'G19_SE'))
+        #index = FitList.index(('1.0', False, False, True, 'G19_DPL', 'Behroozi18'))
+        #index = FitList.index(('1.0', True, True, True, 'CE', 'Behroozi18'))
         # P_ellip = Classes[index].Return_Morph_Plot(MassRatio, 10)
         P_lentic = Classes[index].Return_Sai_Idea_Plot(MassRatio, 2, GasFracThresh)
 
@@ -2161,8 +2269,8 @@ if __name__ == "__main__":
         plt.xlim(10,12)
         plt.ylim(0,1)
         plt.tight_layout()
-        plt.savefig("Figures/Paper2/SaiIdea.png")
-        plt.savefig("Figures/Paper2/SaiIdea.pdf")
+        plt.savefig("/Users/haofu/PycharmProjects/STEEL_mio/Figures/Paper2/SaiIdea.png")
+        plt.savefig("/Users/haofu/PycharmProjects/STEEL_mio/Figures/Paper2/SaiIdea.pdf")
         plt.clf()
 
 
@@ -2194,7 +2302,7 @@ if __name__ == "__main__":
                                 'probaS0','probaSab','probaScd','TType','P_S0',
                               'veldisp','veldisperr','raSDSS7','decSDSS7']
 
-        df = pd.read_csv('Data/Observational/Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, delim_whitespace = True)
+        df = pd.read_csv('/Users/haofu/PycharmProjects/STEEL_mio/Data/Observational/Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, delim_whitespace = True)
         goodness_cut = (df.finalflag==3 ) | (df.finalflag==5) | (df.finalflag==1)
 
         df = df[goodness_cut]
@@ -2268,7 +2376,12 @@ if __name__ == "__main__":
         GasFracThresh = 0.107
         GasFracThresh = 0.127
         # index = FitList.index(('1.0', True, True, True, 'G19_DPL', 'G19_SE'))
-        index = FitList.index(('1.0', False, False, True, 'CE', 'G19_SE'))
+        #index = FitList.index(('1.0', False, False, True, 'CE', 'G19_SE'))
+        #index = FitList.index(('1.0', False, False, True, 'CE', 'Behroozi18'))
+        #index = FitList.index(('1.0', False, False, True, 'G19_DPL', 'Moster'))
+        index = FitList.index(('1.0', False, False, True, 'G19_DPL', 'G19_SE'))
+        #index = FitList.index(('1.0', False, False, True, 'G19_DPL', 'Behroozi18'))
+        #index = FitList.index(('1.0', True, True, True, 'CE', 'Behroozi18'))
         P_lentic = Classes[index].Return_New_Gas_Inflow_Plot(MassRatio, MassRatioS0, 2, GasFracThresh)
         P_ellip = Classes[index].Return_Morph_Plot(MassRatio, 2)
         P_spiral = 1 - P_lentic - P_ellip
@@ -2293,7 +2406,12 @@ if __name__ == "__main__":
         GasFracThresh = 0.107
         GasFracThresh = 0.127
         # index = FitList.index(('1.0', True, True, True, 'G19_DPL', 'G19_SE'))
-        index = FitList.index(('1.0', False, False, True, 'CE', 'G19_SE'))
+        #index = FitList.index(('1.0', False, False, True, 'CE', 'G19_SE'))
+        #index = FitList.index(('1.0', False, False, True, 'CE', 'Behroozi18'))
+        #index = FitList.index(('1.0', False, False, True, 'G19_DPL', 'Moster'))
+        index = FitList.index(('1.0', False, False, True, 'G19_DPL', 'G19_SE'))
+        #index = FitList.index(('1.0', False, False, True, 'G19_DPL', 'Behroozi18'))
+        #index = FitList.index(('1.0', True, True, True, 'CE', 'Behroozi18'))
         P_lentic = Classes[index].Return_New_Gas_Inflow_Plot(MassRatio, MassRatioS0, 2, GasFracThresh)
         P_ellip = Classes[index].Return_Morph_Plot(MassRatio, 2)
         P_spiral = 1 - P_lentic - P_ellip
@@ -2313,8 +2431,8 @@ if __name__ == "__main__":
         plt.ylim(0,1)
         # plt.text(10.2, 0.55, r"GFT = " + "{}".format(GasFracThresh))
         plt.tight_layout()
-        plt.savefig("Figures/Paper2/Bulge_Growth_Final_Halo.png")
-        plt.savefig("Figures/Paper2/Bulge_Growth_Final_Halo.pdf")
+        plt.savefig("/Users/haofu/PycharmProjects/STEEL_mio/Figures/Paper2/Bulge_Growth_Final_Halo.png")
+        plt.savefig("/Users/haofu/PycharmProjects/STEEL_mio/Figures/Paper2/Bulge_Growth_Final_Halo.pdf")
         plt.clf()
 
 
@@ -2431,11 +2549,11 @@ if __name__ == "__main__":
                     Mass_CE=np.convolve(CentralMass, np.ones((N,))/N, mode='valid')[1:]
                     SFR_CE=(1-Y_acc_hz[:-1])*np.convolve(CMG_dt, np.ones((N,))/N, mode='valid')[:-1]
                     AccRt =(Y_acc_hz[:-1])*np.convolve(np.divide(CentralMassGrowth, dt_CMG*(10**9)), np.ones((N,))/N, mode='valid')[:-1]
-            np.save("Scripts/CentralPostprocessing/HaloMassTrackCE", np.vstack((Mass_CE.flatten(), SFR_CE.flatten(), z_CE.flatten(), AccRt.flatten())))
-            np.save("Scripts/CentralPostprocessing/HaloMassTrackCE_M", Mass_CE)
-            np.save("Scripts/CentralPostprocessing/HaloMassTrackCE_SFR", SFR_CE)
-            np.save("Scripts/CentralPostprocessing/HaloMassTrackCE_Z", z_CE)
-            np.save("Scripts/CentralPostprocessing/HaloMassTrackCE_AccRt", AccRt)
+            np.save("/Users/haofu/PycharmProjects/STEEL_mio/Scripts/CentralPostprocessing/HaloMassTrackCE", np.vstack((Mass_CE.flatten(), SFR_CE.flatten(), z_CE.flatten(), AccRt.flatten())))
+            np.save("/Users/haofu/PycharmProjects/STEEL_mio/Scripts/CentralPostprocessing/HaloMassTrackCE_M", Mass_CE)
+            np.save("/Users/haofu/PycharmProjects/STEEL_mio/Scripts/CentralPostprocessing/HaloMassTrackCE_SFR", SFR_CE)
+            np.save("/Users/haofu/PycharmProjects/STEEL_mio/Scripts/CentralPostprocessing/HaloMassTrackCE_Z", z_CE)
+            np.save("/Users/haofu/PycharmProjects/STEEL_mio/Scripts/CentralPostprocessing/HaloMassTrackCE_AccRt", AccRt)
             
             #Useful redshift bins
             zbinpt5 = np.digitize(0.5, bins = DataClass.z)
@@ -2495,7 +2613,7 @@ if __name__ == "__main__":
                 
                 M_out, M_dot, M_dot_noacc, SFH, GMLR = F_c.Starformation_Centrals(DataClass.AvaStellarMass[zbin5,i], t, d_t, z_for_SFH, M_acc_dot, MaxGas, Tquench, Tau_f, SFR_Model = "G19_DPL", Scatter_On = 0)
                 M_out, M_dot, M_dot_noacc, SFH, GMLR = np.power(10, np.array(M_out)), np.array(M_dot), np.array(M_dot_noacc), np.array(SFH), np.array(GMLR)
-                np.save("Scripts/CentralPostprocessing/GalaxyTracks{}".format(round(DataClass.AvaStellarMass[0,i],1)), np.vstack((z_for_SFH, M_out, M_dot_noacc, GMLR)))
+                np.save("/Users/haofu/PycharmProjects/STEEL_mio/Scripts/CentralPostprocessing/GalaxyTracks{}".format(round(DataClass.AvaStellarMass[0,i],1)), np.vstack((z_for_SFH, M_out, M_dot_noacc, GMLR)))
                 #Msun, Myr-1, Myr-1      , M  , Myr-1
                 #print(M_out, "\n", M_dot, "\n", M_dot_noacc, "\n", SFH, "\n", GMLR)
                 #Cumlative SFH
@@ -2542,7 +2660,7 @@ if __name__ == "__main__":
                     CartoonPlot.set_ylabel(r"log10 M$_*$ [M$_{\odot}]$")
                     CartoonPlot.legend(frameon=False)
                     CartoonFig.tight_layout()
-                    CartoonFig.savefig("Figures/Paper2/GrowthHistCartoon_diff.png")
+                    CartoonFig.savefig("/Users/haofu/PycharmProjects/STEEL_mio/Figures/Paper2/GrowthHistCartoon_diff.png")
                     CartoonFig.clf()
                     #set plot paramaters here
                     mpl.rcParams.update(mpl.rcParamsDefault)
@@ -2721,7 +2839,7 @@ if __name__ == "__main__":
             #"""
             
             #Adding Behroozi
-            """
+            #"""
             for i, file in enumerate(["stats_a0.911185_absolute_sm_11.500_cen.dat", "stats_a0.911185_absolute_sm_11.000_cen.dat"]):
                 print(file)
                 Header = ["type", "SF", "a", "b", "c", "avg", "avg_err", "sd", "counts"]
@@ -2885,8 +3003,8 @@ if __name__ == "__main__":
         SubPlots[2,0].legend(ncol = 1, frameon = False, loc = 1, fontsize = 12)
         SubPlots[2,1].legend(ncol = 1, frameon = False, loc = 1, fontsize = 12) 
         SubPlots[2,2].legend(ncol = 1, frameon = False, loc = 1, fontsize = 12)
-        plt.savefig("Figures/Paper3/SatelliteAccretion.png".format(Fit_to_Str(Fit)))
-        plt.savefig("Figures/Paper3/SatelliteAccretion.pdf".format(Fit_to_Str(Fit)))
+        plt.savefig("/Users/haofu/PycharmProjects/STEEL_mio/Figures/Paper3/SatelliteAccretion.png".format(Fit_to_Str(Fit)))
+        plt.savefig("/Users/haofu/PycharmProjects/STEEL_mio/Figures/Paper3/SatelliteAccretion.pdf".format(Fit_to_Str(Fit)))
         plt.clf()
             
             
@@ -2917,8 +3035,8 @@ if __name__ == "__main__":
         SubPlots[1].set_xlabel(r"log10 Mass $M_{\odot}$")
         
         plt.tight_layout()
-        plt.savefig("Figures/Paper2/SMF.png")
-        plt.savefig("Figures/Paper2/SMF.pdf")
+        plt.savefig("/Users/haofu/PycharmProjects/STEEL_mio/Figures/Paper2/SMF.png")
+        plt.savefig("/Users/haofu/PycharmProjects/STEEL_mio/Figures/Paper2/SMF.pdf")
         plt.clf()
         
     #Make the sSFR distribution
@@ -2999,5 +3117,5 @@ if __name__ == "__main__":
         plt.subplots_adjust(wspace=0, hspace=0)
         #tik.TickHelper
         #plt.tight_layout()
-        plt.savefig("Figures/Paper2/SSFR.png", bbox_inches='tight')
-        plt.savefig("Figures/Paper2/SSFR.pdf", bbox_inches='tight')   
+        plt.savefig("/Users/haofu/PycharmProjects/STEEL_mio/Figures/Paper2/SSFR.png", bbox_inches='tight')
+        plt.savefig("/Users/haofu/PycharmProjects/STEEL_mio/Figures/Paper2/SSFR.pdf", bbox_inches='tight')
