@@ -1,0 +1,10 @@
+    0.307                                        ! Omega_0
+    0.678                                        ! h (= H_0/100)
+    0.823                                        ! sigma8
+    0.96                                         ! nspec
+    0.02298                                      ! Omega_b_h2
+    6.8E+11                                         ! M_0  (h^{-1} Msun)
+    0.0                                          ! z_0
+    1                                            ! median (0) or averages (1)
+    <ForkProcess(ForkPoolWorker-1, started daemon)>.dat                                       !Output File
+    
