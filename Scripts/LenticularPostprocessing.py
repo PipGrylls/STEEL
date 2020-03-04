@@ -789,7 +789,6 @@ class PairFractionData:
         print('Beginning Gas Inflow Plot function')
         FirstAddition = True
         FirstAdditionS0 = True
-        GasFracThresh = 0.2
         GasFrac = np.zeros_like(self.AvaStellarMass)
         for i in range(np.shape(self.AvaStellarMass)[0]-1, -1, -1):
             for j in range(np.shape(self.AvaStellarMass)[1]-1, -1, -1):
@@ -1416,7 +1415,7 @@ if __name__ == "__main__":
 
         MassRatio = 0.25
         MassRatioS0 = 0.050
-        GasFracThresh = 0.127
+        GasFracThresh = 0.175
         #index = FitList.index(('1.0', True, True, True, 'G19_DPL', 'G19_SE'))
         index = FitList.index(('1.0', False, False, True, 'CE', 'G19_SE'))
         P_lentic = Classes[index].Return_New_Gas_Inflow_Plot(MassRatio, MassRatioS0, 2, GasFracThresh)
