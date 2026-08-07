@@ -518,6 +518,7 @@ dependencies = [
  "ndarray",
  "ndarray-npy",
  "serde",
+ "steel-core",
  "tempfile",
  "toml",
 ]
