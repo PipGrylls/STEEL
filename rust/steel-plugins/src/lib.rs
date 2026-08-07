@@ -7,9 +7,15 @@ pub mod cosmology;
 pub mod growth;
 pub mod halo_growth;
 pub mod hmf;
+pub mod merger_time;
 mod numerics;
+pub mod shmf;
+pub mod smhm;
 pub mod variance;
 
 pub use cosmology::Planck15;
 pub use halo_growth::VandenBosch14;
 pub use hmf::Despali16;
+pub use merger_time::McCavanaBK08;
+pub use shmf::Jiang16;
+pub use smhm::{BehrooziFormSmhm, MosterFormSmhm};
