@@ -1,0 +1,12 @@
+[package]
+name = "steel-plugins"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+steel-core = { path = "../steel-core" }
+ndarray = { workspace = true }
+rand = { workspace = true }
+rand_distr = { workspace = true }

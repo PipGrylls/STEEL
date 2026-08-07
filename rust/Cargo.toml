@@ -1,0 +1,24 @@
+[workspace]
+resolver = "2"
+members = [
+    "steel-core",
+    "steel-plugins",
+    "steel-io",
+    "steel-cli",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Philip Grylls"]
+license = "MIT"
+
+[workspace.dependencies]
+ndarray = "0.16"
+ndarray-npy = "0.9"
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+rand = "0.8"
+rand_distr = "0.4"
+anyhow = "1"
+thiserror = "1"
