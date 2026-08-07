@@ -8,4 +8,5 @@ license.workspace = true
 [dependencies]
 ndarray = { workspace = true }
 rand = { workspace = true }
+rand_distr = { workspace = true }
 thiserror = { workspace = true }

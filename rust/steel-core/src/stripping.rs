@@ -2,6 +2,8 @@
 //! (tidal) stripping. Two independent traits since they act on different
 //! quantities and are driven by different physics.
 
+use crate::cosmology::Cosmology;
+
 /// A track of subhalo dark-matter mass, stripped over time as it orbits
 /// its host.
 pub struct HaloStrippingTrack {
@@ -13,13 +15,16 @@ pub trait HaloStrippingModel: Send + Sync {
     /// Strip a subhalo that fell in with `log_m_infall` \[log10 Msun/h\]
     /// as it orbits within a host whose mass history is
     /// `log_host_mass_track` \[log10 Msun/h\] at each `z_track` step,
-    /// with per-step time intervals `dt_track` \[Gyr\].
+    /// with per-step time intervals `dt_track` \[Gyr\]. Needs
+    /// `cosmology` for the background expansion/collapse-overdensity
+    /// terms the VDB05/Jiang16 mass-loss rate depends on.
     fn strip(
         &self,
         log_m_infall: f64,
         log_host_mass_track: &[f64],
         z_track: &[f64],
         dt_track: &[f64],
+        cosmology: &dyn Cosmology,
     ) -> HaloStrippingTrack;
 }
 
