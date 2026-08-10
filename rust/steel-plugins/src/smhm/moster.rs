@@ -18,8 +18,11 @@ use steel_core::smhm::SmhmModel;
 pub enum ZEvo {
     /// No redshift evolution: `zparameter = 0`.
     Fixed,
-    /// `zparameter = z/(1+z)` — only the `Moster13`/`Moster10` presets
-    /// use this form.
+    /// `zparameter = z/(1+z)` — only the `Moster13` preset uses this
+    /// form. (`Moster10` uses `ShiftedStyle` like everything else:
+    /// `Functions.py:526-534` special-cases `Paramaters['Moster']`
+    /// alone, and `Moster10` falls through to the `elif`/`else` arms,
+    /// which both compute the shifted expression.)
     MosterStyle,
     /// `zparameter = (z-0.1)/(1+z)` — every other preset.
     ShiftedStyle,
@@ -218,12 +221,16 @@ impl SmhmModel for MosterFormSmhm {
         let sm = 10f64.powf(log_dm) * (2.0 * n / (ratio.powf(-b) + ratio.powf(g)));
         let log_sm = sm.log10();
 
+        // `scatter` is a public field and `override_*` takes it straight
+        // from the caller, so a non-positive or non-finite value is
+        // reachable through the public API — treat it as "no scatter"
+        // rather than letting `Normal::new(..).unwrap()` panic.
         match rng {
-            Some(r) => {
+            Some(r) if self.scatter > 0.0 && self.scatter.is_finite() => {
                 let normal = Normal::new(0.0, self.scatter).unwrap();
                 log_sm + normal.sample(r)
             }
-            None => log_sm,
+            _ => log_sm,
         }
     }
 }
@@ -271,5 +278,20 @@ mod tests {
 
         let noiseless = model.stellar_mass(12.0, 0.1, None);
         assert!((sm1 - noiseless).abs() > 1e-6, "scatter should perturb the result");
+    }
+
+    #[test]
+    fn invalid_scatter_is_treated_as_no_scatter_rather_than_panicking() {
+        // `scatter` is public and `override_*` takes it from the caller,
+        // so these values are reachable; `Normal::new` would panic on
+        // each of them.
+        let noiseless = MosterFormSmhm::g19_se(true).stellar_mass(12.0, 0.1, None);
+        for bad in [0.0, -0.5, f64::NAN] {
+            let mut model = MosterFormSmhm::g19_se(true);
+            model.scatter = bad;
+            let mut rng = StdRng::seed_from_u64(1);
+            let got = model.stellar_mass(12.0, 0.1, Some(&mut rng));
+            assert!((got - noiseless).abs() < 1e-12, "scatter={bad} should give the noiseless value");
+        }
     }
 }

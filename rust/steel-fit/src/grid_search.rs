@@ -12,10 +12,12 @@ use steel_plugins::MosterFormSmhm;
 
 use crate::smf::{dm_to_sm, rms_distance};
 
-/// Inclusive `[low, high]` bounds for one parameter, searched at
-/// `steps` evenly spaced points (matching
-/// `np.arange(bound[0], bound[1], (bound[1]-bound[0])/10)` in the
-/// Python, generalized to a configurable step count).
+/// Half-open `[low, high)` bounds for one parameter, searched at
+/// `steps` evenly spaced points starting at `low` — `high` itself is
+/// never evaluated. This matches the Python's
+/// `np.arange(bound[0], bound[1], (bound[1]-bound[0])/10)`, which is
+/// also exclusive of its upper limit, generalized to a configurable
+/// step count.
 #[derive(Debug, Clone, Copy)]
 pub struct Bound {
     pub low: f64,

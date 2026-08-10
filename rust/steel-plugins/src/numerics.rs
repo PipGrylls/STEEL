@@ -190,6 +190,16 @@ pub fn ridders_root_find<F: Fn(f64) -> f64>(f: F, x_lo: f64, x_hi: f64, tol: f64
             return ans;
         }
     }
+    // Falling out of the loop means MAX_ITER passed without meeting
+    // `tol`. Returning the last estimate silently would let an
+    // unconverged root propagate into the physics, so flag it in
+    // development builds; release behaviour is unchanged (this path is
+    // not currently reachable for any STEEL grid).
+    debug_assert!(
+        false,
+        "ridders_root_find: no convergence to tol={tol} in {MAX_ITER} iterations \
+         (bracket [{x_lo}, {x_hi}], last estimate {ans})"
+    );
     ans
 }
 

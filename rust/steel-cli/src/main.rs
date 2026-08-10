@@ -23,13 +23,22 @@ fn main() -> Result<()> {
     eprintln!("Running STEEL...");
     let output = simulation.run(&config);
 
+    // Reproduce `STEEL.py`'s output directory name exactly: it joins the
+    // raw `Factor_Stripping_SF` tuple
+    // `(Tdyn_Factor, Stripping, SF, z_Evo, SFR_Model, AbnMtch)`, giving
+    // e.g. `RunParam_1.0_False_False_True_G19_DPL_G19_SE_`. Matching it
+    // is the whole point of keeping the `.npy` layout — the existing
+    // Python plotting reads these paths directly, so Rust's native
+    // `to_string()` formatting (`1`, `false`) and internal plugin names
+    // would put the output somewhere those scripts never look.
+    let py_bool = |b: bool| if b { "True" } else { "False" };
     let run_param_dir = steel_io::run_param_dir_name(&[
-        &runfile.merger_time.dynamical_time_factor.to_string(),
-        &runfile.run.stellar_stripping.to_string(),
-        &runfile.run.star_formation.to_string(),
-        &runfile.smhm.model,
-        &runfile.smhm.preset,
-        &runfile.sfr.model,
+        &format!("{:.1}", runfile.merger_time.dynamical_time_factor),
+        py_bool(runfile.run.stellar_stripping),
+        py_bool(runfile.run.star_formation),
+        py_bool(runfile.smhm.z_evo),
+        registry::sfr_legacy_name(&runfile.sfr),
+        registry::smhm_legacy_name(&runfile.smhm),
     ]);
 
     let written_to = steel_io::write_figure3(&PathBuf::from(&output_dir), &run_param_dir, &output)?;

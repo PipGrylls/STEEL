@@ -10,12 +10,12 @@ fn main() {
         println!("G19_SE log_dm={log_dm} z=0.1 -> log_sm={:.6}", g19_se.stellar_mass(log_dm, 0.1, None));
     }
     println!();
-    let b18c = BehrooziFormSmhm::behrozi18c();
+    let b18c = BehrooziFormSmhm::behroozi18c();
     for log_dm in [11.0, 12.0, 13.0] {
         println!("B18c log_dm={log_dm} z=0.1 -> log_sm={:.6}", b18c.stellar_mass(log_dm, 0.1, None));
     }
     println!();
-    let b13 = BehrooziFormSmhm::behrozi13();
+    let b13 = BehrooziFormSmhm::behroozi13();
     for log_dm in [11.0, 12.0, 13.0] {
         println!("Behroozi13 log_dm={log_dm} z=0.1 -> log_sm={:.6}", b13.stellar_mass(log_dm, 0.1, None));
     }

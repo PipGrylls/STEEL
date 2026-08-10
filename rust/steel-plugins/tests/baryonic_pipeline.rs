@@ -18,7 +18,14 @@ fn build_timeline(cosmo: &Planck15) -> Timeline {
     let t: Vec<f64> = z.iter().map(|&zi| cosmo.age(zi)).collect();
     let mut dt: Vec<f64> = t.windows(2).map(|w| w[1] - w[0]).collect();
     dt.push(*dt.last().unwrap());
-    Timeline { z, t, dt, log_host_mass: vec![13.0; 11], t_dyn_friction: 2.0 }
+    // `t_dyn_friction` must exceed the timeline's own span (2.74 Gyr
+    // here), otherwise the fixture describes a satellite still infalling
+    // past its own merger timescale — which the real pipeline never
+    // produces (for mergers the window *is* the dynamical friction time;
+    // for survivors it is shorter) and which the Python reference has no
+    // notion of, since `StellarMassLoss`'s `Factor` is <= 1 by
+    // construction there.
+    Timeline { z, t, dt, log_host_mass: vec![13.0; 11], t_dyn_friction: 3.0 }
 }
 
 fn build_pipeline(cosmo: &Planck15) -> BaryonicPipeline {
@@ -63,6 +70,11 @@ fn unstripped_noiseless_trajectory_matches_python_reference() {
         10.1708481418,
         10.1694998222,
     ];
+    assert_eq!(
+        history.log_sm.len(),
+        expected.len(),
+        "trajectory length changed -- the regression values below no longer describe the whole output"
+    );
     for (i, (&got, &want)) in history.log_sm.iter().zip(expected.iter()).enumerate() {
         assert!((got - want).abs() < 1e-6, "step {i}: got {got}, want {want}");
     }
@@ -78,19 +90,29 @@ fn stripped_noiseless_trajectory_matches_python_reference() {
     let mut rng = StdRng::seed_from_u64(1);
     let history = pipeline.evolve(&galaxy, &timeline, true, false, &mut rng);
 
+    // Regenerated from the Python reference after the fixture's
+    // `t_dyn_friction` was corrected to 3.0 Gyr (see `build_timeline`).
+    // With the span/timescale now self-consistent, `time_fraction` peaks
+    // at 0.91, so the [0,1] clamp never engages and Rust and the
+    // (unclamped) Python agree exactly, as they should.
     let expected = [
         10.0000000000,
-        9.9992780659,
-        9.9937976927,
-        9.9829286537,
-        9.9653834694,
-        9.9391094126,
-        9.9041379151,
-        9.8276078812,
-        9.7122634930,
-        9.5365923633,
-        9.2100522610,
+        10.0090146417,
+        10.0152894450,
+        10.0188344175,
+        10.0193207958,
+        10.0161948256,
+        10.0098522534,
+        9.9759422899,
+        9.9266938900,
+        9.8642899422,
+        9.7859900404,
     ];
+    assert_eq!(
+        history.log_sm.len(),
+        expected.len(),
+        "trajectory length changed -- the regression values below no longer describe the whole output"
+    );
     for (i, (&got, &want)) in history.log_sm.iter().zip(expected.iter()).enumerate() {
         assert!((got - want).abs() < 1e-6, "step {i}: got {got}, want {want}");
     }
@@ -123,5 +145,11 @@ fn scatter_on_gives_reproducible_results_for_a_fixed_seed() {
     let mut rng2 = StdRng::seed_from_u64(99);
     let h2 = pipeline.evolve(&galaxy, &timeline, false, true, &mut rng2);
 
+    // Exact equality is deliberate here, not an oversight. The claim
+    // under test is specifically that an identical seed reproduces
+    // bit-identical output -- same process, same code path, same
+    // deterministic IEEE operations. Comparing within an epsilon would
+    // weaken this into "roughly similar", which is no longer a
+    // determinism test at all.
     assert_eq!(h1.log_sm, h2.log_sm);
 }

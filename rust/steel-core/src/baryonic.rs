@@ -171,7 +171,18 @@ impl BaryonicPipeline {
         rng: &mut dyn RngCore,
     ) -> EvolutionHistory {
         let n = timeline.t.len();
-        debug_assert!(n >= 1);
+        assert!(n >= 1, "Timeline must have at least one step");
+        // Real asserts, not `debug_assert!`: these compile out in release,
+        // which is the profile every actual STEEL run uses. All four
+        // vectors are indexed below, so a mismatch must fail here with a
+        // clear message rather than as an opaque out-of-bounds panic.
+        assert_eq!(timeline.z.len(), n, "Timeline.z length must match Timeline.t");
+        assert_eq!(timeline.dt.len(), n, "Timeline.dt length must match Timeline.t");
+        assert_eq!(
+            timeline.log_host_mass.len(),
+            n,
+            "Timeline.log_host_mass length must match Timeline.t"
+        );
 
         let quench = self.quenching.timescales(
             galaxy.log_sm_infall,
@@ -195,8 +206,15 @@ impl BaryonicPipeline {
                 if !apply_stripping {
                     return 0.0;
                 }
+                // Clamped to [0,1]: that's the contract
+                // `StellarStrippingModel::strip_factor` documents, and
+                // `Cattaneo11` in particular takes log10 of
+                // `strip + (1-strip)(1-time_fraction)`, which goes
+                // non-positive (NaN) once `time_fraction > 1`. Reachable
+                // whenever a timeline outlives its dynamical-friction
+                // timescale.
                 let time_fraction = if timeline.t_dyn_friction > 0.0 {
-                    (timeline.t[i] - timeline.t[0]) / timeline.t_dyn_friction
+                    ((timeline.t[i] - timeline.t[0]) / timeline.t_dyn_friction).clamp(0.0, 1.0)
                 } else {
                     0.0
                 };

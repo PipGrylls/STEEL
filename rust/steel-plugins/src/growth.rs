@@ -97,9 +97,14 @@ impl GrowthFactor {
     }
 }
 
-/// Critical overdensity for collapse at z=0 in the flat-LCDM fitting
-/// form used by `cosmo_sub.f::Delta_c` (Nakamura & Suto 1997 /
-/// Navarro-Frenk-White 1997 approximation): `delta_c(z) = 0.15 (12 pi)^(2/3) Omega_m(z)^0.0055`.
+/// Critical overdensity for collapse, in the flat-LCDM fitting form
+/// used by `cosmo_sub.f::Delta_c` (Nakamura & Suto 1997 /
+/// Navarro-Frenk-White 1997 approximation):
+/// `delta_c = 0.15 (12 pi)^(2/3) Omega_m(z)^0.0055`.
+///
+/// Evaluated at whatever redshift the caller's `omega_m_z` corresponds
+/// to — [`GrowthFactor::delta_collapse`] calls it at arbitrary z via
+/// [`GrowthFactor::omega_m_at_z`], so this is not a z=0-only quantity.
 ///
 /// This is a different quantity from [`steel_core::Cosmology::delta_vir`]
 /// (the Bryan & Norman 1998 virial *overdensity*, in units of the

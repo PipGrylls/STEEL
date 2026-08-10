@@ -8,6 +8,13 @@ use steel_core::merger_time::MergerTimescaleModel;
 
 /// McCavana 2012 / Boylan-Kolchin+2008 dynamical friction timescale.
 ///
+/// Note on spelling: `Paramaters` in the field docs below is *not* a
+/// typo on our side — it is the Python's own misspelled identifier
+/// (`Functions.py` uses it 52 times, e.g. `Paramaters['AltDynamicalTime']`
+/// at line 473). These backticked strings are exact, grep-able
+/// cross-references to the source, so "correcting" them would point at
+/// something that does not exist in the codebase.
+///
 /// The Python's stochastic alternative for the orbital-circularity
 /// parameter (`NormalRnd` drawn from `N(0.5, 0.23)`, Khochfar & Burkert
 /// 2006) is commented-out dead code (`Functions.py:480-486`) — every
