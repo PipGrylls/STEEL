@@ -1,0 +1,35 @@
+//! Trait definitions, shared context, and the orchestrator skeleton for
+//! the STEEL semi-empirical galaxy model.
+//!
+//! Every physical process in the model (halo growth, halo/subhalo mass
+//! functions, merger timescales, abundance matching, star formation,
+//! quenching, gas supply, stripping) is a trait here; concrete
+//! implementations live in `steel-plugins`, and `steel-cli` wires a
+//! chosen implementation of each into a [`context::Simulation`] from a
+//! TOML runfile.
+
+pub mod baryonic;
+pub mod context;
+pub mod cosmology;
+pub mod gas;
+pub mod halo_growth;
+pub mod hmf;
+pub mod merger_time;
+pub mod quenching;
+pub mod sfr;
+pub mod shmf;
+pub mod smhm;
+pub mod stripping;
+
+pub use baryonic::{BaryonicPipeline, EvolutionHistory, SatelliteState, Timeline};
+pub use context::{ModelContext, Simulation};
+pub use cosmology::{Cosmology, MassDefinition};
+pub use gas::GasMassModel;
+pub use halo_growth::{GrowthTrack, HaloGrowthModel};
+pub use hmf::HaloMassFunctionModel;
+pub use merger_time::MergerTimescaleModel;
+pub use quenching::{QuenchTimescales, QuenchingModel};
+pub use sfr::SfrModel;
+pub use shmf::SubhaloMassFunctionModel;
+pub use smhm::SmhmModel;
+pub use stripping::{HaloStrippingModel, HaloStrippingTrack, StellarStrippingModel};

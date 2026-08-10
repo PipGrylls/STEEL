@@ -1,0 +1,16 @@
+[package]
+name = "steel-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "steel"
+path = "src/main.rs"
+
+[dependencies]
+steel-core = { path = "../steel-core" }
+steel-plugins = { path = "../steel-plugins" }
+steel-io = { path = "../steel-io" }
+anyhow = { workspace = true }
