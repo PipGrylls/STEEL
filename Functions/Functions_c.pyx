@@ -114,8 +114,17 @@ def Starformation_c(double[:] M_infall, double[:] t, double[:] delta_t, double[:
                     m = M_out[k,i]-9
                     r = c_log10(1+z[i])
                     m0, a0, a1, m1, a2 = 0.5, 1.5, 0.3, 0.36, 2.5
+                    #Schreiber+2015 Eq. 9 is max(0, m - m1 - a2 r): the
+                    #quadratic term switches ON above the knee mass and
+                    #bends the main sequence down at high mass. This used
+                    #to read `if Max > 0: Max = 0`, the opposite, which
+                    #deletes the high-mass bend and applies the penalty to
+                    #low-mass galaxies instead. Functions.py's
+                    #StarFormationRate has always had it the right way
+                    #round; the two disagreed and this, the compiled hot
+                    #loop, is the one that runs.
                     Max = m-m1-a2*r
-                    if Max > 0:
+                    if Max < 0:
                         Max = 0
                     log10MperY = m-m0+a0*r-a1*c_pow(Max, 2)
                 #Schreiber 2015
@@ -123,8 +132,17 @@ def Starformation_c(double[:] M_infall, double[:] t, double[:] delta_t, double[:
                     m = M_out[k,i]-9
                     r = c_log10(1+z[i])
                     m0, a0, a1, m1, a2 = 0.75, 1.75, 0.3, 0.36, 1.75
+                    #Schreiber+2015 Eq. 9 is max(0, m - m1 - a2 r): the
+                    #quadratic term switches ON above the knee mass and
+                    #bends the main sequence down at high mass. This used
+                    #to read `if Max > 0: Max = 0`, the opposite, which
+                    #deletes the high-mass bend and applies the penalty to
+                    #low-mass galaxies instead. Functions.py's
+                    #StarFormationRate has always had it the right way
+                    #round; the two disagreed and this, the compiled hot
+                    #loop, is the one that runs.
                     Max = m-m1-a2*r
-                    if Max > 0:
+                    if Max < 0:
                         Max = 0
                     log10MperY = m-m0+a0*r-a1*c_pow(Max, 2)
                 #Illustrius CE
