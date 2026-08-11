@@ -110,9 +110,113 @@ legs (correction C2 gives it 60 bins of 0.1 dex against py-as-is's 59 of
 
 ---
 
+## 2b. Full published resolution — does the reduced grid mislead?
+
+Everything above is the reduced grid, whose host halos stop at
+`log M = 12.6`. STEEL is a model of satellites in groups and clusters,
+and the corrections that bite hardest are integrals of satellite counts,
+which scale with richness — so the reduced grid tests them in the regime
+where they should be *weakest*. Repeated at the published resolution
+(`log M = 11.0 … 16.6`, 0.1 dex; hosts spanning `log M = 10.81–16.28`,
+i.e. including clusters):
+
+| output | py-as-is | py-corrected | rs-steel | corr/as-is | rs/corr |
+|---|---|---|---|---|---|
+| **frozen** — `('1.0', False, False, True, 'CE', 'G18')` ||||||
+| `Figure3_AnalyticalModel_SMF` | 5.3352e-02 | 5.3139e-02 | 5.2904e-02 | 0.9960 | 0.9956 |
+| `Figure4_6_AnalyticalModelNoFrac_` | 9.7037e-03 | 1.0964e-02 | 1.0916e-02 | **1.1299** | 0.9956 |
+| `Sat_Env_Highz_AnalyticalModelNoFracHighz` | 6.0875e-01 | 7.0036e-01 | 6.9535e-01 | **1.1505** | 0.9928 |
+| `Pair_Frac_Pair_Frac` | 4.3937e+04 | 4.3908e+04 | 4.3649e+04 | 0.9994 | 0.9941 |
+| **with baryons** — `('1.0', True, True, True, 'G19_DPL', 'G19_SE')` ||||||
+| `Figure3_AnalyticalModel_SMF` | 6.2069e-02 | 6.1327e-02 | 6.1274e-02 | 0.9880 | 0.9991 |
+| `Figure4_6_AnalyticalModelNoFrac_` | 1.1495e-02 | 1.2486e-02 | 1.2472e-02 | **1.0862** | 0.9988 |
+| `Sat_Env_Highz_AnalyticalModelNoFracHighz` | 7.9529e-01 | 9.0370e-01 | 8.9858e-01 | **1.1363** | 0.9943 |
+| `Pair_Frac_Pair_Frac` | **0.0000e+00** | 5.1103e+04 | 5.0855e+04 | — | 0.9951 |
+| `Mergers_Accretion_History` | 7.5654e+03 | 7.5313e+03 | 7.4868e+03 | 0.9955 | 0.9941 |
+
+The reduced grid did understate it, though not dramatically: the
+richness correction grows from +4.7% to **+8.6%** on `Figure4_6` and
+from +12.5% to **+13.6%** on `Sat_Env_Highz`. The headline satellite SMF
+moves from "unchanged" to **−1.2%**, still small.
+
+**The two corrected implementations agree to 0.1%–0.7%** at full
+resolution — tighter than on the reduced grid, as expected, since 57
+host bins and 65 subhalo bins average away far more Monte-Carlo noise
+than 4 × 5 did.
+
+### The richness correction is strongly cut-dependent
+
+Per stellar-mass cut, `Figure4_6_AnalyticalModelNoFrac_`, corrected /
+as-is:
+
+| SM cut | frozen | with baryons |
+|---|---|---|
+| 9.0 | 1.1161 | 1.1034 |
+| 9.5 | 1.1222 | 1.0542 |
+| 10.0 | 1.1270 | 1.0437 |
+| 10.5 | 1.1987 | 1.1017 |
+| **11.0** | **1.5202** | **1.7056** |
+| 11.45 | 0.9425 | 1.0994 |
+
+**+52% and +71% at the `log M* = 11.0` cut.** That is the steep end of
+the satellite mass function, where the one bin C1 restores carries a
+large share of the integral.
+
+`11.45` is the control, and it works: it is the only cut of the six that
+does *not* sit on a bin edge, so `np.digitize` and the histogram
+convention agree there and C1 has no effect by construction (pinned by
+`cut_bin_index(11.45, …) == 25` in the Rust tests). Its residual 0.94 /
+1.10 is everything *except* C1 — other corrections plus Monte-Carlo
+noise — and it is the odd one out in both columns, exactly as it should
+be.
+
+### Which figure you are looking at decides whether this matters
+
+`Figure4_6` is saved twice: `NoFrac_` (absolute satellite counts above
+the cut, per host bin) and `Frac_` (the same, normalised across host
+bins). Paper 1's Fig. 4 and 6 plot the **normalised** distribution, and
+it is far more robust — the correction adds roughly one bin at every
+host mass, so it largely divides out:
+
+| SM cut | max shift in normalised fraction, as % of the distribution's peak |
+|---|---|
+| 9.0 | 2.8% / 2.9% |
+| 9.5 | 3.7% / 2.3% |
+| 10.0 | 6.0% / 2.4% |
+| 10.5 | 8.7% / 6.2% |
+| 11.0 | **17.7% / 16.9%** |
+| 11.45 | 8.1% / 10.1% |
+
+(frozen / with baryons). So the satellite *distributions* shift by a few
+percent of peak at the low cuts and ~17% at `log M* = 11.0`; the
+absolute *richnesses* shift by 10–71%.
+
+### Pair fractions
+
+At full resolution py-as-is's `Pair_Frac` is **0 nonzero cells out of
+433 200**, `sum = 0.0`, `min = max = 0.0`. Any pair fraction derived
+from it is identically zero — it is a ratio with an exactly-zero
+numerator, which is arithmetic rather than an approximation.
+
+The corrected output gives physically sensible values. Running the real
+`CentralPostprocessing.PairFractionData.Return_PF_Plot` on it:
+
+| central mass cut | pair fraction at z ≈ 0.1 | range over 0.11 < z < 6 |
+|---|---|---|
+| `log M* > 10` | 0.0017 | 0 – 0.083 |
+| `log M* > 11` | 0.0141 | 0.013 – 0.099 |
+
+A per-cent-level pair fraction at low redshift rising to ~10% by high
+redshift is the expected behaviour, and is what Paper 3 compares against
+Mundy+2017. It cannot have come from this array in this configuration.
+
+---
+
 ## 3. Performance
 
 Same reduced grid, same machine, single-threaded:
+
+Reduced grid:
 
 | | wall clock |
 |---|---|
@@ -120,10 +224,22 @@ Same reduced grid, same machine, single-threaded:
 | py-corrected | 11.2 s |
 | rs-steel | 1.4 s |
 
-At full published resolution (`log M = 11.0 … 16.6`, 0.1 dex — 190 × 57
-× 65 bins) rs-steel takes **3.9 s** frozen and **61 s** with stripping
-and star formation on. The Python at that resolution is ~45 min,
-extrapolated.
+Full published resolution (190 × 57 × 65), measured rather than
+extrapolated:
+
+| config | py-as-is | py-corrected | rs-steel | speedup |
+|---|---|---|---|---|
+| frozen | 276.3 s | 245.6 s | 5.7 s | **48x** |
+| stripping + star formation | 514.0 s | 498.9 s | 61.0 s | **8.4x** |
+
+An earlier extrapolation from the reduced grid put the Python at ~45
+min; measured, it is 8.5 min. The extrapolation was wrong because the
+reduced grid's cost is dominated by fixed start-up, not by the loop.
+
+Caveat on reading the speedups: the two Python configs were run
+concurrently on a 4-core machine and so contended for CPU, while the
+Rust runs were sequential and had the machine to themselves. The Rust is
+also single-threaded, so this is not a parallelism advantage.
 
 One caveat on reading that as a language comparison: a large part of the
 Rust's margin here is an algorithmic change, not code generation. The
