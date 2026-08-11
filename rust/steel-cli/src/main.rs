@@ -41,12 +41,13 @@ fn main() -> Result<()> {
         registry::smhm_legacy_name(&runfile.smhm),
     ]);
 
-    let written_to = steel_io::write_figure3(&PathBuf::from(&output_dir), &run_param_dir, &output)?;
+    let written_to = steel_io::write_run(&PathBuf::from(&output_dir), &run_param_dir, &output)?;
     eprintln!("Wrote output to {}", written_to.display());
     println!(
-        "z steps: {}, host bins: {}, SMF bins: {}",
+        "z steps: {}, host bins: {}, subhalo bins: {}, SMF bins: {}",
         output.z.len(),
-        output.host_halo_mass.first().map_or(0, |r| r.len()),
+        output.host_halo_mass.ncols(),
+        output.sat_halo_mass.len(),
         output.surviving_sat_smf.len()
     );
 

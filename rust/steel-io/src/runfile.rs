@@ -18,6 +18,36 @@ pub struct RunFile {
     pub stripping: StrippingConfig,
     #[serde(default)]
     pub run: RunSection,
+    #[serde(default)]
+    pub outputs: OutputsSection,
+}
+
+/// Which output families to accumulate — the runfile face of
+/// `steel_core::OutputSelection`. All default to on, so an existing
+/// runfile with no `[outputs]` table produces everything `STEEL.py`
+/// does.
+#[derive(Debug, Deserialize)]
+#[serde(default)]
+pub struct OutputsSection {
+    pub subhalo_mass_functions: bool,
+    pub high_z_smf: bool,
+    pub satellite_smhm: bool,
+    pub mergers: bool,
+    pub ssfr: bool,
+    pub total_star_formation: bool,
+}
+
+impl Default for OutputsSection {
+    fn default() -> Self {
+        Self {
+            subhalo_mass_functions: true,
+            high_z_smf: true,
+            satellite_smhm: true,
+            mergers: true,
+            ssfr: true,
+            total_star_formation: true,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -93,6 +123,15 @@ pub struct RunSection {
     pub sat_sm_min: f64,
     pub sat_sm_max: f64,
     pub sat_sm_bin: f64,
+    /// `sSFR_Range` grid \[log10 yr^-1\].
+    pub ssfr_min: f64,
+    pub ssfr_max: f64,
+    pub ssfr_bin: f64,
+    /// `SM_Cuts` — stellar-mass thresholds for the richness integrals.
+    pub sm_cuts: Vec<f64>,
+    /// Pair-fraction separation limits \[physical kpc\].
+    pub pair_radius_outer_kpc: f64,
+    pub pair_radius_inner_kpc: f64,
     pub rng_seed: u64,
 }
 
@@ -110,6 +149,12 @@ impl Default for RunSection {
             sat_sm_min: 9.0,
             sat_sm_max: 13.0,
             sat_sm_bin: 0.1,
+            ssfr_min: -14.0,
+            ssfr_max: -8.0,
+            ssfr_bin: 0.1,
+            sm_cuts: vec![9.0, 9.5, 10.0, 10.5, 11.0, 11.45],
+            pair_radius_outer_kpc: 30.0,
+            pair_radius_inner_kpc: 5.0,
             rng_seed: 42,
         }
     }

@@ -13,7 +13,7 @@ use std::sync::Arc;
 use anyhow::{anyhow, Result};
 
 use steel_core::baryonic::BaryonicPipeline;
-use steel_core::context::{ModelContext, RunConfig, Simulation};
+use steel_core::context::{ModelContext, OutputSelection, RunConfig, Simulation};
 use steel_core::{QuenchingModel, SfrModel, SmhmModel, StellarStrippingModel};
 use steel_io::runfile::RunFile;
 use steel_plugins::{
@@ -178,6 +178,20 @@ pub fn build_simulation(runfile: &RunFile) -> Result<(Simulation, RunConfig)> {
         sat_sm_min: runfile.run.sat_sm_min,
         sat_sm_max: runfile.run.sat_sm_max,
         sat_sm_bin: runfile.run.sat_sm_bin,
+        ssfr_min: runfile.run.ssfr_min,
+        ssfr_max: runfile.run.ssfr_max,
+        ssfr_bin: runfile.run.ssfr_bin,
+        sm_cuts: runfile.run.sm_cuts.clone(),
+        outputs: OutputSelection {
+            subhalo_mass_functions: runfile.outputs.subhalo_mass_functions,
+            high_z_smf: runfile.outputs.high_z_smf,
+            satellite_smhm: runfile.outputs.satellite_smhm,
+            mergers: runfile.outputs.mergers,
+            ssfr: runfile.outputs.ssfr,
+            total_star_formation: runfile.outputs.total_star_formation,
+        },
+        pair_radius_outer_kpc: runfile.run.pair_radius_outer_kpc,
+        pair_radius_inner_kpc: runfile.run.pair_radius_inner_kpc,
     };
 
     Ok((simulation, config))

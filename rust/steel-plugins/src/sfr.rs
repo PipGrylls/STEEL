@@ -52,18 +52,32 @@ impl SfrModel for TomczakFormSfr {
     }
 }
 
-/// Schreiber+2015-style: `m - m0 + a0 r - a1 max(m - m1 - a2 r, 0)^2`
-/// (with the sign of the clamp as detailed below), `m = SM - 9`,
-/// `r = log10(1+z)`. Covers `S15`/`S16CE`.
+/// Schreiber+2015 main sequence:
+/// `log SFR = m - m0 + a0 r - a1 [max(0, m - m1 - a2 r)]^2`,
+/// `m = log10(M*/1e9 Msun)`, `r = log10(1+z)`. Covers `S15`/`S16CE`.
 ///
-/// `Functions.py::StarFormationRate` (`Max[Max<0] = 0`, clip the
-/// *negative* branch) and `Functions_c.pyx::Starformation_c`
-/// (`if Max>0: Max=0`, clip the *positive* branch) disagree on the
-/// clamp direction — a real inconsistency in the original source, not
-/// a deliberate choice. Per the port's "clean reimplementation, not
-/// bug-for-bug" decision, this uses the Cython's direction (clip
-/// positive), since the Cython is what every actual STEEL run's hot
-/// loop executes.
+/// **The two Python implementations disagree on the clamp, and the one
+/// that actually runs is wrong.** `Functions.py::StarFormationRate`
+/// writes `Max[Max<0] = 0` — clamp *below* at zero, i.e. `max(0, ·)`,
+/// which is Schreiber et al. (2015, A&A 575, A74) Eq. 9 exactly.
+/// `Functions_c.pyx::Starformation_c` writes `if Max > 0: Max = 0` —
+/// clamp *above* at zero, the opposite — and the Cython is the version
+/// every real STEEL run executes in its hot loop.
+///
+/// The published relation bends the main sequence *down at high mass*
+/// and leaves it linear at low mass. Inverting the clamp does the
+/// reverse: it removes the high-mass bend entirely and applies the
+/// quadratic penalty to low-mass galaxies instead. The effect is large
+/// where STEEL's satellites live — at `M* = 1e11`, `z = 0` the
+/// published form suppresses SFR by 0.81 dex and the Cython's by
+/// nothing at all.
+///
+/// This implements the published relation (equivalently,
+/// `Functions.py`'s direction). That is a deliberate behavioural
+/// departure from the code that produced the papers, not a
+/// transcription of it — `S16CE` runs will not reproduce their
+/// published figures without also correcting the Python. See
+/// `docs/PORT_CORRECTIONS.md`.
 pub struct SchreiberFormSfr {
     m0: f64,
     a0: f64,
@@ -90,10 +104,7 @@ impl SfrModel for SchreiberFormSfr {
     fn log_sfr(&self, log_sm: f64, z: f64) -> f64 {
         let m = log_sm - 9.0;
         let r = (1.0 + z).log10();
-        let mut max_term = m - self.m1 - self.a2 * r;
-        if max_term > 0.0 {
-            max_term = 0.0;
-        }
+        let max_term = (m - self.m1 - self.a2 * r).max(0.0);
         m - self.m0 + self.a0 * r - self.a1 * max_term * max_term
     }
 }
@@ -126,23 +137,36 @@ mod tests {
     }
 
     #[test]
-    fn schreiber_form_clamp_direction_matches_the_cython() {
-        // At high enough mass/low z, max_term = m - m1 - a2*r > 0, and
-        // the Cython's fixed direction clips it to 0 -- verify the
-        // clamp actually engages (log_sfr should equal the unclamped
-        // linear part, i.e. the quadratic term vanishes) rather than
-        // silently taking the Functions.py direction (which would clip
-        // negative values instead and leave this term unclamped,
-        // giving a different, larger-magnitude quadratic penalty).
+    fn schreiber_form_bends_down_at_high_mass_and_stays_linear_at_low_mass() {
+        // Schreiber+2015 Eq. 9 is `max(0, m - m1 - a2 r)`: the
+        // quadratic term switches ON above the mass threshold and OFF
+        // below it. `Functions_c.pyx` has this backwards; this pins the
+        // published direction so the correction cannot silently revert.
         let sfr = SchreiberFormSfr::s15();
-        let log_sm = 14.0; // m = 5.0, comfortably above m1=0.36 at z~0
         let z: f64 = 0.01;
-        let m = log_sm - 9.0;
         let r = (1.0 + z).log10();
-        let max_term = m - 0.36 - 2.5 * r;
-        assert!(max_term > 0.0, "test setup should produce a positive max_term");
-        let expected = m - 0.5 + 1.5 * r; // quadratic term clipped to 0
-        assert!((sfr.log_sfr(log_sm, z) - expected).abs() < 1e-9);
+        let linear = |log_sm: f64| (log_sm - 9.0) - 0.5 + 1.5 * r;
+
+        // Low mass: m - m1 - a2 r < 0, so no quadratic penalty at all.
+        let low = 9.2;
+        assert!(low - 9.0 - 0.36 - 2.5 * r < 0.0, "test setup: low mass should be below the knee");
+        assert!(
+            (sfr.log_sfr(low, z) - linear(low)).abs() < 1e-9,
+            "below the knee the main sequence must be linear"
+        );
+
+        // High mass: the bend engages and suppresses the SFR.
+        let high = 11.0;
+        let max_term = high - 9.0 - 0.36 - 2.5 * r;
+        assert!(max_term > 0.0, "test setup: high mass should be above the knee");
+        let expected = linear(high) - 0.3 * max_term * max_term;
+        assert!((sfr.log_sfr(high, z) - expected).abs() < 1e-9);
+        assert!(
+            sfr.log_sfr(high, z) < linear(high) - 0.5,
+            "the high-mass bend should be a large suppression, got {} vs linear {}",
+            sfr.log_sfr(high, z),
+            linear(high)
+        );
     }
 
     #[test]

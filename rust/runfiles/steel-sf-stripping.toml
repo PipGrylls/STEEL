@@ -1,0 +1,28 @@
+# Full-resolution run with both baryonic switches on -- the
+# configuration Papers 2 and 3 are built on:
+#   ('1.0', True, True, True, 'G19_DPL', 'G19_SE')
+
+[merger_time]
+dynamical_time_factor = 1.0
+redshift_correction = false
+
+[smhm]
+model = "moster_form"
+preset = "g19_se"
+z_evo = true
+
+[sfr]
+model = "double_power_law"
+
+[gas]
+model = "stewart_scaling"
+
+[stripping]
+model = "cattaneo11"
+
+[run]
+log_m_min = 11.0
+log_m_max = 16.6
+log_m_bin = 0.1
+star_formation = true
+stellar_stripping = true
