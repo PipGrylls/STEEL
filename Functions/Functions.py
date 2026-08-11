@@ -318,7 +318,23 @@ def Halogrowth(log_M_h, FullReturn = False):
     PID = log_M_h
     print(PID, end = "\r")
     #Input String is written to a file to be paees into VDB14 as paramaters
-    O0, sig8, nspec, Ob = Cosmo.Om(0), Cosmo.sigma(8, 0), 1, Cosmo.Ob(0)*(h**2)
+    #`Cosmo.ns`, not a hardcoded 1. Every other entry on this line is
+    #taken from the run's own COLOSSUS cosmology; the spectral index was
+    #left at 1 (Harrison-Zel'dovich) where Planck15 has n_s = 0.9667.
+    #
+    #`master` hardcoded all five literals as (0.307, 0.678, 0.823, 0.96,
+    #0.02298), so parameterising them was the right move -- but the
+    #`nspec` slip is larger than the change it was meant to make. Against
+    #master's values, switching to the COLOSSUS cosmology with nspec = 1
+    #moves the MAHs by up to 0.080 dex (largest at log M0 = 11, high z);
+    #with n_s = 0.9667 the same switch moves them by at most 0.011 dex.
+    #Seven eighths of the shift was the typo.
+    #
+    #This is invisible on a warm cache: `Get_HM_History` keys its cached
+    #table on <min><max><bin><h> and not on the cosmology, so switching
+    #branches silently reuses the other branch's grid. Use
+    #`Scripts/Validation/make_mah_table.py` to build one deliberately.
+    O0, sig8, nspec, Ob = Cosmo.Om(0), Cosmo.sigma(8, 0), Cosmo.ns, Cosmo.Ob(0)*(h**2)
     Input_Str =("\
     %.3f                                        ! Omega_0\n\
     %.3f                                        ! h (= H_0/100)\n\
