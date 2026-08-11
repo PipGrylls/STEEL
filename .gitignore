@@ -23,3 +23,9 @@ Figures/Paper2/*.png
 Figures/Paper2/*.pdf
 *.so
 *.o
+
+# Local validation environments (lockfile is committed instead)
+/env/py-legacy/
+/env/py-modern/
+Calabration/*.png
+/env/py-asis/
