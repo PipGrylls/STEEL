@@ -296,11 +296,16 @@ def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
                     #This creates the Unevolved Surviving Subhalo Mass Function
                     #Unstripped (Unevolved Surviving)
                     if ((Stripping_DM == False) and (Stripping or SF) == False):              
-                        Bin = k
-                        ix = [np.arange(z_bin, i), np.full_like(np.arange(z_bin, i), Bin)]
-                        SurvivingSubhalos[ix] = SurvivingSubhalos[ix] + WeightList/AnalyticHaloBin # N Mpc^-3 h^3 dex^-1
-                        ix = [np.arange(z_bin, i), np.full_like(Bin, j), Bin]
-                        SurvivingSubhalos_ByParent[ix] = SurvivingSubhalos_ByParent[ix] + WeightList/AnalyticHaloBin # N Mpc^-3 h^3 dex^-1
+                        # Plain slices. These were previously indexed with a
+                        # *list* of index arrays (`SurvivingSubhalos[[rows, cols]]`).
+                        # NumPy treated that as a tuple until 1.15, deprecated it
+                        # then, and removed it in 1.23 -- after removal the list is
+                        # read as a single fancy index on axis 0 and the run dies
+                        # with a broadcast error. The subhalo bin `k` and parent
+                        # bin `j` are scalars and the redshift index is contiguous,
+                        # so a slice says the same thing and works on every version.
+                        SurvivingSubhalos[z_bin:i, k] = SurvivingSubhalos[z_bin:i, k] + WeightList/AnalyticHaloBin # N Mpc^-3 h^3 dex^-1
+                        SurvivingSubhalos_ByParent[z_bin:i, j, k] = SurvivingSubhalos_ByParent[z_bin:i, j, k] + WeightList/AnalyticHaloBin # N Mpc^-3 h^3 dex^-1
                         SurvivingSubhalos_z_z[z_bin:i, i, k] = SurvivingSubhalos_z_z[z_bin:i, i, k] + WeightList/AnalyticHaloBin# N Mpc^-3 h^3 dex^-1
                     #Stripped (Evolved Surviving)
                     if (i !=0):                        
