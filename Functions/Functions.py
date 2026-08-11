@@ -1,26 +1,16 @@
 import sys
 import multiprocessing
 import os
-import hmf
 import pickle
-import math
 import numpy as np
 from Functions import Functions_c
-from numba import jit
 import scipy.interpolate as inter
-import matplotlib as mpl
 import matplotlib.pyplot as plt
 from colossus.cosmology import cosmology
-import colossus.halo.mass_adv as massdefs
 from colossus.lss import mass_function
 from colossus.halo.mass_so import M_to_R
-from astropy.cosmology import Planck15 as Cosmo_AstroPy
-from halotools import empirical_models
-from astropy import constants
 from time import time
-from halotools import empirical_models as EM
-HM_SM = EM.Moster13SmHm(prim_haloprop_key = 'SM')
-cosmology.setCosmology("planck15")
+cosmology.setCosmology('planck15')
 Cosmo = cosmology.getCurrent()
 h = Cosmo.h
 
@@ -80,7 +70,8 @@ def StarFormationRate(SM, z, Parameters, ScatterOn =True, Quenching = False, P_e
     
     if Quenching:
         randints = np.random.random(size = np.shape(SM)) 
-        log10MperY[randints<P_ellip] = SM[randints<P_ellip] - 12 
+        log10MperY[randints<P_ellip] = SM[randints<P_ellip] - 12
+        log10MperY[randints>=P_ellip] = np.log10(np.power(10.0, log10MperY[randints>=P_ellip])-np.power(10.0, -12.0)*np.mean(P_ellip))-np.log10(1-np.mean(P_ellip))
     if ScatterOn:
         log10MperY = np.random.normal(log10MperY,0.2) # scatter in the MS
 
@@ -99,7 +90,7 @@ def GetGasMass(SM, z, HM, Parameters):
     """
 
     #Used in Paper 1 #Stewart 2009
-    #Calculates gass mass via SM scaling relation
+    #Calcula`tes gass mass via SM scaling relation
     #alpha = -0.59*( (z + 1)**0.45 ) #minus here to avoid it later
     #GasMass = SM + np.log10(0.04) + alpha*(SM - 11.6532)
     
@@ -207,12 +198,6 @@ def Make_HMF_Interp():
     if AbsFP+"/../Data/Model/Input/hmf_fun.pkl" in os.listdir():
         HMF_fun = pickle.load(open(AbsFP+"/../Data/Model/Input/hmf_fun.pkl", 'rb'))
     else:
-        #Halo mass function from hmf
-        #http://hmf.icrar.org/hmf_finder/form/create/
-        #http://hmf.readthedocs.io/en/latest/index.html
-        #Default cosmology is Planck15
-        HMF_fit = hmf.fitting_functions.Tinker10
-
         #The mass and redshift range should be larger than the simulation
         #Mass
         Min_x =8; Max_x = 16; Step_x = 0.01
@@ -263,26 +248,27 @@ def Halogrowth(log_M_h, FullReturn = False):
     PID = log_M_h
     print(PID, end = "\r")
     #Input String is written to a file to be paees into VDB14 as paramaters
+    O0, sig8, nspec, Ob = Cosmo.Om(0), Cosmo.sigma(8, 0), 1, Cosmo.Ob(0)*(h**2)
     Input_Str =("\
-    0.307                                        ! Omega_0\n\
-    0.678                                        ! h (= H_0/100)\n\
-    0.823                                        ! sigma8\n\
-    0.96                                         ! nspec\n\
-    0.02298                                      ! Omega_b_h2\n\
+    %.3f                                        ! Omega_0\n\
+    %.3f                                        ! h (= H_0/100)\n\
+    %.3f                                        ! sigma8\n\
+    %.3f                                         ! nspec\n\
+    %.3f                                      ! Omega_b_h2\n\
     %.1E                                         ! M_0  (h^{-1} Msun)\n\
     0.0                                          ! z_0\n\
     1                                            ! median (0) or averages (1)\n\
     %s.dat                                       !Output File\n\
-    " %(10**log_M_h, PID))
+    " %(O0, h, sig8, nspec, Ob, 10**log_M_h, PID))
     with open(AbsFP+"/../Functions/OtherModels/VDB13/%s.in" %(PID), "w") as f:
         f.write(Input_Str)
     #starts the system command to run VDB14
     os.system(AbsFP+"/../Functions/OtherModels/VDB13/getPWGH < "+AbsFP+"/../Functions/OtherModels/VDB13/%s.in" %(PID))
     #Loads the output of VDB14
-    log_Mz_M0 = np.loadtxt(AbsFP+"/../%s.dat" %(PID))
+    log_Mz_M0 = np.loadtxt(AbsFP+"/../Functions/OtherModels/VDB13/*%s.dat" %(PID))
     #Removes the file we made to run VDB14 and the file created by VDB14
     os.remove(AbsFP+"/../Functions/OtherModels/VDB13/%s.in"%(PID))
-    os.remove(AbsFP+"/../%s.dat" %(PID))
+    os.remove(AbsFP+"/../Functions/OtherModels/VDB13/*%s.dat"%(PID))
 
 
     if FullReturn:
@@ -365,6 +351,10 @@ def StarFormation(SM_Sat, TTZ0, Tdyf, z_infall, z_return, z_all, HM_infall, AvaH
     #GasMass
     MaxGas = np.power(10, GetGasMass(SM_Sat, z_all[z_bin_i], HM_infall, Paramaters))
     
+    #For reviwer
+    #StripFactor = StripFactor*2
+    #StripFactor[StripFactor > 1] = 1
+    
     #Call the accelerated Cython Function
     M_out, M_dot, SFH, GMLR = Functions_c.Starformation_c(SM_Sat, t, d_t, z_range, MaxGas, T_quench, Tau_f, StripFactor = StripFactor, z_infall = z_infall, SFR_Model = str(SFR_Model), Stripping = Stripping)
     #Calculate the Specific Star formation Rate
@@ -430,6 +420,9 @@ def StellarMassLoss(HM_c, HM_s, SM, TTZ0, Tdyf, factor_only = False):
     Strip = np.power(0.6, (1.428/(2*np.pi))*(Mh_Ms/np.log(1+Mh_Ms)))
     #Correct for factor
     Strip_f = np.log10(Strip + (1-Strip)*(1-Factor))
+    
+    Strip_f = Strip_f*2
+    Strip_f[Strip_f>1] = 1
     
     if factor_only:
         return Strip_f
@@ -499,8 +492,6 @@ def DynamicalFriction(HostHaloMass, SatiliteHaloMass, Redshift, Paramaters):
 
 
 ##DarkMatterToStellarMassStart #moster 2013
-##DarkMatterToStellarMassStart #moster 2013
-@jit
 def DarkMatterToStellarMass(DM, z, Paramaters, ScatterOn = False, Scatter = 0.001, Pairwise = True):
     """ 
     This funtion returns Stellar mass in log10 Msun, all arguments should be passed in simmilar cosmology (Planck 15 unless otherwise stated)
@@ -521,7 +512,7 @@ def DarkMatterToStellarMass(DM, z, Paramaters, ScatterOn = False, Scatter = 0.00
     Raises: 
         N/A
     """
-    np.random.seed(int(time()+os.getpid()*1000))
+    np.random.seed(int(str(time()).split('.')[1])+os.getpid())
     Paramaters = Paramaters['AbnMtch']
     if Paramaters['z_Evo']:
         if Paramaters['Moster']:
@@ -533,13 +524,16 @@ def DarkMatterToStellarMass(DM, z, Paramaters, ScatterOn = False, Scatter = 0.00
     else:
         zparameter = 0
 
-    if ScatterOn == True:
+    if ScatterOn:
         Scatter = Paramaters['Scatter']
     
     if Paramaters['Override_0'] or Paramaters['Override_z']:
         Override = Paramaters['Override']
-    
-    #parameters from moster 2013
+
+    # Go to RP17 abundance matching
+    if Paramaters['RP17']:
+        return SHMR_RP17(z, DM)
+    # parameters from moster 2013
     if(Paramaters['Moster']):
         M10, SHMnorm10, beta10, gamma10, Scatter = 11.590, 0.0351, 1.376, 0.608, 0.15
         M11, SHMnorm11, beta11, gamma11 = 1.195, -0.0247, -0.826, 0.329
@@ -555,16 +549,17 @@ def DarkMatterToStellarMass(DM, z, Paramaters, ScatterOn = False, Scatter = 0.00
         M10, SHMnorm10, beta10, gamma10, Scatter = 11.95, 0.032, 1.61, 0.62, 0.11 #12.00, 0.022, 1.56, 0.55, 0.15
         M11, SHMnorm11, beta11, gamma11 = 0.4, -0.02, -0.6, 0.0 #0.4, 0.0, -0.5, 0.1
     if(Paramaters['G19_SE']):
-        M10, SHMnorm10, beta10, gamma10, Scatter = 12.0,0.032,1.5,0.56,0.15 #12.00, 0.022, 1.56, 0.55, 0.15
-        M11, SHMnorm11, beta11, gamma11 = 0.6,-0.014,-0.7,0.08 #0.4, 0.0, -0.5, 0.1
+        M10, SHMnorm10, beta10, gamma10, Scatter = 11.925, 0.032,1.639,0.532,0.15 #12.00, 0.022, 1.56, 0.55, 0.15
+        M11, SHMnorm11, beta11, gamma11 = 0.576,-0.014,-0.693,0.03 #0.4, 0.0, -0.5, 0.1
     if(Paramaters['G19_cMod']):
-        M10, SHMnorm10, beta10, gamma10, Scatter = 12,0.032,1.74,0.66,0.15 #12.0,0.032,1.74,0.66,0.15 #12.00, 0.022, 1.56, 0.55, 0.15
-        M11, SHMnorm11, beta11, gamma11 = 0.4,-0.024,-0.74,-0.12 #0.4, 0.0, -0.5, 0.1
+        M10, SHMnorm10, beta10, gamma10, Scatter = 11.91,0.029,2.09,0.64,0.15 #12.0,0.032,1.74,0.66,0.15 #12.00, 0.022, 1.56, 0.55, 0.15
+        M11, SHMnorm11, beta11, gamma11 = 0.644, -0.019, -1.422,  -0.043  #0.518,-0.018,-1.031,-0.084
     #parameters to recreate the illistrius M*Mh
     if(Paramaters['Illustris']):
         M10, SHMnorm10, beta10, gamma10, Scatter = 11.8,0.018,1.5,0.31,0.15 
         M11, SHMnorm11, beta11, gamma11 = 0.0,-0.01,0,-0.12
-    #allows user to sent in their own abundance matching parameters either fixed at redshift 0/0.1 or evolving 
+    #allows user to sent in their own abundance matching parameters either fixed at redshift 0/0.1 or evolving
+    
     if(Paramaters['Override_0']):
         M10, SHMnorm10, beta10, gamma10 = Override['M10'], Override['SHMnorm10'], Override['beta10'], Override['gamma10']
         M11, SHMnorm11, beta11, gamma11 = 0.4, -0.02, -0.6, -0.1 #1.195, -0.0247, -0.826, 0.329
@@ -573,8 +568,8 @@ def DarkMatterToStellarMass(DM, z, Paramaters, ScatterOn = False, Scatter = 0.00
         M11, SHMnorm11, beta11, gamma11 = Override['M11'], Override['SHMnorm11'], Override['beta11'], Override['gamma11']
     #For Pairfraction Testing
     if Paramaters['PFT']:
-        M10, SHMnorm10, beta10, gamma10, Scatter = 12.0,0.032,1.5,0.56,0.15 #12.00, 0.022, 1.56, 0.55, 0.15
-        M11, SHMnorm11, beta11, gamma11 = 0.6,-0.014,-0.7,0.08 #0.4, 0.0, -0.5, 0.1
+        M10, SHMnorm10, beta10, gamma10, Scatter = 11.925, 0.032,1.639,0.532,0.15 #12.00, 0.022, 1.56, 0.55, 0.15
+        M11, SHMnorm11, beta11, gamma11 = 0.576,-0.014,-0.693,0.03 #0.4, 0.0, -0.5, 0.1
         if(Paramaters['M_PFT1']):
             M10 = M10-0.25
         if(Paramaters['M_PFT2']):
@@ -601,7 +596,10 @@ def DarkMatterToStellarMass(DM, z, Paramaters, ScatterOn = False, Scatter = 0.00
             gamma11 = gamma11 - 0.2
         if(Paramaters['g_PFT4']):
             gamma10 = gamma10 - 0.1
-    
+    if Paramaters['HMevo']:
+        M10, SHMnorm10, beta10, gamma10, Scatter = 11.91,0.029,2.09,0.64,0.15
+        M11, SHMnorm11, beta11 = 0.518,-0.018,-1.031 
+        gamma11 = Paramaters["HMevo_param"]
     #putting the parameters together for inclusion in the Moster 2010 equation
     M = M10 + M11*zparameter
     N = SHMnorm10 + SHMnorm11*zparameter
@@ -625,6 +623,59 @@ def DarkMatterToStellarMass(DM, z, Paramaters, ScatterOn = False, Scatter = 0.00
         return( np.log10(SM) + Scatter_Arr)
     else:
         return( np.log10(SM))
+
+
+def SHMR_func(alpha, delta, gamma, log10eps, log10M1, log10Mvir):  # SHMR functional form; Behroozi+2010
+
+    def g(x, a, g, d):
+        return (-np.log10(10 ** (-a * x) + 1.) +
+
+                d * (np.log10(1. + np.exp(x))) ** g / (1. + np.exp(10 ** (-x))))
+
+    x = log10Mvir - log10M1
+
+    g1 = g(x, alpha, gamma, delta)
+
+    g0 = g(0, alpha, gamma, delta)
+
+    log10Ms = log10eps + log10M1 + g1 - g0
+
+    return log10Ms
+
+
+def SHMR_RP17(z, log10Mvir):  # Best fitting model for the SHMR RP17.
+
+    def P(x, y, z):
+        return y * z - x * z / (1 + z)
+
+    def Q(z):
+        return np.exp(-4 / (1. + z) ** 2)
+
+    al = (1.975, 0.714, 0.042)
+
+    de = (3.390, -0.472, -0.931)
+
+    ga = (0.498, -0.157)
+
+    ep = (-1.758, 0.110, -0.061, -0.023)
+
+    M0 = (11.548, -1.297, -0.026)
+
+    alpha = al[0] + P(al[1], al[2], z) * Q(z)
+
+    delta = de[0] + P(de[1], de[2], z) * Q(z)
+
+    gamma = ga[0] + P(ga[1], 0, z) * Q(z)
+
+    log10eps = ep[0] + P(ep[1], ep[2], z) * Q(z) + P(ep[3], 0, z)
+
+    log10M1 = M0[0] + P(M0[1], M0[2], z) * Q(z)
+
+    log10Ms = SHMR_func(alpha, delta, gamma, log10eps, log10M1, log10Mvir)
+
+    return log10Ms
+
+
 
 def DarkMatterToStellarMass_Alt(DarkMatter, Redshift, Paramaters, ScatterOn = False, Scatter = 0.001):
     np.random.seed()
@@ -753,7 +804,7 @@ def DM_to_SM(SMF_X, HMF, Halo_MR, HMF_Bin, SMF_Bin, Paramaters, Redshift = 0, N 
     else:
         SM = DarkMatterToStellarMass(DM_In, Redshift, Paramaters, ScatterOn = True) #log M* [Msun]
     
-    SMF_Y, Bin_Edge = np.histogram(SM, bins = np.append(SMF_X, SMF_X[-1]+SMF_Bin), weights = Wt) #Phi [Mpc^-3], M* [Msun]
+    SMF_Y, Bin_Edge = np.histogram(SM, bins = np.append(SMF_X, SMF_X[-1]+SMF_Bin)-(SMF_Bin/2), weights = Wt, density = False) #Phi [Mpc^-3], M* [Msun]
     
     return SMF_X, np.log10(np.divide(SMF_Y, SMF_Bin)) #M* [Msun], Phi [Mpc^-3] 
 
@@ -779,9 +830,10 @@ def Gauss_Scatt(X, Y, Scatt = 0.1):
 
 #==========================Saving Output========================================
 OutputFolder = AbsFP+"/../Data/Model/Output/RunFiles/"
+
 def PrepareToSave(RunParam_List): 
     for RunParam in RunParam_List:
-        os.system("rm -r" + OutputFolder +"RunParam_{}".format("".join(("{}_".format(i) for i in RunParam))))
+        os.system("rm -r " + OutputFolder +"RunParam_{}".format("".join(("{}_".format(i) for i in RunParam))))
     for RunParam in RunParam_List:
         os.system("mkdir " + OutputFolder +"RunParam_{}".format("".join(("{}_".format(i) for i in RunParam))))
 def SaveData_3(AvaHaloMass, AnalyticalModel_SMF, Surviving_Sat_SMF_MassRange, RunParam):
