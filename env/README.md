@@ -38,6 +38,13 @@ fitting rather than `STEEL.py` itself, so they don't affect the as-is run):
 | `scipy.integrate.cumtrapz` | `CentralPostprocessing.py:20` | scipy 1.14 |
 | `pd.Series.get_values()` | `CentralPostprocessing.py:233,235` | pandas 1.0 |
 | `delim_whitespace=` | `SDSS_Plots.py:45,52`, `SMHM_Fit.py:156+` | pandas 2.2 |
+| bare `@jit` meaning object mode | `Functions.py:591` | numba 0.59 |
+| ragged list -> `np.array` | `CentralPostprocessing.py::Return_PF_Plot` | numpy 1.24 |
+
+All of these are fixed on the `py-steel-corrected` branch (section F of
+`docs/PORT_CORRECTIONS.md`), where `CentralPostprocessing` imports and
+runs on `py-legacy` with no observational data present. On the as-is
+branch they stand as found.
 
 ## Rebuilding
 
