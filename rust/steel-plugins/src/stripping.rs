@@ -8,13 +8,37 @@ use steel_core::cosmology::Cosmology;
 use steel_core::stripping::{HaloStrippingModel, HaloStrippingTrack, StellarStrippingModel};
 
 /// `Functions.py::StellarMassLoss`'s `factor_only=True` path.
+///
+/// The trailing `* 2.0` is not part of Cattaneo et al. (2011); it is
+/// applied on top by `StellarMassLoss` on the `PipGrylls` branch:
+///
+/// ```python
+/// Strip_f = np.log10(Strip + (1-Strip)*(1-Factor))
+/// Strip_f = Strip_f*2
+/// Strip_f[Strip_f>1] = 1
+/// ```
+///
+/// Since `Strip + (1-Strip)(1-Factor) <= 1` for `Strip, Factor` in
+/// `[0, 1]`, `Strip_f` is always `<= 0` and the `> 1` clamp on the next
+/// line can never fire — it is dead, and reproducing it would be
+/// reproducing nothing, so it is omitted here. The doubling itself is
+/// live and is *not* dead: it doubles the stripping in dex, i.e.
+/// squares the surviving stellar-mass fraction, and it is what Papers 2
+/// and 3 were run with. `master` has neither line, which is one of the
+/// reasons a `master`-baselined port could not reproduce the published
+/// satellite stellar mass functions.
+///
+/// The sibling doubling in `Functions.py::StarFormation` (`StripFactor
+/// = StripFactor*2`, commented `#For reviwer`) is commented out on
+/// every branch and is deliberately not reproduced; applying both would
+/// quadruple the stripping.
 pub struct Cattaneo11;
 
 impl StellarStrippingModel for Cattaneo11 {
     fn strip_factor(&self, log_host_mass: f64, log_sat_mass: f64, time_fraction: f64) -> f64 {
         let mh_ms = 10f64.powf(log_host_mass - log_sat_mass);
         let strip = 0.6f64.powf((1.428 / (2.0 * std::f64::consts::PI)) * (mh_ms / (1.0 + mh_ms).ln()));
-        (strip + (1.0 - strip) * (1.0 - time_fraction)).log10()
+        2.0 * (strip + (1.0 - strip) * (1.0 - time_fraction)).log10()
     }
 }
 
@@ -105,6 +129,21 @@ mod tests {
         let model = Cattaneo11;
         let at_limit = model.strip_factor(14.0, 11.0, 1.0);
         assert!(at_limit.is_finite(), "strip_factor at tf=1 should be finite, got {at_limit}");
+    }
+
+    #[test]
+    fn stellar_stripping_applies_the_pipgrylls_doubling() {
+        // `PipGrylls` doubles the log strip factor, i.e. squares the
+        // surviving fraction. Pin it against the undoubled Cattaneo+11
+        // expression so a revert to the `master` baseline fails loudly
+        // rather than quietly changing every satellite SMF.
+        let model = Cattaneo11;
+        let (log_host, log_sat, tf) = (14.0, 11.0, 0.5);
+        let mh_ms = 10f64.powf(log_host - log_sat);
+        let strip = 0.6f64.powf((1.428 / (2.0 * std::f64::consts::PI)) * (mh_ms / (1.0 + mh_ms).ln()));
+        let undoubled = (strip + (1.0 - strip) * (1.0 - tf)).log10();
+        assert!(undoubled < 0.0, "test setup: the undoubled factor should be a suppression");
+        assert!((model.strip_factor(log_host, log_sat, tf) - 2.0 * undoubled).abs() < 1e-12);
     }
 
     #[test]

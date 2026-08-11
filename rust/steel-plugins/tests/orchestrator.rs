@@ -22,7 +22,7 @@ fn build_small_simulation() -> Simulation {
     let shmf = Arc::new(Jiang16::default_calibration());
     let merger_time = Arc::new(McCavanaBK08::default());
     let baryonic = BaryonicPipeline::new(
-        Box::new(DoublePowerLawSfr),
+        Box::new(DoublePowerLawSfr::satellite()),
         Box::new(Wetzel13::new()),
         Box::new(StewartScaling::from_cosmology(&cosmology)),
         Box::new(Cattaneo11),

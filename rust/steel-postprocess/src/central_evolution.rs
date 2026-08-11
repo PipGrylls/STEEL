@@ -128,7 +128,7 @@ mod tests {
     fn mass_grows_with_zero_accretion_and_no_quenching() {
         let (z, t, dt) = toy_timeline();
         let accretion = vec![0.0; t.len()];
-        let evo = CentralEvolution::new(Box::new(DoublePowerLawSfr));
+        let evo = CentralEvolution::new(Box::new(DoublePowerLawSfr::central()));
         let mut rng = StdRng::seed_from_u64(1);
         let history = evo.evolve(10.5, &z, &t, &dt, &accretion, f64::INFINITY, false, &mut rng);
 
@@ -141,7 +141,7 @@ mod tests {
     #[test]
     fn positive_accretion_rate_increases_growth() {
         let (z, t, dt) = toy_timeline();
-        let evo = CentralEvolution::new(Box::new(DoublePowerLawSfr));
+        let evo = CentralEvolution::new(Box::new(DoublePowerLawSfr::central()));
 
         let zero_acc = vec![0.0; t.len()];
         let mut rng_a = StdRng::seed_from_u64(1);
@@ -160,7 +160,7 @@ mod tests {
         // its last star-forming value exactly (no fade, no floor).
         let (z, t, dt) = toy_timeline();
         let accretion = vec![0.0; t.len()];
-        let evo = CentralEvolution::new(Box::new(DoublePowerLawSfr));
+        let evo = CentralEvolution::new(Box::new(DoublePowerLawSfr::central()));
         let mut rng = StdRng::seed_from_u64(1);
         // Quench immediately after the first step.
         let t_quench = t[0];

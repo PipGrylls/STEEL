@@ -100,12 +100,17 @@ def build(stripping: bool, gas_scatter: bool, age_grid=None):
     gas = np.minimum(gas, F.GetMaxGasMass(LOG_SAT_MASS))
     max_gas = np.power(10, gas)
 
-    # Cattaneo+2011 stripping factor track.
+    # Cattaneo+2011 stripping factor track, including the `Strip_f =
+    # Strip_f*2` that `Functions.py::StellarMassLoss` applies on the
+    # `PipGrylls` branch (and only there). The `Strip_f[Strip_f>1] = 1`
+    # clamp on the following line is unreachable -- the quantity is a
+    # log10 of something <= 1, hence <= 0 -- so it is omitted rather
+    # than transcribed.
     if stripping:
         time_fraction = np.clip(np.abs(ages - ages[0]) / T_DYN_FRICTION, 0, 1)
         mh_ms = 10 ** (LOG_HOST_MASS - LOG_SAT_MASS)
         strip = 0.6 ** ((1.428 / (2 * np.pi)) * (mh_ms / np.log(1 + mh_ms)))
-        strip_factor = np.log10(strip + (1 - strip) * (1 - time_fraction))
+        strip_factor = 2 * np.log10(strip + (1 - strip) * (1 - time_fraction))
     else:
         strip_factor = np.zeros_like(t)
 

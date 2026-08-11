@@ -114,33 +114,72 @@ impl MosterFormSmhm {
         }
     }
 
-    /// `AbnMtch['G19_SE']` — STEEL's default abundance-matching choice.
+    /// `AbnMtch['G19_SE']` — STEEL's default abundance-matching choice,
+    /// the PyMorph-calibrated fit of Grylls et al. (2019).
+    ///
+    /// These are the `PipGrylls`-branch coefficients, i.e. the ones the
+    /// papers were run with. `master` still carries the earlier
+    /// `12.0, 0.032, 1.5, 0.56 / 0.6, -0.014, -0.7, 0.08`; see
+    /// `docs/PORT_CORRECTIONS.md` for why that baseline was wrong.
     pub fn g19_se(z_evo: bool) -> Self {
         Self {
-            m10: 12.0,
+            m10: 11.925,
             shmnorm10: 0.032,
-            beta10: 1.5,
-            gamma10: 0.56,
-            m11: 0.6,
+            beta10: 1.639,
+            gamma10: 0.532,
+            m11: 0.576,
             shmnorm11: -0.014,
-            beta11: -0.7,
-            gamma11: 0.08,
+            beta11: -0.693,
+            gamma11: 0.03,
             scatter: 0.15,
             z_evo: if z_evo { ZEvo::ShiftedStyle } else { ZEvo::Fixed },
         }
     }
 
-    /// `AbnMtch['G19_cMod']`.
+    /// `AbnMtch['G19_cMod']` — the cmodel-photometry counterpart of
+    /// [`g19_se`](Self::g19_se). `PipGrylls` values; `master` carries
+    /// `12.0, 0.032, 1.74, 0.66 / 0.4, -0.024, -0.74, -0.12`.
     pub fn g19_c_mod(z_evo: bool) -> Self {
         Self {
-            m10: 12.0,
-            shmnorm10: 0.032,
-            beta10: 1.74,
-            gamma10: 0.66,
-            m11: 0.4,
-            shmnorm11: -0.024,
-            beta11: -0.74,
-            gamma11: -0.12,
+            m10: 11.91,
+            shmnorm10: 0.029,
+            beta10: 2.09,
+            gamma10: 0.64,
+            m11: 0.644,
+            shmnorm11: -0.019,
+            beta11: -1.422,
+            gamma11: -0.043,
+            scatter: 0.15,
+            z_evo: if z_evo { ZEvo::ShiftedStyle } else { ZEvo::Fixed },
+        }
+    }
+
+    /// `AbnMtch['PFT']` — the pair-fraction-testing base, identical to
+    /// [`g19_se`](Self::g19_se). The thirteen `*_PFT*` flags each nudge
+    /// exactly one coefficient off this base; apply them by mutating
+    /// the returned struct's public fields (see
+    /// `Scripts/Validation/make_runfiles.py`, which generates the
+    /// runfiles for all thirteen).
+    pub fn pft(z_evo: bool) -> Self {
+        Self::g19_se(z_evo)
+    }
+
+    /// `AbnMtch['HMevo']` — the `G19_cMod` form with a *free* `gamma11`
+    /// (`AbnMtch['HMevo_param']`, parsed by `STEEL.py` out of the last
+    /// three characters of the run's model name, e.g. `HMevo_alt_0.3`).
+    /// Note the other three high-redshift terms differ from
+    /// [`g19_c_mod`](Self::g19_c_mod): `0.518, -0.018, -1.031` rather
+    /// than `0.644, -0.019, -1.422`.
+    pub fn hmevo(gamma11: f64, z_evo: bool) -> Self {
+        Self {
+            m10: 11.91,
+            shmnorm10: 0.029,
+            beta10: 2.09,
+            gamma10: 0.64,
+            m11: 0.518,
+            shmnorm11: -0.018,
+            beta11: -1.031,
+            gamma11,
             scatter: 0.15,
             z_evo: if z_evo { ZEvo::ShiftedStyle } else { ZEvo::Fixed },
         }
@@ -253,7 +292,7 @@ mod tests {
     #[test]
     fn g19_se_peaks_near_the_expected_knee() {
         // Sanity check against the thesis's Ch.2 SMHM discussion: the
-        // knee of the SMHM relation sits close to M10=12.0 for G19_SE.
+        // knee of the SMHM relation sits close to M10=11.925 for G19_SE.
         let model = MosterFormSmhm::g19_se(true);
         let sm_at_knee = model.stellar_mass(12.0, 0.1, None);
         assert!((10.5..11.5).contains(&sm_at_knee), "SM(M=12) = {sm_at_knee}");

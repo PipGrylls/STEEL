@@ -4,6 +4,8 @@
 
 mod behroozi;
 mod moster;
+mod rodriguez_puebla;
 
 pub use behroozi::BehrooziFormSmhm;
 pub use moster::{MosterFormSmhm, ZEvo};
+pub use rodriguez_puebla::{shmr_behroozi10, RodriguezPuebla17};

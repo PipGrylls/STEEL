@@ -125,18 +125,24 @@ const PYTHON_UNSTRIPPED: [f64; 11] = [
     10.1694998250,
 ];
 
+/// Measured against the `PipGrylls` branch, i.e. with the `Strip_f =
+/// Strip_f*2` that `StellarMassLoss` applies there. The `master`
+/// baseline this replaced ran from 10.0090146458 at step 1 down to
+/// 9.7859900851 at step 10; doubling the stripping takes the same
+/// satellite to 9.4004874451, a further 0.39 dex of stellar mass lost
+/// over 2.7 Gyr. See `Cattaneo11`'s doc comment.
 const PYTHON_STRIPPED: [f64; 11] = [
     10.0000000000,
-    10.0090146458,
-    10.0152894478,
-    10.0188344182,
-    10.0193207965,
-    10.0161948266,
-    10.0098522610,
-    9.9759423047,
-    9.9266939097,
-    9.8642899739,
-    9.7859900851,
+    9.9902294070,
+    9.9754491005,
+    9.9552708269,
+    9.9288438964,
+    9.8949243455,
+    9.8558245594,
+    9.7812316257,
+    9.6818329937,
+    9.5573424135,
+    9.4004874451,
 ];
 
 #[test]

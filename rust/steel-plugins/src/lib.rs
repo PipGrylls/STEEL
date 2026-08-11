@@ -25,5 +25,5 @@ pub use merger_time::McCavanaBK08;
 pub use quenching::Wetzel13;
 pub use sfr::{DoublePowerLawSfr, SchreiberFormSfr, TomczakFormSfr};
 pub use shmf::Jiang16;
-pub use smhm::{BehrooziFormSmhm, MosterFormSmhm};
+pub use smhm::{BehrooziFormSmhm, MosterFormSmhm, RodriguezPuebla17};
 pub use stripping::{Cattaneo11, HaloStrippingVdb05};

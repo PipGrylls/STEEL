@@ -109,15 +109,75 @@ impl SfrModel for SchreiberFormSfr {
     }
 }
 
-/// Double-power-law SFR-mass relation ("G19_DPL").
-pub struct DoublePowerLawSfr;
+/// Double-power-law SFR-mass relation ("G19_DPL"), with every
+/// coefficient a redshift polynomial `c[0] + c[1] z + c[2] z^2`:
+///
+/// ```text
+/// SFR = 2 N(z) / [ 10^(-alpha(z) (M* - Mn(z))) + 10^(beta(z) (M* - Mn(z))) ]
+/// ```
+///
+/// **The satellite and central branches are not the same relation.**
+/// `Functions_c.pyx::Starformation_c` (satellites) and
+/// `Starformation_Centrals` (centrals) both carry an
+/// `SFR_Model_int == 6` block, and on the `PipGrylls` branch — the code
+/// that produced Papers 2 and 3 — the two blocks hold *different*
+/// coefficients. On `master` they happen to be identical, which is why
+/// a single coefficient-free struct was enough before the rebaseline;
+/// it isn't now. Use [`DoublePowerLawSfr::satellite`] in the satellite
+/// pipeline and [`DoublePowerLawSfr::central`] in
+/// `steel_postprocess::CentralEvolution`.
+pub struct DoublePowerLawSfr {
+    log_m_n: [f64; 3],
+    /// `log10` of the normalisation, i.e. `N(z) = 10^poly(norm, z)`.
+    norm: [f64; 3],
+    alpha: [f64; 3],
+    beta: [f64; 3],
+}
+
+impl DoublePowerLawSfr {
+    fn poly(c: [f64; 3], z: f64) -> f64 {
+        c[0] + c[1] * z + c[2] * z * z
+    }
+
+    /// `Functions_c.pyx::Starformation_c`, `SFR_Model_int == 6` — the
+    /// satellite hot loop.
+    ///
+    /// `master` carries `norm = [0.74, 0.71, -0.087]`,
+    /// `alpha = [1.035, -0.022, 0.0077]`, `beta = [1.55, -0.35, -0.02]`;
+    /// those are the pre-Paper-2 values and are *not* what the papers
+    /// used. See `docs/PORT_CORRECTIONS.md`.
+    pub fn satellite() -> Self {
+        Self {
+            log_m_n: [10.7, 0.34, -0.079],
+            norm: [0.69, 0.71, -0.085],
+            alpha: [1.0, -0.022, 0.007],
+            beta: [1.8, -0.7, -0.035],
+        }
+    }
+
+    /// `Functions_c.pyx::Starformation_Centrals`, `SFR_Model_int == 6`.
+    ///
+    /// Differs from [`satellite`](Self::satellite) in every one of the
+    /// four polynomials — most sharply in `beta`, whose redshift term
+    /// is `-1.0 z + 0.1 z^2` here against `-0.7 z - 0.035 z^2` for
+    /// satellites, so the high-mass slope of the central main sequence
+    /// flattens faster with redshift and then turns back up.
+    pub fn central() -> Self {
+        Self {
+            log_m_n: [10.65, 0.33, -0.08],
+            norm: [0.69, 0.71, -0.088],
+            alpha: [1.0, -0.022, 0.009],
+            beta: [1.8, -1.0, 0.1],
+        }
+    }
+}
 
 impl SfrModel for DoublePowerLawSfr {
     fn log_sfr(&self, log_sm: f64, z: f64) -> f64 {
-        let log_m_n = 10.7 + 0.34 * z - 0.079 * z * z;
-        let norm = 10f64.powf(0.74 + 0.71 * z - 0.087 * z * z);
-        let alpha = 1.035 - 0.022 * z + 0.0077 * z * z;
-        let beta = 1.55 - 0.35 * z - 0.02 * z * z;
+        let log_m_n = Self::poly(self.log_m_n, z);
+        let norm = 10f64.powf(Self::poly(self.norm, z));
+        let alpha = Self::poly(self.alpha, z);
+        let beta = Self::poly(self.beta, z);
         let x = log_sm - log_m_n;
         let m_per_y = 2.0 * norm / (10f64.powf(-alpha * x) + 10f64.powf(beta * x));
         m_per_y.log10()
@@ -171,11 +231,59 @@ mod tests {
 
     #[test]
     fn double_power_law_peaks_near_the_knee_mass() {
-        let sfr = DoublePowerLawSfr;
-        let s_low = sfr.log_sfr(9.0, 1.0);
-        let s_knee = sfr.log_sfr(10.7, 1.0);
-        let s_high = sfr.log_sfr(12.5, 1.0);
-        assert!(s_knee > s_low, "{s_knee} vs {s_low}");
-        assert!(s_knee > s_high, "{s_knee} vs {s_high}");
+        for sfr in [DoublePowerLawSfr::satellite(), DoublePowerLawSfr::central()] {
+            let s_low = sfr.log_sfr(9.0, 1.0);
+            let s_knee = sfr.log_sfr(10.7, 1.0);
+            let s_high = sfr.log_sfr(12.5, 1.0);
+            assert!(s_knee > s_low, "{s_knee} vs {s_low}");
+            assert!(s_knee > s_high, "{s_knee} vs {s_high}");
+        }
+    }
+
+    #[test]
+    fn double_power_law_satellite_and_central_branches_are_distinct() {
+        // These were the same relation on `master` and are not on
+        // `PipGrylls` (the branch the papers were run from). Collapsing
+        // them back into one struct would silently undo the rebaseline,
+        // so pin the divergence.
+        let sat = DoublePowerLawSfr::satellite();
+        let cen = DoublePowerLawSfr::central();
+
+        // Nowhere on the grid STEEL actually samples do the two agree.
+        for &z in &[0.0, 0.5, 1.0, 2.0, 3.0] {
+            for &m in &[9.0, 10.0, 11.0, 11.5, 12.0] {
+                let d = cen.log_sfr(m, z) - sat.log_sfr(m, z);
+                assert!(d.abs() > 1e-3, "satellite and central agree to {d} at z={z}, log M*={m}");
+            }
+        }
+
+        // The gap is a real but bounded few-tenths-of-a-dex effect, and
+        // it is largest at the massive, high-redshift corner where the
+        // two beta polynomials diverge most (`-0.7z - 0.035z^2` against
+        // `-1.0z + 0.1z^2`).
+        let widest = cen.log_sfr(12.0, 3.0) - sat.log_sfr(12.0, 3.0);
+        assert!((-0.24..-0.21).contains(&widest), "widest gap = {widest}");
+    }
+
+    #[test]
+    fn double_power_law_satellite_branch_is_not_the_master_baseline() {
+        // `master`'s coefficients (identical in both Cython branches
+        // there) are not what Papers 2 and 3 were run with. Pin the
+        // difference so a revert cannot pass silently.
+        let sat = DoublePowerLawSfr::satellite();
+        let master = DoublePowerLawSfr {
+            log_m_n: [10.7, 0.34, -0.079],
+            norm: [0.74, 0.71, -0.087],
+            alpha: [1.035, -0.022, 0.0077],
+            beta: [1.55, -0.35, -0.02],
+        };
+        // The two relations cross in a couple of places, so anchor on
+        // the massive end where the beta difference is unambiguous:
+        // at z = 0, log M* = 12 the PipGrylls main sequence sits ~0.37
+        // dex *below* master's, and at z = 3 ~0.76 dex above.
+        let low_z = sat.log_sfr(12.0, 0.0) - master.log_sfr(12.0, 0.0);
+        let high_z = sat.log_sfr(12.0, 3.0) - master.log_sfr(12.0, 3.0);
+        assert!((-0.38..-0.36).contains(&low_z), "z=0 gap = {low_z}");
+        assert!((0.75..0.78).contains(&high_z), "z=3 gap = {high_z}");
     }
 }

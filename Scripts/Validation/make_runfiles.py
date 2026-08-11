@@ -30,16 +30,18 @@ except ModuleNotFoundError:  # pragma: no cover - the py-asis env is 3.10
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TABLE = REPO_ROOT / "configs" / "published_runs.toml"
 
-# Functions/Functions.py:612-613 -- the base every PFT variant perturbs.
+# Functions/Functions.py:571-572 (PipGrylls) -- the base every PFT
+# variant perturbs. Identical to the G19_SE preset, as on master, but
+# both moved: master's base was 12.0/0.032/1.5/0.56, 0.6/-0.014/-0.7/0.08.
 PFT_BASE = {
-    "m10": 12.0,
+    "m10": 11.925,
     "shmnorm10": 0.032,
-    "beta10": 1.5,
-    "gamma10": 0.56,
-    "m11": 0.6,
+    "beta10": 1.639,
+    "gamma10": 0.532,
+    "m11": 0.576,
     "shmnorm11": -0.014,
-    "beta11": -0.7,
-    "gamma11": 0.08,
+    "beta11": -0.693,
+    "gamma11": 0.03,
     "scatter": 0.15,
 }
 

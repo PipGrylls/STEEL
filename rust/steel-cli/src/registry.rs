@@ -18,7 +18,8 @@ use steel_core::{QuenchingModel, SfrModel, SmhmModel, StellarStrippingModel};
 use steel_io::runfile::RunFile;
 use steel_plugins::{
     BehrooziFormSmhm, Cattaneo11, Despali16, DoublePowerLawSfr, Jiang16, McCavanaBK08, MosterFormSmhm,
-    Planck15, SchreiberFormSfr, StewartScaling, TomczakFormSfr, VandenBosch14, Wetzel13,
+    Planck15, RodriguezPuebla17, SchreiberFormSfr, StewartScaling, TomczakFormSfr, VandenBosch14,
+    Wetzel13,
 };
 
 fn build_smhm(cfg: &steel_io::runfile::SmhmConfig) -> Result<Box<dyn SmhmModel>> {
@@ -32,6 +33,17 @@ fn build_smhm(cfg: &steel_io::runfile::SmhmConfig) -> Result<Box<dyn SmhmModel>>
                 "g19_se" => MosterFormSmhm::g19_se(cfg.z_evo),
                 "g19_c_mod" => MosterFormSmhm::g19_c_mod(cfg.z_evo),
                 "illustris" => MosterFormSmhm::illustris(cfg.z_evo),
+                "pft" => MosterFormSmhm::pft(cfg.z_evo),
+                "hmevo" => {
+                    // `AbnMtch['HMevo_param']` is the only free
+                    // coefficient; the other seven are fixed, so it
+                    // rides in on `gamma11` rather than needing a
+                    // one-field table of its own.
+                    let p = cfg
+                        .params
+                        .ok_or_else(|| anyhow!("smhm preset hmevo requires a [smhm.params] table with gamma11"))?;
+                    MosterFormSmhm::hmevo(p.gamma11, cfg.z_evo)
+                }
                 preset @ ("override_0" | "override_z") => {
                     let p = cfg.params.ok_or_else(|| {
                         anyhow!("smhm preset {preset} requires a [smhm.params] table")
@@ -64,6 +76,13 @@ fn build_smhm(cfg: &steel_io::runfile::SmhmConfig) -> Result<Box<dyn SmhmModel>>
             };
             Ok(Box::new(m))
         }
+        // A third functional family with exactly one preset — kept as
+        // its own `model` rather than folded into either sibling
+        // because it shares neither's equation.
+        "rodriguez_puebla_form" => match cfg.preset.as_str() {
+            "rp17" => Ok(Box::new(RodriguezPuebla17)),
+            other => Err(anyhow!("unknown rodriguez_puebla_form preset: {other}")),
+        },
         other => Err(anyhow!("unknown smhm model: {other}")),
     }
 }
@@ -89,7 +108,11 @@ fn build_sfr(cfg: &steel_io::runfile::SfrConfig) -> Result<Box<dyn SfrModel>> {
             };
             Ok(Box::new(m))
         }
-        "double_power_law" => Ok(Box::new(DoublePowerLawSfr)),
+        // The satellite branch of `Starformation_c`. The central branch
+        // (`Starformation_Centrals`) has different coefficients and is
+        // reached through `steel_postprocess::CentralEvolution`, not
+        // through a runfile, so it has no key here.
+        "double_power_law" => Ok(Box::new(DoublePowerLawSfr::satellite())),
         other => Err(anyhow!("unknown sfr model: {other}")),
     }
 }
@@ -129,12 +152,19 @@ pub fn smhm_legacy_name(cfg: &steel_io::runfile::SmhmConfig) -> &str {
         ("moster_form", "g19_se") => "G19_SE",
         ("moster_form", "g19_c_mod") => "G19_cMod",
         ("moster_form", "illustris") => "Illustris",
+        ("moster_form", "pft") => "PFT",
+        // `STEEL.py` parses the free parameter back out of the last
+        // three characters of this name, so an `hmevo` run wanting a
+        // Python-compatible directory must set `legacy_name`
+        // explicitly (e.g. `HMevo_alt_0.3`); this is only the fallback.
+        ("moster_form", "hmevo") => "HMevo",
         ("moster_form", "override_0") => "Override_0",
         ("moster_form", "override_z") => "Override_z",
         ("behroozi_form", "b18c") => "B18c",
         ("behroozi_form", "b18t") => "B18t",
         ("behroozi_form", "behroozi13" | "behrozi13") => "Behroozi13",
         ("behroozi_form", "lorenzo18") => "Lorenzo18",
+        ("rodriguez_puebla_form", "rp17") => "RP17",
         _ => "Unknown",
     }
 }
