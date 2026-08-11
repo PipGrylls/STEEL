@@ -3,10 +3,12 @@
 Every entry below was found by reading `STEEL.py`, `Functions/Functions.py`
 and `Functions/Functions_c.pyx` closely enough to re-implement them, and
 each is **fixed in `rust/` rather than reproduced** (the port's stated
-"clean reimplementation" mandate). This file is the canonical list: it is
-the input to the `py-steel-corrected` branch, which applies the same
-fixes to the Python one commit per entry, and the basis of the
-three-way comparison.
+"clean reimplementation" mandate). This file is the canonical list.
+
+Every entry is also applied to the Python, one commit per concern, on
+the `py-steel-corrected` branch — see `docs/PY_CORRECTED.md` for the
+commit series and the measured effect of each. Where a measurement
+exists it is quoted below.
 
 "Bites" says which run configurations the defect actually changes. Several
 are inert in the `Stripping=False, SF=False` configuration, so a
