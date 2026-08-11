@@ -46,7 +46,27 @@ The Rust writes the same `RunParam_<params>_/` directory names and the
 same `.npy` file names, so the Python `LoadData_*` family and the
 plotting scripts read either tree unmodified.
 
-## Comparing
+## Running all three at once
+
+`three_way.py` drives every leg and compares them:
+
+```bash
+# numerical fidelity: scatter off, py-corrected vs rs-steel
+env/py-asis/bin/python Scripts/Validation/three_way.py --mode deterministic
+
+# what the corrections change: scatter on, all three legs, 5 seeds
+git worktree add ../STEEL-asis --detach claude/phd-code-rust-plan-zqyvff
+cd ../STEEL-asis/Functions &&     ../../STEEL/env/py-asis/bin/python Setup.py build_ext --inplace && cd -
+env/py-asis/bin/python Scripts/Validation/three_way.py --mode stochastic --seeds 1 2 3 4 5
+```
+
+The py-as-is worktree must be **detached**, not on a branch: the branch
+carrying the unmodified `STEEL.py` is also the development branch, and
+git will not check the same branch out twice.
+
+Results are recorded in `docs/VALIDATION.md`.
+
+## Comparing individual trees
 
 ```bash
 env/py-legacy/bin/python Scripts/Validation/compare_runs.py \
