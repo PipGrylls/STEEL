@@ -263,8 +263,14 @@ def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
     Surviving_Sat_SMF_Weighting = np.zeros((b, np.size(Surviving_Sat_SMF_MassRange[:-1])))
     Surviving_Sat_SMF_Weighting_highz = np.zeros( (a, b, len(Surviving_Sat_SMF_MassRange[:-1])) )
     #For saving satilite massases and associated halo/subhalo masses
-    Sat_SMHM = np.zeros((a, c+1, len(Surviving_Sat_SMF_Weighting_Totals))) #redshift, subhalo, SM
-    Sat_SMHM_Host = np.zeros((a, b+1, len(Surviving_Sat_SMF_Weighting_Totals))) #redshift, parent halo, SM
+    #`c` and `b`, not `c+1`/`b+1`. The trailing slot on the halo-mass axis
+    #was never written -- only indices [.., k, ..] for k in range(c) and
+    #[.., j, ..] for j in range(b) are ever assigned -- and was saved as a
+    #column of zeros next to a SatHaloMass/AvaHaloMass axis array with c/b
+    #entries, so the data and its own axis disagreed in length. Verified
+    #all-zero in a full run.
+    Sat_SMHM = np.zeros((a, c, len(Surviving_Sat_SMF_Weighting_Totals))) #redshift, subhalo, SM
+    Sat_SMHM_Host = np.zeros((a, b, len(Surviving_Sat_SMF_Weighting_Totals))) #redshift, parent halo, SM
     
     #Saving sSFR for galaxies
     #sSFR_Range holds the *left edges* of the bins, exactly as
