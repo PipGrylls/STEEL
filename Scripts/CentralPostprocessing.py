@@ -149,6 +149,16 @@ Paramaters = \
 
 @jit(nopython=True)
 def JitLoop(SHMF_Entering, Mass_Ratio_Bins, z_step, t_step, Bin):
+    #`z_step`/`t_step` have one fewer row than `SHMF_Entering`'s first
+    #axis (they're built from `np.diff` over the redshift grid), so the
+    #un-clamped `range(m)` below read `z_step[m-1]`/`t_step[m-1]` one
+    #past the end of both arrays -- undefined behaviour inside a numba
+    #`nopython` function, not a Python IndexError. It happened to be
+    #harmless for every known caller (`Return_Merger_Plot` only ever
+    #reads rows `0:m-1` of the `_dz`/`_dt` outputs, so the corrupted
+    #last row was silently discarded), but "happened to be harmless"
+    #is not the same as correct, and a different caller or a different
+    #numpy memory layout could crash or return garbage.
     m, n, o = np.shape(SHMF_Entering)
     Accreted_Above_Ratio = np.zeros((m, n))
     Accreted_Above_Ratio_dz = np.zeros((m, n))
@@ -156,8 +166,9 @@ def JitLoop(SHMF_Entering, Mass_Ratio_Bins, z_step, t_step, Bin):
     for i in range(m):
         for j in range(n):
             Accreted_Above_Ratio[i,j] = np.sum(SHMF_Entering[i, j,Mass_Ratio_Bins[i,j]:])*Bin
-            Accreted_Above_Ratio_dz[i,j] = np.sum(SHMF_Entering[i, j,Mass_Ratio_Bins[i,j]:])*Bin/z_step[i]
-            Accreted_Above_Ratio_dt[i,j] = np.sum(SHMF_Entering[i, j,Mass_Ratio_Bins[i,j]:])*Bin/t_step[i]
+            if i < len(z_step):
+                Accreted_Above_Ratio_dz[i,j] = np.sum(SHMF_Entering[i, j,Mass_Ratio_Bins[i,j]:])*Bin/z_step[i]
+                Accreted_Above_Ratio_dt[i,j] = np.sum(SHMF_Entering[i, j,Mass_Ratio_Bins[i,j]:])*Bin/t_step[i]
     return Accreted_Above_Ratio, Accreted_Above_Ratio_dz, Accreted_Above_Ratio_dt
 
 @jit(nopython=True)
@@ -226,7 +237,15 @@ class PairFractionData:
                             AvaStellarMass2[i, j+1] = 2*SM_Arr[j] - SM_Arr[j-1]
                         else:
                             AvaStellarMass2[i, j+1] = (SM_Arr[j] + SM_Arr[j+2])/2
-                if AvaStellarMass2[i, -1] < AvaStellarMass2[i, -1]:
+                #`AvaStellarMass2[i,-2]`, not a self-comparison. This
+                #compared the trailing bin to itself (`x < x`, always
+                #False), so the extra extrapolation step below could
+                #never fire; the `for j` loop above already repairs the
+                #trailing bin in every case actually observed (0/190 in
+                #the reduced-grid smoke test), but a self-comparison is
+                #never correct regardless. Matches the extrapolation
+                #direction used at line 226.
+                if AvaStellarMass2[i, -1] < AvaStellarMass2[i, -2]:
                     AvaStellarMass2[i, -1] = AvaStellarMass2[i, -1] + (AvaStellarMass2[i, -2] - AvaStellarMass2[i, -3])
         AvaStellarMass = AvaStellarMass2
 
