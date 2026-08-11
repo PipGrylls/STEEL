@@ -98,9 +98,38 @@ to do the same. Recorded as G2 in `docs/PORT_CORRECTIONS.md`.
 
 ## 2. Stochastic mode — what do the corrections change?
 
-Scatter on, ensemble means over 5 seeds, reduced grid. The three draw
-from unrelated generators (NumPy's Mersenne Twister, GSL's `taus`,
-`rand`'s ChaCha), so only ensemble statistics are comparable.
+Scatter on. The three draw from unrelated generators (NumPy's Mersenne
+Twister, GSL's `taus`, `rand`'s ChaCha), so only ensemble statistics are
+comparable.
+
+### Published grid, py-as-is vs py-corrected
+
+Reverse cumulatives, for the reason given in §1:
+
+| Output | median | p90 | integral ratio |
+|---|---|---|---|
+| `Figure3_AnalyticalModel_SMF` (satellite SMF) | 5.7% | 13.7% | **0.9908** |
+| `Figure10_AnalyticalModel_SMF` | 6.4% | 99.2% | 0.9908 |
+| `SMFhz_AnalyticalModel_SMF_Highz` | 3.0% | 72.3% | 1.0080 |
+| `Raw_Richness_..._highz` | 5.9% | 53.6% | 1.0080 |
+| `Mergers_Accretion_History` | **27.1%** | 78.1% | 0.9942 |
+| `Pair_Frac_Pair_Frac` | 11.0% | 75.7% | 0.9905 |
+| `z_infall` | 11.3% | 91.8% | 0.9908 |
+
+This is the number that matters for the papers. The **integrals** move
+by under 1% — the satellite stellar mass function's normalisation is
+robust to every correction found. What moves is the *shape*, and it
+moves most in the merger and pair-fraction outputs: the accretion
+history's median bin shifts by 27%, and the pair fractions by 11%.
+Those are Papers 2 and 3's headline observables, and they are exactly
+the outputs that depend on the satellite evolution window (A2), the
+histogram convention (C1), and the accretion histories the spectral
+index changes (G1).
+
+Contrast §1: py-corrected and rs-steel agree to 0.5% on the same
+quantities. The disagreement here is the corrections, not the port.
+
+### Reduced grid, ensemble means over 5 seeds
 
 **py-as-is vs py-corrected**, per bin:
 
@@ -128,15 +157,20 @@ from correction 16 alone.
 
 ## 3. Performance
 
-Published grid, one process, deterministic mode:
+Published grid, one process:
 
-| | wall clock |
-|---|---|
-| py-corrected | 296.4 s |
-| rs-steel | 65.6 s |
-| | **4.5×** |
+| | deterministic | stochastic |
+|---|---|---|
+| py-as-is | — (no scatter switch) | 308.9 s |
+| py-corrected | 296.4 s | 311.3 s |
+| rs-steel | 65.6 s | 68.7 s |
+| speedup | **4.5×** | **4.5×** |
 
-Reduced grid: 3.4 s vs 1.3 s. The Rust advantage is larger on the
+Scatter costs both implementations about 5%, and the corrections cost
+the Python nothing measurable (296.4 s vs 308.9 s across the
+scatter-on/off boundary, py-corrected vs py-as-is within 1% at equal
+settings). Reduced grid: 3.4 s vs 1.3 s. The Rust advantage is larger
+on the
 frozen (`Stripping=False, SF=False`) configurations, where the Python's
 per-timestep Cython call still dominates and the Rust's does not.
 
