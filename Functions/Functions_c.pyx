@@ -217,17 +217,28 @@ def Starformation_c(double[:] M_infall, double[:] t, double[:] delta_t, double[:
             #Calculate the GMLR 
             if i > 0 and i < N-1:
                 #(and strip the SFH for the next loop saving additional loop)
-                if Stripping == 1:
-                    for j in range(i):
-                        f_mr_1 = (1 - C0*c_log(((c_abs(t[j]-t[i])*c_pow(10, 9))/Lambda)+1))
-                        f_mr_2 = (1 - C0*c_log(((c_abs(t[j]-t[i+1])*c_pow(10, 9))/Lambda)+1))
-                        GMLR[k,i] = GMLR[k,i] + (c_abs(SFH[k,j]*(f_mr_1 - f_mr_2))/(c_abs(t[i] - t[i+1])*c_pow(10, 9))) #Msun yr-1    
-                        SFH[k,i] = SFH[k,i]+(StripFactor[i+1]-StripFactor[i])
-                else:
-                    for j in range(i):
-                        f_mr_1 = (1 - C0*c_log(((c_abs(t[j]-t[i])*c_pow(10, 9))/Lambda)+1))
-                        f_mr_2 = (1 - C0*c_log(((c_abs(t[j]-t[i+1])*c_pow(10, 9))/Lambda)+1))
-                        GMLR[k,i] = GMLR[k,i] + (c_abs(SFH[k,j]*(f_mr_1 - f_mr_2))/(c_abs(t[i] - t[i+1])*c_pow(10, 9))) #Msun yr-1
+                #The stripping and no-stripping branches were identical
+                #except that the stripped one also ran
+                #    SFH[k,i] = SFH[k,i] + (StripFactor[i+1]-StripFactor[i])
+                #inside this loop. SFH is a mass in Msun (SFR*dt*1e9);
+                #StripFactor is a base-10 logarithm of a surviving
+                #fraction, so their difference is a dimensionless
+                #log-ratio of order -0.01 to -1. Adding it to a quantity
+                #of order 1e8 Msun is a unit error, and being inside
+                #`for j in range(i)` it was applied i times per timestep
+                #rather than once. SFH feeds both the recycled mass-loss
+                #rate below and the reported sSFR.
+                #
+                #Tidal stripping of already-formed stars is applied where
+                #it belongs, to the stellar mass itself, in the M_out
+                #update further down -- which already carries exactly this
+                #(StripFactor[i+1]-StripFactor[i]) term, in the log domain
+                #where it is dimensionally correct. So this line was not
+                #just mis-scaled, it was a double count.
+                for j in range(i):
+                    f_mr_1 = (1 - C0*c_log(((c_abs(t[j]-t[i])*c_pow(10, 9))/Lambda)+1))
+                    f_mr_2 = (1 - C0*c_log(((c_abs(t[j]-t[i+1])*c_pow(10, 9))/Lambda)+1))
+                    GMLR[k,i] = GMLR[k,i] + (c_abs(SFH[k,j]*(f_mr_1 - f_mr_2))/(c_abs(t[i] - t[i+1])*c_pow(10, 9))) #Msun yr-1
             #Set Mdot (rate of change of mass) at time t[i]
             M_dot[k,i] = SFR - GMLR[k,i] #Mun yr-1
             if i < N-1:
