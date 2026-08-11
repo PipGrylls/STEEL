@@ -335,10 +335,18 @@ def Halogrowth(log_M_h, FullReturn = False):
     #starts the system command to run VDB14
     os.system(AbsFP+"/../Functions/OtherModels/VDB13/getPWGH < "+AbsFP+"/../Functions/OtherModels/VDB13/%s.in" %(PID))
     #Loads the output of VDB14
-    log_Mz_M0 = np.loadtxt(AbsFP+"/../Functions/OtherModels/VDB13/*%s.dat" %(PID))
+    #No literal asterisk in these two paths. They used to point at
+    #".../VDB13/" followed by an asterisk and then the PID -- which
+    #`np.loadtxt` and `os.remove` both treat as an ordinary filename
+    #character, since neither globs. `Halogrowth` therefore raised
+    #OSError on every call and no mass-accretion history could be
+    #generated. Together with `getPWGH.f`'s hardcoded output prefix
+    #(fixed alongside this), the MAH grid could only ever be built on
+    #the one machine the code was written on.
+    log_Mz_M0 = np.loadtxt(AbsFP+"/../%s.dat" %(PID))
     #Removes the file we made to run VDB14 and the file created by VDB14
     os.remove(AbsFP+"/../Functions/OtherModels/VDB13/%s.in"%(PID))
-    os.remove(AbsFP+"/../Functions/OtherModels/VDB13/*%s.dat"%(PID))
+    os.remove(AbsFP+"/../%s.dat" %(PID))
 
 
     if FullReturn:
