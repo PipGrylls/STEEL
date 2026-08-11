@@ -232,7 +232,11 @@ def dn_dlnX(Parameters, X):
     Part1 = Parameters['gamma']*np.power(Parameters['a']*X, Parameters['alpha'])
     Part2 = np.exp(-Parameters['beta']*np.power(Parameters['a']*X, Parameters['omega']))
     dn_dlnX_arr = Part1*Part2
-    dn_dlogX_arr = dn_dlnX_arr*2.30
+    #ln(10), not the truncated 2.30 this used to carry: the natural-log
+    #to base-10 conversion factor is 2.302585..., so the old constant
+    #scaled the entire unevolved subhalo mass function -- and therefore
+    #every satellite number density in the model -- low by 0.11%.
+    dn_dlogX_arr = dn_dlnX_arr*np.log(10)
     return dn_dlogX_arr #N dex-1
 
 #
