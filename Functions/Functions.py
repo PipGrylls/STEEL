@@ -647,8 +647,13 @@ def DarkMatterToStellarMass(DM, z, Paramaters, ScatterOn = False, Scatter = 0.00
     if Paramaters['Override_0'] or Paramaters['Override_z']:
         Override = Paramaters['Override']
 
-    # Go to RP17 abundance matching
-    if Paramaters['RP17']:
+    # Go to RP17 abundance matching.
+    #`.get`, not `[...]`. `RP17` and `HMevo` were added to this function
+    #without being added to the `AbnMtch` dicts its other callers build
+    #(`Scripts/CentralPostprocessing.py`, `Scripts/SMHM_Fit.py`, the
+    #notebooks), so every one of them raised KeyError here. Defaulting
+    #to False is exactly what a caller predating the feature means.
+    if Paramaters.get('RP17', False):
         return SHMR_RP17(z, DM)
     # parameters from moster 2013
     if(Paramaters['Moster']):
@@ -713,7 +718,7 @@ def DarkMatterToStellarMass(DM, z, Paramaters, ScatterOn = False, Scatter = 0.00
             gamma11 = gamma11 - 0.2
         if(Paramaters['g_PFT4']):
             gamma10 = gamma10 - 0.1
-    if Paramaters['HMevo']:
+    if Paramaters.get('HMevo', False):
         M10, SHMnorm10, beta10, gamma10, Scatter = 11.91,0.029,2.09,0.64,0.15
         M11, SHMnorm11, beta11 = 0.518,-0.018,-1.031 
         gamma11 = Paramaters["HMevo_param"]

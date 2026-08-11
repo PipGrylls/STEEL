@@ -127,7 +127,12 @@ AbnMtch =\
 'g_PFT3': False,\
 'g_PFT4': False,\
 'HMevo': False,\
-'HMevo_param': None\
+'HMevo_param': None,\
+#`Functions.DarkMatterToStellarMass` gained an unguarded
+#`Paramaters['RP17']` lookup without this dict being updated to match,
+#so every call from here raised KeyError -- i.e. none of the
+#post-processing could run against the model code on its own branch.
+'RP17': False\
 }
 
 Paramaters = \
@@ -533,7 +538,7 @@ class PairFractionData:
                                 'probaS0','probaSab','probaScd','TType','P_S0',
                               'veldisp','veldisperr','raSDSS7','decSDSS7']
 
-        df = pd.read_csv('Data/Observational/Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, delim_whitespace = True)
+        df = pd.read_csv('Data/Observational/Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, sep = r"\s+")
         goodness_cut = (df.finalflag==3 ) | (df.finalflag==5) | (df.finalflag==1)
 
         # Making necessary cuts to the dataframe
@@ -747,7 +752,7 @@ class PairFractionData:
                                 'probaS0','probaSab','probaScd','TType','P_S0',
                               'veldisp','veldisperr','raSDSS7','decSDSS7']
 
-        df = pd.read_csv('Data/Observational/Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, delim_whitespace = True)
+        df = pd.read_csv('Data/Observational/Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, sep = r"\s+")
         goodness_cut = (df.finalflag==3 ) | (df.finalflag==5) | (df.finalflag==1)
 
         df = df[goodness_cut]
@@ -1844,7 +1849,7 @@ if __name__ == "__main__":
                                 'probaS0','probaSab','probaScd','TType','P_S0',
                               'veldisp','veldisperr','raSDSS7','decSDSS7']
 
-        df = pd.read_csv('Data/Observational/Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, delim_whitespace = True)
+        df = pd.read_csv('Data/Observational/Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, sep = r"\s+")
         goodness_cut = (df.finalflag==3 ) | (df.finalflag==5) | (df.finalflag==1)
 
         df = df[goodness_cut]
@@ -1947,7 +1952,7 @@ if __name__ == "__main__":
                                 'probaS0','probaSab','probaScd','TType','P_S0',
                               'veldisp','veldisperr','raSDSS7','decSDSS7']
 
-        df = pd.read_csv('Data/Observational/Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, delim_whitespace = True)
+        df = pd.read_csv('Data/Observational/Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, sep = r"\s+")
         goodness_cut = (df.finalflag==3 ) | (df.finalflag==5) | (df.finalflag==1)
 
         df = df[goodness_cut]
@@ -2092,7 +2097,7 @@ if __name__ == "__main__":
                                 'probaS0','probaSab','probaScd','TType','P_S0',
                               'veldisp','veldisperr','raSDSS7','decSDSS7']
 
-        df = pd.read_csv('Data/Observational/Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, delim_whitespace = True)
+        df = pd.read_csv('Data/Observational/Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, sep = r"\s+")
         goodness_cut = (df.finalflag==3 ) | (df.finalflag==5) | (df.finalflag==1)
 
         df = df[goodness_cut]
@@ -2237,7 +2242,7 @@ if __name__ == "__main__":
                                 'probaS0','probaSab','probaScd','TType','P_S0',
                               'veldisp','veldisperr','raSDSS7','decSDSS7']
 
-        df = pd.read_csv('Data/Observational/Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, delim_whitespace = True)
+        df = pd.read_csv('Data/Observational/Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, sep = r"\s+")
         goodness_cut = (df.finalflag==3 ) | (df.finalflag==5) | (df.finalflag==1)
 
         df = df[goodness_cut]
@@ -2332,7 +2337,7 @@ if __name__ == "__main__":
                                 'probaS0','probaSab','probaScd','TType','P_S0',
                               'veldisp','veldisperr','raSDSS7','decSDSS7']
 
-        df = pd.read_csv('Data/Observational/Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, delim_whitespace = True)
+        df = pd.read_csv('Data/Observational/Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, sep = r"\s+")
         goodness_cut = (df.finalflag==3 ) | (df.finalflag==5) | (df.finalflag==1)
 
         df = df[goodness_cut]
