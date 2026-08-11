@@ -261,9 +261,20 @@ def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
     Sat_SMHM_Host = np.zeros((a, b+1, len(Surviving_Sat_SMF_Weighting_Totals))) #redshift, parent halo, SM
     
     #Saving sSFR for galaxies
-    sSFR_Range = np.arange(-14, -8, 0.1)
-    sSFR_min, sSFR_max, sSFR_len = -14, -8, np.size(sSFR_Range)-1
-    Satilite_sSFR = np.zeros((len(Surviving_Sat_SMF_MassRange[:-1]), len(sSFR_Range[:-1])))
+    #sSFR_Range holds the *left edges* of the bins, exactly as
+    #Surviving_Sat_SMF_MassRange[:-1] does for stellar mass.
+    #
+    #This used to be `np.arange(-14, -8, 0.1)` with
+    #`sSFR_len = np.size(sSFR_Range)-1`, i.e. 59 bins spread over the
+    #full (-14, -8) range -- 0.1017 dex wide -- while the axis saved
+    #alongside was 0.1-spaced and stopped at -8.2. Every sSFR
+    #distribution was therefore plotted against the wrong abscissa, with
+    #the error growing to ~0.1 dex at the top of the range. 60 bins of
+    #exactly 0.1 dex makes the bins and the axis the same thing.
+    sSFR_min, sSFR_max, sSFR_Bin = -14, -8, 0.1
+    sSFR_len = int(round((sSFR_max - sSFR_min)/sSFR_Bin))
+    sSFR_Range = sSFR_min + np.arange(sSFR_len)*sSFR_Bin
+    Satilite_sSFR = np.zeros((len(Surviving_Sat_SMF_MassRange[:-1]), sSFR_len))
     #Saving bulk stars made per central halo per satellite mass bin
     Total_StarFormation = [[[[] for k in range(0, len(Surviving_Sat_SMF_MassRange[:-1]))] for j in range(0, b)] for i in range(0, a)]
 
@@ -556,7 +567,7 @@ def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
         F.SaveData_10(AvaHaloMass, Surviving_Sat_SMF_Weighting, Surviving_Sat_SMF_MassRange, Factor_Stripping_SF)
         F.SaveData_SMFhz(AvaHaloMass, Surviving_Sat_SMF_Weighting_Totals_highz, Surviving_Sat_SMF_MassRange[:-1], Factor_Stripping_SF)
         F.SaveData_z_infall(Surviving_Sat_SMF_MassRange[:-1], z, z_infall, Factor_Stripping_SF)
-        F.SaveData_sSFR(Surviving_Sat_SMF_MassRange[:-1], sSFR_Range[:-1], Satilite_sSFR, Factor_Stripping_SF)
+        F.SaveData_sSFR(Surviving_Sat_SMF_MassRange[:-1], sSFR_Range, Satilite_sSFR, Factor_Stripping_SF)
         F.SaveData_Sat_SMHM(z, SatHaloMass, AvaHaloMass, Surviving_Sat_SMF_MassRange[:-1], Sat_SMHM, Sat_SMHM_Host, Factor_Stripping_SF)
         F.SaveData_Mergers(Accretion_History, z, AvaHaloMass, Surviving_Sat_SMF_MassRange[:-1], Factor_Stripping_SF)
         F.SaveData_Pair_Frac(Pair_Frac, z, AvaHaloMass, Surviving_Sat_SMF_MassRange[:-1], Factor_Stripping_SF)
