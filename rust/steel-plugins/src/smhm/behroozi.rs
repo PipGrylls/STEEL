@@ -45,7 +45,7 @@ pub struct BehrooziFormSmhm {
 
 impl BehrooziFormSmhm {
     /// `AbnMtch['B18c']` ("centrals").
-    pub fn behrozi18c() -> Self {
+    pub fn behroozi18c() -> Self {
         Self {
             form: Form::B18(B18Coeffs {
                 e: [-1.340, 0.404, -0.048, 0.133],
@@ -60,7 +60,7 @@ impl BehrooziFormSmhm {
     }
 
     /// `AbnMtch['B18t']` ("true"/all-galaxies).
-    pub fn behrozi18t() -> Self {
+    pub fn behroozi18t() -> Self {
         Self {
             form: Form::B18(B18Coeffs {
                 e: [-1.357, 0.139, -0.230, 0.157],
@@ -75,7 +75,7 @@ impl BehrooziFormSmhm {
     }
 
     /// `AbnMtch['Behroozi13']`.
-    pub fn behrozi13() -> Self {
+    pub fn behroozi13() -> Self {
         Self {
             form: Form::B13(B13Coeffs {
                 e: [-1.777, -0.006, 0.000, -0.119],
@@ -160,12 +160,15 @@ impl BehrooziFormSmhm {
 impl SmhmModel for BehrooziFormSmhm {
     fn stellar_mass(&self, log_dm: f64, z: f64, rng: Option<&mut dyn RngCore>) -> f64 {
         let log_sm = self.stellar_mass_noiseless(log_dm, z);
+        // `scatter` is a public field, so a non-positive or non-finite
+        // value is reachable — treat it as "no scatter" rather than
+        // letting `Normal::new(..).unwrap()` panic.
         match rng {
-            Some(r) => {
+            Some(r) if self.scatter > 0.0 && self.scatter.is_finite() => {
                 let normal = Normal::new(0.0, self.scatter).unwrap();
                 log_sm + normal.sample(r)
             }
-            None => log_sm,
+            _ => log_sm,
         }
     }
 }
@@ -176,7 +179,7 @@ mod tests {
 
     #[test]
     fn b18c_is_monotonically_increasing_with_halo_mass() {
-        let model = BehrooziFormSmhm::behrozi18c();
+        let model = BehrooziFormSmhm::behroozi18c();
         let sm1 = model.stellar_mass(11.0, 0.1, None);
         let sm2 = model.stellar_mass(12.0, 0.1, None);
         let sm3 = model.stellar_mass(13.0, 0.1, None);
@@ -185,7 +188,7 @@ mod tests {
 
     #[test]
     fn b13_is_monotonically_increasing_with_halo_mass() {
-        let model = BehrooziFormSmhm::behrozi13();
+        let model = BehrooziFormSmhm::behroozi13();
         let sm1 = model.stellar_mass(11.0, 0.1, None);
         let sm2 = model.stellar_mass(12.0, 0.1, None);
         let sm3 = model.stellar_mass(13.0, 0.1, None);
@@ -206,10 +209,25 @@ mod tests {
         // Both families are fits to similar central-galaxy SMHM data,
         // so at a ~Milky-Way-mass halo they should agree to within a
         // dex or so even though the functional forms differ.
-        let b18 = BehrooziFormSmhm::behrozi18c();
-        let b13 = BehrooziFormSmhm::behrozi13();
+        let b18 = BehrooziFormSmhm::behroozi18c();
+        let b13 = BehrooziFormSmhm::behroozi13();
         let sm_b18 = b18.stellar_mass(12.0, 0.1, None);
         let sm_b13 = b13.stellar_mass(12.0, 0.1, None);
         assert!((sm_b18 - sm_b13).abs() < 1.0, "b18={sm_b18} b13={sm_b13}");
+    }
+
+    #[test]
+    fn invalid_scatter_is_treated_as_no_scatter_rather_than_panicking() {
+        use rand::rngs::StdRng;
+        use rand::SeedableRng;
+
+        let noiseless = BehrooziFormSmhm::behroozi18c().stellar_mass(12.0, 0.1, None);
+        for bad in [0.0, -0.5, f64::NAN] {
+            let mut model = BehrooziFormSmhm::behroozi18c();
+            model.scatter = bad;
+            let mut rng = StdRng::seed_from_u64(1);
+            let got = model.stellar_mass(12.0, 0.1, Some(&mut rng));
+            assert!((got - noiseless).abs() < 1e-12, "scatter={bad} should give the noiseless value");
+        }
     }
 }

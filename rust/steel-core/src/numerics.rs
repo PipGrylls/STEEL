@@ -14,9 +14,49 @@ pub fn digitize(x: f64, bins: &[f64]) -> usize {
     }
 }
 
+/// Number of points `numpy.arange(start, stop, step)` produces, i.e.
+/// `ceil((stop - start) / step)`.
+///
+/// Deliberately `ceil`, not `round`: they differ whenever
+/// `(stop-start)/step` isn't an exact integer *including* when floating
+/// point pushes an "exact" case just over. STEEL's own default halo
+/// grid is exactly such a case — `(16.6 - 11.0) / 0.1` evaluates to
+/// `56.000000000000014`, so `round` gives 56 bins where numpy gives 57,
+/// silently dropping the most massive halo bin. Pass the same `start`
+/// and `stop` numpy is given (h-offsets already applied to both), since
+/// the offset only cancels in exact arithmetic.
+pub fn arange_len(start: f64, stop: f64, step: f64) -> usize {
+    assert!(step > 0.0, "arange_len: step must be positive");
+    let n = ((stop - start) / step).ceil();
+    if n <= 0.0 {
+        0
+    } else {
+        n as usize
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn arange_len_matches_numpy_for_steel_default_grids() {
+        // Verified against numpy: np.arange(11.0+log10(h), 16.6+log10(h), 0.1)
+        // has 57 elements, and the satellite grid has 65. `round()` would
+        // give 56 for the first -- the off-by-one this helper exists to
+        // prevent.
+        let log_h = 0.6774_f64.log10();
+        assert_eq!(arange_len(11.0 + log_h, 16.6 + log_h, 0.1), 57);
+        assert_eq!(arange_len(10.0 + log_h, 16.5 + log_h, 0.1), 65);
+    }
+
+    #[test]
+    fn arange_len_handles_exact_and_empty_ranges() {
+        assert_eq!(arange_len(0.0, 1.0, 0.25), 4);
+        assert_eq!(arange_len(9.0, 13.0, 0.1), 40);
+        assert_eq!(arange_len(5.0, 5.0, 0.1), 0);
+        assert_eq!(arange_len(5.0, 4.0, 0.1), 0);
+    }
 
     #[test]
     fn matches_numpy_digitize_for_increasing_bins() {

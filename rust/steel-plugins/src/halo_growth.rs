@@ -42,6 +42,36 @@ impl VandenBosch14 {
         }
     }
 
+    /// Find a lower bracket below `x_hi` where `f` changes sign, so
+    /// `ridders_root_find`'s bracketing precondition holds.
+    ///
+    /// The Fortran hardcodes a one-dex window (`xlgpsi_min = xlgpsi -
+    /// 1.0`), which is comfortably wide for STEEL's own mass/redshift
+    /// grid but is an assumption, not a guarantee — a different grid or
+    /// mass range could step further than one dex between samples and
+    /// silently break the root find. Widening until the sign actually
+    /// flips keeps the common case identical (the first candidate *is*
+    /// `x_hi - 1.0`) while making the failure mode an explicit,
+    /// informative panic instead of a bracketing assertion deep inside
+    /// the solver.
+    fn widen_bracket<F: Fn(f64) -> f64>(f: F, x_hi: f64, z: f64) -> f64 {
+        const MAX_WIDENINGS: usize = 8;
+        let f_hi = f(x_hi);
+        let mut width = 1.0_f64;
+        for _ in 0..MAX_WIDENINGS {
+            let x_lo = x_hi - width;
+            let f_lo = f(x_lo);
+            if f_lo.is_finite() && f_lo * f_hi < 0.0 {
+                return x_lo;
+            }
+            width *= 2.0;
+        }
+        panic!(
+            "VandenBosch14: could not bracket the find_psi root below xlgpsi={x_hi} at z={z} \
+             after widening to {width} dex"
+        );
+    }
+
     fn find_psi(&self, xlgpsi: f64, m0: f64, s0: f64, dc0: f64, delta_dc: f64) -> f64 {
         let psi = 10f64.powf(xlgpsi);
         let s1 = self.variance.sigma(psi * m0).powi(2);
@@ -79,8 +109,25 @@ impl HaloGrowthModel for VandenBosch14 {
         let mut log_mass = Vec::with_capacity(N_Z);
         for &zi in &z {
             let delta_dc = self.growth.delta_collapse(zi) - dc0;
+
+            // At delta_dc == 0 the halo is at its own observation epoch,
+            // so psi == 1 by definition (xlgpsi == 0). `find_psi` would
+            // otherwise evaluate 0/sqrt(s1-s0) with s1 == s0 -- a 0/0.
+            // `LOG_Z_OFFSET` keeps the grid off this point today, but
+            // handling it explicitly means the function is total rather
+            // than relying on that offset staying in place.
+            if delta_dc == 0.0 {
+                xlgpsi = 0.0;
+                log_mass.push(log_m0);
+                continue;
+            }
+
             let x_hi = xlgpsi;
-            let x_lo = xlgpsi - 1.0;
+            let x_lo = Self::widen_bracket(
+                |x| self.find_psi(x, m0, s0, dc0, delta_dc),
+                x_hi,
+                zi,
+            );
             xlgpsi = ridders_root_find(
                 |x| self.find_psi(x, m0, s0, dc0, delta_dc),
                 x_lo,

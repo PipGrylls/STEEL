@@ -12,8 +12,8 @@ pub struct InterpTable {
 
 impl InterpTable {
     pub fn new(x: Vec<f64>, y: Vec<f64>) -> Self {
-        debug_assert_eq!(x.len(), y.len());
-        debug_assert!(x.windows(2).all(|w| w[0] < w[1]), "x must be strictly increasing");
+        assert_eq!(x.len(), y.len(), "InterpTable: x and y must have the same length");
+        assert!(x.windows(2).all(|w| w[0] < w[1]), "InterpTable: x must be strictly increasing");
         Self { x, y }
     }
 
@@ -43,7 +43,7 @@ impl InterpTable {
 /// Cumulative trapezoidal integral of `f` sampled at each point of `x`
 /// (which need not be uniformly spaced), returning `F(x_i) = int_{x_0}^{x_i} f dx`.
 pub fn cumulative_trapezoid(x: &[f64], f: &[f64]) -> Vec<f64> {
-    debug_assert_eq!(x.len(), f.len());
+    assert_eq!(x.len(), f.len(), "cumulative_trapezoid: x and f must have the same length");
     let mut out = Vec::with_capacity(x.len());
     let mut acc = 0.0;
     out.push(acc);
@@ -80,9 +80,9 @@ pub struct CubicSpline {
 impl CubicSpline {
     pub fn fit(x: Vec<f64>, y: Vec<f64>) -> Self {
         let n = x.len();
-        debug_assert_eq!(n, y.len());
-        debug_assert!(n >= 3, "cubic spline needs at least 3 points");
-        debug_assert!(x.windows(2).all(|w| w[0] < w[1]), "x must be strictly increasing");
+        assert_eq!(n, y.len(), "CubicSpline: x and y must have the same length");
+        assert!(n >= 3, "CubicSpline: needs at least 3 points");
+        assert!(x.windows(2).all(|w| w[0] < w[1]), "CubicSpline: x must be strictly increasing");
 
         // Standard natural-cubic-spline tridiagonal solve (e.g. Numerical
         // Recipes `spline`), specialized to y1=y2=0 (natural) boundary
@@ -190,6 +190,16 @@ pub fn ridders_root_find<F: Fn(f64) -> f64>(f: F, x_lo: f64, x_hi: f64, tol: f64
             return ans;
         }
     }
+    // Falling out of the loop means MAX_ITER passed without meeting
+    // `tol`. Returning the last estimate silently would let an
+    // unconverged root propagate into the physics, so flag it in
+    // development builds; release behaviour is unchanged (this path is
+    // not currently reachable for any STEEL grid).
+    debug_assert!(
+        false,
+        "ridders_root_find: no convergence to tol={tol} in {MAX_ITER} iterations \
+         (bracket [{x_lo}, {x_hi}], last estimate {ans})"
+    );
     ans
 }
 
@@ -219,5 +229,41 @@ mod tests {
     fn ridders_finds_root_of_linear_function() {
         let root = ridders_root_find(|x| 2.0 * x - 3.0, -10.0, 10.0, 1e-12);
         assert!((root - 1.5).abs() < 1e-9);
+    }
+
+    // The following four tests exist to prove `InterpTable`/`CubicSpline`
+    // reject invalid input via a real `assert!` (checked in every build
+    // profile, including `--release` — the profile every actual STEEL
+    // run uses), not a `debug_assert!` that would silently compile out
+    // there and let bad state through instead of failing loudly.
+
+    #[test]
+    #[should_panic(expected = "same length")]
+    fn interp_table_rejects_mismatched_lengths() {
+        InterpTable::new(vec![0.0, 1.0, 2.0], vec![0.0, 1.0]);
+    }
+
+    #[test]
+    #[should_panic(expected = "strictly increasing")]
+    fn interp_table_rejects_non_monotonic_x() {
+        InterpTable::new(vec![0.0, 2.0, 1.0], vec![0.0, 1.0, 2.0]);
+    }
+
+    #[test]
+    #[should_panic(expected = "same length")]
+    fn cubic_spline_rejects_mismatched_lengths() {
+        CubicSpline::fit(vec![0.0, 1.0, 2.0, 3.0], vec![0.0, 1.0, 2.0]);
+    }
+
+    #[test]
+    #[should_panic(expected = "strictly increasing")]
+    fn cubic_spline_rejects_non_monotonic_x() {
+        CubicSpline::fit(vec![0.0, 2.0, 1.0, 3.0], vec![0.0, 1.0, 2.0, 3.0]);
+    }
+
+    #[test]
+    #[should_panic(expected = "same length")]
+    fn cumulative_trapezoid_rejects_mismatched_lengths() {
+        cumulative_trapezoid(&[0.0, 1.0, 2.0], &[0.0, 1.0]);
     }
 }

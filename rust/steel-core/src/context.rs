@@ -25,7 +25,7 @@ use crate::cosmology::Cosmology;
 use crate::halo_growth::HaloGrowthModel;
 use crate::hmf::HaloMassFunctionModel;
 use crate::merger_time::MergerTimescaleModel;
-use crate::numerics::digitize;
+use crate::numerics::{arange_len, digitize};
 use crate::shmf::SubhaloMassFunctionModel;
 use crate::smhm::SmhmModel;
 use crate::stripping::HaloStrippingModel;
@@ -149,9 +149,14 @@ impl Simulation {
         let log_h = h.log10();
 
         // Host halo mass grid at z=0 [log10 Msun/h] (`AnalyticHaloMass`).
-        let n_host = ((config.log_m_max - config.log_m_min) / config.log_m_bin).round() as usize;
+        // Sized with `arange_len` (numpy `ceil` semantics) against the
+        // same h-offset start/stop numpy is given, so the grid matches
+        // `STEEL.py`'s `np.arange` element-for-element.
+        let host_min = config.log_m_min + log_h;
+        let host_max = config.log_m_max + log_h;
+        let n_host = arange_len(host_min, host_max, config.log_m_bin);
         let host_mass_z0: Vec<f64> =
-            (0..n_host).map(|j| config.log_m_min + log_h + j as f64 * config.log_m_bin).collect();
+            (0..n_host).map(|j| host_min + j as f64 * config.log_m_bin).collect();
 
         // Growth history for every host bin (`Get_HM_History`); every
         // bin shares the same redshift grid since z0=0 throughout.
@@ -188,7 +193,7 @@ impl Simulation {
         // Subhalo mass grid (`SatHaloMass`).
         let sat_min = config.log_m_min + config.sat_min_offset + log_h;
         let sat_max = config.log_m_max - 0.1 + log_h;
-        let n_sat = ((sat_max - sat_min) / config.log_m_bin).round() as usize;
+        let n_sat = arange_len(sat_min, sat_max, config.log_m_bin);
         let sat_mass: Vec<f64> = (0..n_sat).map(|k| sat_min + k as f64 * config.log_m_bin).collect();
 
         // Unevolved SHMF accreted between consecutive redshift steps
@@ -206,7 +211,7 @@ impl Simulation {
         }
 
         // Output stellar-mass grid.
-        let n_sm = ((config.sat_sm_max - config.sat_sm_min) / config.sat_sm_bin).round() as usize;
+        let n_sm = arange_len(config.sat_sm_min, config.sat_sm_max, config.sat_sm_bin);
         let sat_sm_range: Vec<f64> =
             (0..n_sm).map(|b| config.sat_sm_min + b as f64 * config.sat_sm_bin).collect();
         let mut surviving_sat_smf = vec![0.0_f64; n_sm];

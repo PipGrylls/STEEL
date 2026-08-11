@@ -5,6 +5,8 @@ members = [
     "steel-plugins",
     "steel-io",
     "steel-cli",
+    "steel-fit",
+    "steel-postprocess",
 ]
 
 [workspace.package]
@@ -20,5 +22,6 @@ serde = { version = "1", features = ["derive"] }
 toml = "0.8"
 rand = "0.8"
 rand_distr = "0.4"
+rayon = "1"
 anyhow = "1"
 thiserror = "1"

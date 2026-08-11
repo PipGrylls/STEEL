@@ -38,9 +38,12 @@ fn build_smhm(cfg: &steel_io::runfile::SmhmConfig) -> Result<Box<dyn SmhmModel>>
         }
         "behroozi_form" => {
             let m: BehrooziFormSmhm = match cfg.preset.as_str() {
-                "b18c" => BehrooziFormSmhm::behrozi18c(),
-                "b18t" => BehrooziFormSmhm::behrozi18t(),
-                "behrozi13" => BehrooziFormSmhm::behrozi13(),
+                "b18c" => BehrooziFormSmhm::behroozi18c(),
+                "b18t" => BehrooziFormSmhm::behroozi18t(),
+                // `behrozi13` was the original (misspelled) key; kept as
+                // an alias so any runfile already written against it
+                // keeps working.
+                "behroozi13" | "behrozi13" => BehrooziFormSmhm::behroozi13(),
                 "lorenzo18" => BehrooziFormSmhm::lorenzo18(),
                 other => return Err(anyhow!("unknown behroozi_form preset: {other}")),
             };
@@ -92,6 +95,43 @@ fn build_stripping(cfg: &steel_io::runfile::StrippingConfig) -> Result<Box<dyn S
 
 fn build_quenching() -> Box<dyn QuenchingModel> {
     Box::new(Wetzel13::new())
+}
+
+/// The Python identifier for an SMHM preset — the `AbnMtch` key that
+/// `STEEL.py`'s `Factor_Stripping_SF` tuple carries into the output
+/// directory name (`G19_SE`, `Moster`, ...). Needed so Rust-produced
+/// runs land in directories the existing Python plotting scripts
+/// already know how to find.
+pub fn smhm_legacy_name(cfg: &steel_io::runfile::SmhmConfig) -> &'static str {
+    match (cfg.model.as_str(), cfg.preset.as_str()) {
+        ("moster_form", "moster13") => "Moster",
+        ("moster_form", "moster10") => "Moster10",
+        ("moster_form", "g18") => "G18",
+        ("moster_form", "g18_not_se") => "G18_notSE",
+        ("moster_form", "g19_se") => "G19_SE",
+        ("moster_form", "g19_c_mod") => "G19_cMod",
+        ("moster_form", "illustris") => "Illustris",
+        ("behroozi_form", "b18c") => "B18c",
+        ("behroozi_form", "b18t") => "B18t",
+        ("behroozi_form", "behroozi13" | "behrozi13") => "Behroozi13",
+        ("behroozi_form", "lorenzo18") => "Lorenzo18",
+        _ => "Unknown",
+    }
+}
+
+/// The Python `SFR_Model` string for an SFR preset (`CE`, `G19_DPL`,
+/// ...), used for the same output-directory-compatibility reason as
+/// [`smhm_legacy_name`].
+pub fn sfr_legacy_name(cfg: &steel_io::runfile::SfrConfig) -> &'static str {
+    match (cfg.model.as_str(), cfg.preset.as_deref()) {
+        ("tomczak_form", Some("t16")) => "T16",
+        ("tomczak_form", Some("ce")) => "CE",
+        ("tomczak_form", Some("illustris")) => "Illustris",
+        ("schreiber_form", Some("s15")) => "S15",
+        ("schreiber_form", Some("s16ce")) => "S16CE",
+        ("double_power_law", _) => "G19_DPL",
+        _ => "Unknown",
+    }
 }
 
 pub fn build_simulation(runfile: &RunFile) -> Result<(Simulation, RunConfig)> {

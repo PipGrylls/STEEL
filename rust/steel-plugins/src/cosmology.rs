@@ -30,6 +30,13 @@ impl Planck15 {
     /// (halo/subhalo mass function grids top out around z=6-7).
     const N_GRID: usize = 4000;
     const A_MIN: f64 = 1e-6;
+    /// Upper end of the age(a) table, `a=2.0` i.e. `z=-0.5` — a modest
+    /// into-the-future margin past today (`a=1`) so `age(z)` stays
+    /// accurate for mildly negative z instead of silently clamping to
+    /// `age(0)` the way `InterpTable::eval`'s default out-of-domain
+    /// behavior would. `age()` panics beyond this rather than
+    /// extrapolating further.
+    const A_MAX: f64 = 2.0;
 
     pub fn new() -> Self {
         let omega_m0 = 0.3089;
@@ -67,11 +74,14 @@ impl Planck15 {
     fn build_age_table(omega_m0: f64, omega_r0: f64, omega_de0: f64) -> InterpTable {
         let n = Self::N_GRID;
         let a_min = Self::A_MIN;
+        let a_max = Self::A_MAX;
         let a: Vec<f64> = (0..=n)
-            .map(|i| a_min + (1.0 - a_min) * i as f64 / n as f64)
+            .map(|i| a_min + (a_max - a_min) * i as f64 / n as f64)
             .collect();
         // Integrand for t(a) H0 = int_0^a da' / (a' E(a')), which is
-        // smooth and -> 0 as a' -> 0 (radiation-dominated limit).
+        // smooth over the whole [a_min, a_max] range (including a>1,
+        // dark-energy-dominated future expansion) and -> 0 as a' -> 0
+        // (radiation-dominated limit).
         let integrand: Vec<f64> = a
             .iter()
             .map(|&ai| 1.0 / (ai * Self::e_of_a(ai, omega_m0, omega_r0, omega_de0)))
@@ -133,6 +143,19 @@ impl Cosmology for Planck15 {
 
     fn age(&self, z: f64) -> f64 {
         let a = 1.0 / (1.0 + z);
+        // `InterpTable::eval` clamps silently outside its domain; that's
+        // fine as a general-purpose default, but `age()` needs to fail
+        // loudly instead of quietly returning `age(0)` for a `z` outside
+        // what the table actually covers (e.g. `z < -0.5`, beyond
+        // `A_MAX`), so the domain is enforced explicitly here.
+        assert!(
+            (Self::A_MIN..=Self::A_MAX).contains(&a),
+            "Planck15::age: z={z} (a={a}) is outside the tabulated range a in [{}, {}] (z in [{}, {}])",
+            Self::A_MIN,
+            Self::A_MAX,
+            1.0 / Self::A_MAX - 1.0,
+            1.0 / Self::A_MIN - 1.0,
+        );
         self.age_table.eval(a) * self.hubble_time_gyr()
     }
 }
@@ -189,5 +212,27 @@ mod tests {
         let cosmo = Planck15::new();
         let r = cosmo.m_to_r(1e12, 0.0, MassDefinition::Vir);
         assert!((50.0..500.0).contains(&r), "R_vir = {r} kpc/h, expected O(100s)");
+    }
+
+    #[test]
+    fn age_extends_correctly_into_the_covered_future() {
+        // a=2.0 <=> z=-0.5 is within A_MAX, so age(z) for mildly
+        // negative z should be a genuine extrapolation (strictly
+        // greater than age(0), and increasing further as z decreases
+        // further into the future) rather than clamping to age(0).
+        let cosmo = Planck15::new();
+        let age0 = cosmo.age(0.0);
+        let age_neg_2 = cosmo.age(-0.2);
+        let age_neg_4 = cosmo.age(-0.4);
+        assert!(age_neg_2 > age0, "age(-0.2)={age_neg_2} should exceed age(0)={age0}");
+        assert!(age_neg_4 > age_neg_2, "age(-0.4)={age_neg_4} should exceed age(-0.2)={age_neg_2}");
+    }
+
+    #[test]
+    #[should_panic(expected = "outside the tabulated range")]
+    fn age_panics_beyond_the_tabulated_future() {
+        let cosmo = Planck15::new();
+        // z=-0.6 => a=2.5, beyond A_MAX=2.0.
+        cosmo.age(-0.6);
     }
 }

@@ -97,6 +97,17 @@ mod tests {
     }
 
     #[test]
+    fn stellar_stripping_stays_finite_at_the_time_fraction_limit() {
+        // `Cattaneo11` takes log10 of `strip + (1-strip)(1-tf)`, which
+        // goes non-positive (NaN) for tf > 1. `BaryonicPipeline` clamps
+        // to the documented [0,1] domain; this pins down that the
+        // endpoint itself is well-behaved so the clamp is sufficient.
+        let model = Cattaneo11;
+        let at_limit = model.strip_factor(14.0, 11.0, 1.0);
+        assert!(at_limit.is_finite(), "strip_factor at tf=1 should be finite, got {at_limit}");
+    }
+
+    #[test]
     fn halo_stripping_mass_is_non_increasing() {
         let cosmo = Planck15::new();
         let model = HaloStrippingVdb05;

@@ -54,6 +54,11 @@ mod tests {
 
     #[test]
     fn run_param_dir_name_matches_python_convention() {
+        // The exact directory `STEEL.py` produces for
+        // `Factor_Stripping_SF = ('1.0', False, False, True, 'CE', 'G19_SE')`
+        // -- the existing Python plotting scripts read this path
+        // literally, so the format is a compatibility contract, not a
+        // cosmetic choice.
         let name = run_param_dir_name(&["1.0", "False", "False", "True", "CE", "G19_SE"]);
         assert_eq!(name, "RunParam_1.0_False_False_True_CE_G19_SE_");
     }

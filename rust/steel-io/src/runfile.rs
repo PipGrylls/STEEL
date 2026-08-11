@@ -36,7 +36,7 @@ impl Default for MergerTimeConfig {
 /// `model`: `"moster_form"` or `"behroozi_form"`.
 /// `preset`: for `moster_form` one of `moster13`, `moster10`, `g18`,
 /// `g18_not_se`, `g19_se`, `g19_c_mod`, `illustris`; for
-/// `behroozi_form` one of `b18c`, `b18t`, `behrozi13`, `lorenzo18`.
+/// `behroozi_form` one of `b18c`, `b18t`, `behroozi13`, `lorenzo18`.
 #[derive(Debug, Deserialize)]
 pub struct SmhmConfig {
     pub model: String,
