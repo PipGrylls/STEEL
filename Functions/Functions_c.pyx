@@ -172,10 +172,15 @@ def Starformation_c(double[:] M_infall, double[:] t, double[:] delta_t, double[:
                 #Check Gas depletion
                 if Stripping == 1:
                     SM_new = c_pow(10,M_out[k,i]) - c_pow(10,M_out[k,0]+StripFactor[i])
-                    GasMass[k,i] = MaxGas[k]*c_pow(10,StripFactor[i]) - SM_new
+                    #MaxGas is a log10 mass, so it has to be raised
+                    #before being combined with the linear SM_new. This
+                    #line used to treat it as linear while the cap test
+                    #below treated it as a log -- the same variable used
+                    #both ways inside one function.
+                    GasMass[k,i] = c_pow(10, MaxGas[k]+StripFactor[i]) - SM_new
                 else:
                     SM_new = c_pow(10,M_out[k,i]) - c_pow(10,M_out[k,0])
-                    GasMass[k,i] = MaxGas[k] - SM_new
+                    GasMass[k,i] = c_pow(10, MaxGas[k]) - SM_new
                 if SM_new > 0:                
                     if c_log10(SM_new) > MaxGas[k]:
                         SFR = c_pow(10,M_out[k,i]-12.0) 
@@ -194,10 +199,15 @@ def Starformation_c(double[:] M_infall, double[:] t, double[:] delta_t, double[:
                 #Check Gas depletion
                 if Stripping == 1:
                     SM_new = c_pow(10,M_out[k,i]) - c_pow(10,M_out[k,0]+StripFactor[i])
-                    GasMass[k,i] = MaxGas[k]*c_pow(10,StripFactor[i]) - SM_new
+                    #MaxGas is a log10 mass, so it has to be raised
+                    #before being combined with the linear SM_new. This
+                    #line used to treat it as linear while the cap test
+                    #below treated it as a log -- the same variable used
+                    #both ways inside one function.
+                    GasMass[k,i] = c_pow(10, MaxGas[k]+StripFactor[i]) - SM_new
                 else:
                     SM_new = c_pow(10,M_out[k,i]) - c_pow(10,M_out[k,0])
-                    GasMass[k,i] = MaxGas[k] - SM_new
+                    GasMass[k,i] = c_pow(10, MaxGas[k]) - SM_new
                 if SM_new > 0:                
                     if c_log10(SM_new) > MaxGas[k]:
                         SFR = c_pow(10,M_out[k,i]-12.0)

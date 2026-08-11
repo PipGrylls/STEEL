@@ -386,8 +386,17 @@ def StarFormation(SM_Sat, TTZ0, Tdyf, z_infall, z_return, z_all, HM_infall, AvaH
     SFR_Model = Paramaters['SFR_Model']
     
     
-    #GasMass
-    MaxGas = np.power(10, GetGasMass(SM_Sat, z_all[z_bin_i], HM_infall, Paramaters))
+    #GasMass, in log10 Msun -- NOT linear.
+    #
+    #This used to be `np.power(10, GetGasMass(...))`, a linear mass of
+    #order 4e9, while Starformation_c tests it as
+    #    if c_log10(SM_new) > MaxGas[k]
+    #`log10(SM_new)` cannot exceed ~12 for any physical stellar mass, so
+    #the branch was never taken and the gas supply never limited star
+    #formation. The whole GetGasMass/GetMaxGasMass machinery -- a scaling
+    #relation, its scatter, and a baryon-fraction ceiling -- had no
+    #effect on any result. See docs/PORT_CORRECTIONS.md A6.
+    MaxGas = GetGasMass(SM_Sat, z_all[z_bin_i], HM_infall, Paramaters)
     
     #Call the accelerated Cython Function
     M_out, M_dot, SFH, GMLR = Functions_c.Starformation_c(SM_Sat, t, d_t, z_range, MaxGas, T_quench, Tau_f, StripFactor = StripFactor, z_infall = z_infall, SFR_Model = str(SFR_Model), Stripping = Stripping, Scatter_On = 1 if SCATTER_ON else 0)

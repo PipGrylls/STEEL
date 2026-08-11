@@ -71,6 +71,7 @@ def deviations(a: np.ndarray, b: np.ndarray) -> dict[str, float]:
             "median_abs": 0.0,
             "max_frac": 0.0,
             "median_frac": 0.0,
+            "p90_frac": 0.0,
         }
 
     av, bv = a[finite], b[finite]
@@ -88,6 +89,11 @@ def deviations(a: np.ndarray, b: np.ndarray) -> dict[str, float]:
         "median_abs": float(np.median(abs_dev)),
         "max_frac": float(frac_dev.max()),
         "median_frac": float(np.median(frac_dev)),
+        # The maximum is dominated by the extreme high-mass tail, where
+        # a bin holds at most one satellite in either run and a
+        # discreteness difference reads as a 100% deviation. p90 says
+        # what the bulk of the distribution does.
+        "p90_frac": float(np.percentile(frac_dev, 90)),
     }
 
 
