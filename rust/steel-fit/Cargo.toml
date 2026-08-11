@@ -1,0 +1,12 @@
+[package]
+name = "steel-fit"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+steel-core = { path = "../steel-core" }
+steel-plugins = { path = "../steel-plugins" }
+rand = { workspace = true }
+rayon = { workspace = true }

@@ -6,6 +6,7 @@ authors.workspace = true
 license.workspace = true
 
 [dependencies]
+steel-core = { path = "../steel-core" }
 ndarray = { workspace = true }
 ndarray-npy = { workspace = true }
 serde = { workspace = true }

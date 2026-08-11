@@ -1,0 +1,30 @@
+# p2-evo-sf-strip -- generated from configs/published_runs.toml.
+# Do not edit by hand; edit the table and re-run
+# Scripts/Validation/make_runfiles.py.
+# Published as: ['1.0', True, True, True, 'CE', 'G19_SE']
+#   figure: P2 SMF
+#   figure: P2 SatelliteAccretion
+#   figure: P2 SSFR
+#   figure: P2 GalaxyMergerRate
+#   figure: P2 GalaxyMorphologies
+
+[merger_time]
+dynamical_time_factor = 1.0
+redshift_correction = false
+
+[smhm]
+model = "moster_form"
+preset = "g19_se"
+z_evo = true
+
+[sfr]
+model = "tomczak_form"
+preset = "ce"
+
+[run]
+log_m_min = 11.0
+log_m_max = 16.6
+log_m_bin = 0.1
+star_formation = true
+pre_processing = false
+stellar_stripping = true

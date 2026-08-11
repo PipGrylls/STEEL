@@ -15,6 +15,7 @@ pub mod gas;
 pub mod halo_growth;
 pub mod hmf;
 pub mod merger_time;
+mod numerics;
 pub mod quenching;
 pub mod sfr;
 pub mod shmf;
@@ -22,7 +23,7 @@ pub mod smhm;
 pub mod stripping;
 
 pub use baryonic::{BaryonicPipeline, EvolutionHistory, SatelliteState, Timeline};
-pub use context::{ModelContext, Simulation};
+pub use context::{ModelContext, OutputSelection, RunConfig, RunOutput, Simulation};
 pub use cosmology::{Cosmology, MassDefinition};
 pub use gas::GasMassModel;
 pub use halo_growth::{GrowthTrack, HaloGrowthModel};

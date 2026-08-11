@@ -1,0 +1,24 @@
+# Reduced-resolution run used for the three-way validation diff against
+# STEEL.py. Mirrors the run tuple left active at the bottom of STEEL.py:
+#   ('1.0', False, False, True, 'G19_DPL', 'Moster')
+# on the coarse grid `--halo-min 11.0 --halo-max 12.6 --halo-bin 0.5`,
+# so a py-steel reference run finishes in ~30 s instead of ~45 min.
+
+[merger_time]
+dynamical_time_factor = 1.0
+redshift_correction = false
+
+[smhm]
+model = "moster_form"
+preset = "moster13"
+z_evo = true
+
+[sfr]
+model = "double_power_law"
+
+[run]
+log_m_min = 11.0
+log_m_max = 12.6
+log_m_bin = 0.5
+star_formation = false
+stellar_stripping = false

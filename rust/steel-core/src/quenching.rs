@@ -16,11 +16,19 @@ pub trait QuenchingModel: Send + Sync {
     /// stellar mass `log_sm_infall` \[log10 Msun\] onto a host of
     /// `log_host_mass_infall` \[log10 Msun/h\] at redshift `z_infall`,
     /// cosmic time `t_infall` \[Gyr\].
+    ///
+    /// `pre_quenched`: whether this satellite was pre-processed before
+    /// infall (`Paramaters['PreProcessing']` in the Python), forcing
+    /// `t_quench = t_infall` (quenching starts immediately). Which
+    /// realizations of an ensemble get pre-quenched is decided by the
+    /// orchestrator, which knows the ensemble mean stellar mass this
+    /// single call doesn't have visibility into.
     fn timescales(
         &self,
         log_sm_infall: f64,
         z_infall: f64,
         log_host_mass_infall: f64,
         t_infall: f64,
+        pre_quenched: bool,
     ) -> QuenchTimescales;
 }

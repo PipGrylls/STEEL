@@ -1,0 +1,23 @@
+# Full-resolution equivalent of STEEL.py's own default grid
+# (AnalyticHaloMass 11.0 -> 16.6 in 0.1 dex) and the run tuple left
+# uncommented at the bottom of STEEL.py:
+#   ('1.0', False, False, True, 'G19_DPL', 'Moster')
+
+[merger_time]
+dynamical_time_factor = 1.0
+redshift_correction = false
+
+[smhm]
+model = "moster_form"
+preset = "moster13"
+z_evo = true
+
+[sfr]
+model = "double_power_law"
+
+[run]
+log_m_min = 11.0
+log_m_max = 16.6
+log_m_bin = 0.1
+star_formation = false
+stellar_stripping = false
