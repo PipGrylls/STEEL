@@ -1,6 +1,7 @@
 import sys
 import multiprocessing
 import os
+import shutil
 import zlib
 import hmf
 import pickle
@@ -205,7 +206,13 @@ def Make_HMF_Interp():
     Returns:
         HMF_fun: a function that take Mhalo and redshift and returns a numberdensity
     """
-    if AbsFP+"/../Data/Model/Input/hmf_fun.pkl" in os.listdir():
+    #os.path.isfile, not `... in os.listdir()`. os.listdir() with no
+    #argument lists the *current working directory* and returns bare file
+    #names, so comparing them against an absolute path was never true:
+    #the interpolation table (700 redshift steps of COLOSSUS massFunction
+    #calls over 800 masses) was rebuilt and re-pickled on every import,
+    #and the committed hmf_fun.pkl was never read.
+    if os.path.isfile(AbsFP+"/../Data/Model/Input/hmf_fun.pkl"):
         HMF_fun = pickle.load(open(AbsFP+"/../Data/Model/Input/hmf_fun.pkl", 'rb'))
     else:
         #Halo mass function from hmf
@@ -839,11 +846,18 @@ def SeedRandomState(RunParam = None, Seed = None):
 
 #==========================Saving Output========================================
 OutputFolder = AbsFP+"/../Data/Model/Output/RunFiles/"
-def PrepareToSave(RunParam_List): 
+def PrepareToSave(RunParam_List):
+    #This used to shell out to `os.system("rm -r" + path)` -- note the
+    #missing space, which makes it `rm -r/path/...`, an unknown option.
+    #It therefore always failed, so stale output directories were never
+    #cleared and a re-run silently mixed new output with old. The
+    #following `mkdir` (also without -p) then failed too. shutil/os do
+    #the same job without a shell, and without the quoting hazard the
+    #string concatenation carried.
     for RunParam in RunParam_List:
-        os.system("rm -r" + OutputFolder +"RunParam_{}".format("".join(("{}_".format(i) for i in RunParam))))
-    for RunParam in RunParam_List:
-        os.system("mkdir " + OutputFolder +"RunParam_{}".format("".join(("{}_".format(i) for i in RunParam))))
+        Folder = OutputFolder + "RunParam_{}".format("".join(("{}_".format(i) for i in RunParam)))
+        shutil.rmtree(Folder, ignore_errors = True)
+        os.makedirs(Folder, exist_ok = True)
 def SaveData_3(AvaHaloMass, AnalyticalModel_SMF, Surviving_Sat_SMF_MassRange, RunParam):
     """Figure 3"""
     np.save(OutputFolder +"RunParam_{}/Figure3_AvaHaloMass.npy".format("".join(("{}_".format(i) for i in RunParam))), AvaHaloMass)
