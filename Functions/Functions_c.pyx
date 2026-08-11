@@ -22,6 +22,17 @@ cdef:
     double O0 = Ol+Om+Or
     gsl_rng* RNG_set = gsl_rng_alloc(gsl_rng_taus)
 
+def SeedRandomState(unsigned long int seed):
+    """Seed the star-formation-rate scatter generator.
+
+    `gsl_rng_alloc` leaves the generator on its fixed built-in default
+    seed, so every process -- including every worker of the
+    multiprocessing pool -- drew the identical scatter sequence, and
+    there was no way to vary or reproduce it deliberately. Called from
+    `Functions.SeedRandomState`.
+    """
+    gsl_rng_set(RNG_set, seed)
+
 def HaloMassLoss_c(double m, double[:] M, double[:] z, double[:] delta_t):
     #accelerated loop for HaloMassLoss
     cdef:

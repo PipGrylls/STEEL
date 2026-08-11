@@ -1,6 +1,7 @@
 import sys
 import multiprocessing
 import os
+import zlib
 import pickle
 import numpy as np
 from Functions import Functions_c
@@ -512,7 +513,25 @@ def DarkMatterToStellarMass(DM, z, Paramaters, ScatterOn = False, Scatter = 0.00
     Raises: 
         N/A
     """
-    np.random.seed(int(str(time()).split('.')[1])+os.getpid())
+    # No reseeding here. This used to run
+    #     np.random.seed(int(str(time()).split('.')[1])+os.getpid())
+    # on *every* call, and this function is called once per
+    # (redshift, host, subhalo) bin -- ~700,000 times in a full run.
+    #
+    # `master` spelled the same line `int(time()+os.getpid()*1000)`,
+    # whose integer truncation left the seed constant for a whole
+    # wall-clock second: every bin evaluated within that second got the
+    # *identical* N-element scatter vector (1 distinct seed in 20,000
+    # calls, measured). `PipGrylls` takes the fractional part of
+    # `time()` instead, which does vary per call (20,000 distinct seeds
+    # in 20,000 calls) -- so the under-sampling is gone here, but the
+    # cost is the opposite failure: reseeding a Mersenne Twister from a
+    # low-entropy, monotonically-drifting integer ~700,000 times is not
+    # a defensible way to sample a Gaussian, and it still leaves the
+    # run unreproducible because there is no seed to set.
+    #
+    # The generator is now seeded once per worker process, in
+    # `Functions.SeedRandomState`, and drawn from continuously.
     Paramaters = Paramaters['AbnMtch']
     if Paramaters['z_Evo']:
         if Paramaters['Moster']:
@@ -678,7 +697,8 @@ def SHMR_RP17(z, log10Mvir):  # Best fitting model for the SHMR RP17.
 
 
 def DarkMatterToStellarMass_Alt(DarkMatter, Redshift, Paramaters, ScatterOn = False, Scatter = 0.001):
-    np.random.seed()
+    # `np.random.seed()` removed -- it reseeded from OS entropy on every
+    # call, discarding the run's seed. See DarkMatterToStellarMass.
     Paramaters = Paramaters['AbnMtch']
     z = Redshift
     if(Paramaters['Behroozi18']):
@@ -827,6 +847,45 @@ def Gauss_Scatt(X, Y, Scatt = 0.1):
     Y_Out, X_Out = np.histogram(DM_Out, bins = np.append(X, X[-1] + X_Bin)-(X_Bin/2), weights = Wt)
     return X_Out[:-1]+(X_Bin/2), Y_Out
 
+
+#==========================Random state=========================================
+#Default seed for a run. Override with the STEEL_SEED environment variable.
+DEFAULT_SEED = 42
+
+def SeedRandomState(RunParam = None, Seed = None):
+    """
+    Seed every generator the model draws from, once per worker process.
+
+    STEEL uses two independent generators: NumPy's global generator (the
+    abundance-matching and gas-mass scatter, in this module) and GSL's
+    taus generator (the star-formation-rate scatter, inside
+    Functions_c.Starformation_c). Neither was seeded deliberately --
+    NumPy's was reseeded from the wall clock on every call, and GSL's was
+    left on its fixed default, so every parallel worker drew the
+    *identical* star-formation scatter sequence.
+
+    Both are now seeded here. Under multiprocessing each run gets a
+    distinct but deterministic seed derived from its RunParam tuple, so
+    workers are independent of each other and the whole run reproduces
+    exactly from the same STEEL_SEED.
+
+    Args:
+        RunParam: the run tuple, mixed into the seed so parallel workers
+                  differ. None for a single-process run.
+        Seed: explicit base seed, overriding DEFAULT_SEED/STEEL_SEED.
+    Returns:
+        The seed actually used.
+    """
+    if Seed is None:
+        Seed = int(os.environ.get("STEEL_SEED", DEFAULT_SEED))
+    if RunParam is not None:
+        # zlib.crc32 rather than hash(): Python's string hash is salted
+        # per process (PYTHONHASHSEED), which would put us straight back
+        # to irreproducible runs.
+        Seed = (Seed + zlib.crc32(str(RunParam).encode())) % (2**32)
+    np.random.seed(Seed)
+    Functions_c.SeedRandomState(Seed)
+    return Seed
 
 #==========================Saving Output========================================
 OutputFolder = AbsFP+"/../Data/Model/Output/RunFiles/"
