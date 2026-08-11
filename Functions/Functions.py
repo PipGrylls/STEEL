@@ -193,6 +193,49 @@ def Get_HM_History(AnalyticHaloMass, AnalyticHaloMass_min, AnalyticHaloMass_max,
     return z[z_Cut_Bin:], AvaHaloMass_wz[z_Cut_Bin:]
     #Units are Mvir h-1
 
+class GridInterp2D:
+    """Bilinear interpolation on a regular (x, y) grid.
+
+    Replaces `scipy.interpolate.interp2d`, removed in SciPy 1.14, and
+    deliberately does **not** reproduce its call semantics.
+
+    `interp2d.__call__(x, y)` sorts both inputs and returns the full
+    `len(y) x len(x)` outer grid. Every caller in STEEL wants paired
+    evaluation instead, and `STEEL.py` recovered it by taking the
+    anti-diagonal of the grid:
+
+        Arr2D = HMF_fun(AvaHaloMass[z_bin:i, j], z[z_bin:i])
+        WeightList = np.diag(np.fliplr(Arr2D)) * ...
+
+    which only works because the halo-mass slice happens to be
+    monotonically decreasing while the redshift slice increases -- an
+    unstated precondition that would silently give wrong weights if
+    either ordering changed. This evaluates pointwise with NumPy
+    broadcasting, so `f(masses, redshifts)` pairs them elementwise,
+    `f(masses, z_scalar)` broadcasts, and the anti-diagonal trick is no
+    longer needed anywhere.
+
+    The result is always at least 1-D, so scalar calls that index `[0]`
+    keep working.
+    """
+
+    def __init__(self, x, y, values):
+        """values has shape (len(y), len(x)), as interp2d expected."""
+        self.x = np.asarray(x, dtype=float)
+        self.y = np.asarray(y, dtype=float)
+        self.values = np.asarray(values, dtype=float)
+        self._interp = inter.RegularGridInterpolator(
+            (self.y, self.x), self.values,
+            method="linear", bounds_error=False, fill_value=None,  # extrapolate
+        )
+
+    def __call__(self, x, y):
+        x_b, y_b = np.broadcast_arrays(np.asarray(x, dtype=float), np.asarray(y, dtype=float))
+        pts = np.column_stack((y_b.ravel(), x_b.ravel()))
+        out = self._interp(pts).reshape(x_b.shape)
+        return np.atleast_1d(out)
+
+
 #Makes the HMF interpolation function using HMF calc
 def Make_HMF_Interp():
     """
@@ -206,8 +249,20 @@ def Make_HMF_Interp():
     #the interpolation table (700 redshift steps of COLOSSUS massFunction
     #calls over 800 masses) was rebuilt and re-pickled on every import,
     #and the committed hmf_fun.pkl was never read.
-    if os.path.isfile(AbsFP+"/../Data/Model/Input/hmf_fun.pkl"):
-        HMF_fun = pickle.load(open(AbsFP+"/../Data/Model/Input/hmf_fun.pkl", 'rb'))
+    #The cache stores the interpolation *table*, not a pickled
+    #interpolator object.
+    #
+    #The previously-committed `hmf_fun.pkl` held a live
+    #`scipy.interpolate.interp2d` instance. That is unusable twice over:
+    #interp2d was removed in SciPy 1.14 so the pickle cannot be loaded at
+    #all there, and even between 1.8 and 1.13 the interpolator classes
+    #moved modules, so the pickle raises `AttributeError` across any
+    #version change. Storing three plain arrays and rebuilding the
+    #interpolator is portable and costs microseconds.
+    CachePath = AbsFP+"/../Data/Model/Input/hmf_table.npz"
+    if os.path.isfile(CachePath):
+        Cached = np.load(CachePath)
+        HMF_fun = GridInterp2D(Cached["log_m"], Cached["z"], Cached["dndlog10m"])
     else:
         #The mass and redshift range should be larger than the simulation
         #Mass
@@ -222,8 +277,8 @@ def Make_HMF_Interp():
             HMF_dndlog10m =  mass_function.massFunction(HMF_x, z_step, mdef = 'vir', model = 'despali16', q_out='dndlnM')*np.log(10)
             HMF_z = np.vstack((HMF_z, HMF_dndlog10m))
 
-        HMF_fun = inter.interp2d(np.log10(HMF_x), HMF_y, HMF_z)
-        pickle.dump(HMF_fun, open(AbsFP+"/../Data/Model/Input/hmf_fun.pkl", 'wb'))
+        HMF_fun = GridInterp2D(np.log10(HMF_x), HMF_y, HMF_z)
+        np.savez_compressed(CachePath, log_m=np.log10(HMF_x), z=HMF_y, dndlog10m=HMF_z)
         
         
     return HMF_fun # differential mass function h^3 Mpc^-3 dex-1
@@ -525,6 +580,17 @@ def DynamicalFriction(HostHaloMass, SatiliteHaloMass, Redshift, Paramaters):
 
 
 ##DarkMatterToStellarMassStart #moster 2013
+#No `@jit` here -- `PipGrylls` had already dropped it, and `master` had
+#not. It was a bare `@jit`, and this function takes `Paramaters`, a
+#Python dict, which numba cannot type, so it always fell back to object
+#mode and never accelerated anything; it only added compilation
+#overhead and a deprecation warning. numba 0.59 made bare `@jit` mean
+#`nopython=True`, at which point the same call raises
+#
+#    TypingError: non-precise type pyobject
+#    ... Cannot determine Numba type of <class 'dict'>
+#
+#and the function stops working entirely.
 def DarkMatterToStellarMass(DM, z, Paramaters, ScatterOn = False, Scatter = 0.001, Pairwise = True):
     """ 
     This funtion returns Stellar mass in log10 Msun, all arguments should be passed in simmilar cosmology (Planck 15 unless otherwise stated)

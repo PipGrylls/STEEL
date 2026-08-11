@@ -36,20 +36,20 @@ class SDSS_Plots:
         #Lorenzo File
         #Header = ["galcount", "z", "Vmaxwt", "MsMendSerExp", "AbsMag", "logReSerExp", "BT", "n_bulge", "newLcentsat", "NewMCentSat", "newMhaloL", "probaE", "probaEll", "probaS0", "probaSab", "probaScd", "TType", "AbsMagCent", "MsCent", "veldisp", "veldisperr"]
         #Loads SDSS
-        #df = pd.read_csv("./Bernardi_SDSS/new_catalog_Lorenzo.dat", header = None, names = Header, delim_whitespace = True, skiprows = 1)
+        #df = pd.read_csv("./Bernardi_SDSS/new_catalog_Lorenzo.dat", header = None, names = Header, sep = r"\s+", skiprows = 1)
         #fracper=0.724
         #Lorenzo = True
         
         #Lorenzo File sSFR inc
         Header = ["galcount", "z", "Vmaxwt", "MsMendSerExp", "AbsMag", "logReSerExp", "BT", "n_bulge", "newLcentsat", "NewMCentSat", "newMhaloL", "probaE", "probaEll", "probaS0", "probaSab", "probaScd", "TType", "AbsMagCent", "MsCent", "veldisp", "veldisperr", "AbsModel_newKcorr", "LCentSat", "raSDSS7", "decSDSS7", "Z", "sSFR", "FLAGsSFR", "MEDIANsSFR", "P16sSFR", "P84sSRF", "SFR", "FLAGSFR", "MEDIANSFR", "P16SFR", "P84SRF", "RA_SDSS", "DEC_SDSS", "Z_2", "Seperation"]
-        df = pd.read_csv(AbsPath +"/Data/Observational/Bernardi_SDSS/new_catalog_SFRs.dat", header = None, names = Header, delim_whitespace = True, skiprows = 1)
+        df = pd.read_csv(AbsPath +"/Data/Observational/Bernardi_SDSS/new_catalog_SFRs.dat", header = None, names = Header, sep = r"\s+", skiprows = 1)
         df['SerExpsSFR'] = df.apply(lambda row: row.SFR - row.MsMendSerExp, axis = 1) # Make a sSFR colum using the sersic exp photomotry
         fracper=0.724
         Lorenzo = True
         
         #Adds the cModel column
         Header = ["galcount", "finalflag", "z", "Vmaxwt", "MsMendSerExp", "MsMendCmodel", "AbsMag", "logReSerExp", "BT", "n_bulge", "newLCentSat", "NewMCentSat", "newMhaloL", "probaE", "probaEll", "probaS0", "probaSab", "probaScd", "TType", "P_S0", "veldisp", "veldisperr", "raSDSS7", "decSDSS7"]
-        df_new = pd.read_csv(AbsPath +"/Data/Observational/Lorenzo_SDSS/new_catalog_cModel.dat", header = None, names = Header, delim_whitespace = True, skiprows = 1)
+        df_new = pd.read_csv(AbsPath +"/Data/Observational/Lorenzo_SDSS/new_catalog_cModel.dat", header = None, names = Header, sep = r"\s+", skiprows = 1)
         df_cut = df_new[["galcount","MsMendCmodel"]]
         df = pd.merge(df, df_cut, on="galcount", how="inner")
         

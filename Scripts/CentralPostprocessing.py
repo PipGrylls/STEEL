@@ -18,7 +18,9 @@ from Scripts.Plots import SDSS_Plots
 from Functions import Functions as F
 from Functions import Functions_c as F_c
 from scipy import interpolate
-from scipy.integrate import cumtrapz
+# `cumtrapz` was removed in SciPy 1.14; `cumulative_trapezoid` is the
+# same function under its current name.
+from scipy.integrate import cumulative_trapezoid as cumtrapz
 from itertools import cycle
 from copy import copy
 from colossus.cosmology import cosmology
@@ -28,11 +30,29 @@ HMF_fun = F.Make_HMF_Interp() #N Mpc^-3 h^3 dex^-1, Args are (Mass, Redshift)
 h = Cosmo.h
 h_3 = h*h*h
 
-if "SDSS.pkl" in os.listdir(AbsPath+"/CentralPostprocessing"):
-    Add_SDSS = pickle.load(open(AbsPath+"/CentralPostprocessing/SDSS.pkl", 'rb'))
-else:
-    Add_SDSS = SDSS_Plots.SDSS_Plots(11.5,15,0.1) #pass this halomass:min, max, and binwidth for amting the SDSS plots
-    pickle.dump(Add_SDSS, open(AbsPath+"/CentralPostprocessing/SDSS.pkl", 'wb'))
+#The SDSS catalogue is loaded on first use, not at import.
+#
+#This used to run at module scope, so `import CentralPostprocessing`
+#read (or built, from `Data/Observational/`) the whole Bernardi SDSS
+#catalogue before any function in the file could be called. With no
+#observational data present -- which is the state of this repository --
+#the module could not be imported at all, so none of the post-processing
+#could be inspected, tested, or run against model output that needs no
+#data.
+_Add_SDSS = None
+
+def Add_SDSS():
+    """The SDSS comparison catalogue, built once on first use."""
+    global _Add_SDSS
+    if _Add_SDSS is None:
+        CachePath = "./Scripts/CentralPostprocessing/SDSS.pkl"
+        if os.path.isfile(CachePath):
+            _Add_SDSS = pickle.load(open(CachePath, 'rb'))
+        else:
+            #halomass min, max, binwidth
+            _Add_SDSS = SDSS_Plots.SDSS_Plots(11.5, 15, 0.1)
+            pickle.dump(_Add_SDSS, open(CachePath, 'wb'))
+    return _Add_SDSS
 
 #set plot paramaters here
 mpl.rcParams.update(mpl.rcParamsDefault)
@@ -122,7 +142,7 @@ Paramaters = \
 
 #Functions Required for making plots
 
-@jit#('double[:,:],double[:,:],double[:,:](double[:,:,:],double[:,:,:], double[:],double[:])')
+@jit(nopython=True)
 def JitLoop(SHMF_Entering, Mass_Ratio_Bins, z_step, t_step, Bin):
     m, n, o = np.shape(SHMF_Entering)
     Accreted_Above_Ratio = np.zeros((m, n))
@@ -135,7 +155,7 @@ def JitLoop(SHMF_Entering, Mass_Ratio_Bins, z_step, t_step, Bin):
             Accreted_Above_Ratio_dt[i,j] = np.sum(SHMF_Entering[i, j,Mass_Ratio_Bins[i,j]:])*Bin/t_step[i]
     return Accreted_Above_Ratio, Accreted_Above_Ratio_dz, Accreted_Above_Ratio_dt
 
-@jit#('double[:,:],double[:,:],double[:,:](double[:,:,:],double[:,:,:],double[:],double[:], double[:])')
+@jit(nopython=True)
 def JitLoop2(SHMF_Entering, Mass_Ratio_Bins, SatHaloMass, z_step, t_step, Bin):
     m, n, o = np.shape(SHMF_Entering)
     Accreted_Above_Ratio = np.zeros((m, n))
@@ -234,10 +254,13 @@ class PairFractionData:
 
     def Generate_SMF_interp(self):
         X, SMFs, SMF_bw = self.Return_Cent_SMF(0)
-        SMFs = pd.Series(SMFs).replace([np.inf, -np.inf], np.nan).interpolate().get_values().tolist()
+        SMFs = pd.Series(SMFs).replace([np.inf, -np.inf], np.nan).interpolate().to_numpy().tolist()
         for i in self.z:
-            SMFs = np.vstack((SMFs, pd.Series(self.Return_Cent_SMF(i)[1]).replace([np.inf, -np.inf], np.nan).interpolate().get_values().tolist()))
-        SMF_interp = interpolate.interp2d(X, np.insert(self.z, 0, 0), SMFs)
+            SMFs = np.vstack((SMFs, pd.Series(self.Return_Cent_SMF(i)[1]).replace([np.inf, -np.inf], np.nan).interpolate().to_numpy().tolist()))
+        #Paired/broadcast evaluation, not interp2d's sorted outer grid.
+        #Every call site here passes a mass array and a scalar redshift,
+        #which broadcasts identically. See Functions.GridInterp2D.
+        SMF_interp = F.GridInterp2D(X, np.insert(self.z, 0, 0), SMFs)
         return SMF_interp
     
     def Get_CND_Masses(self, Master_interp, M = 11, z = 0.1):
@@ -297,9 +320,20 @@ class PairFractionData:
                 input()
                 #"""
                 Total_Cent = np.sum(HMF_fun(self.AvaHaloMass[i,M_Cut_bin:M_Cut_bin_upper], self.z[i])*h_3*self.AvaHaloMassBins[i,M_Cut_bin:M_Cut_bin_upper])
-                PairFracTot.append(np.divide(Total_Pair, Total_Cent))
+                #Total_Cent = 1
+                #Total_Cent = len(self.AvaHaloMass[i,M_Cut_bin:M_Cut_bin_upper])
+                #`float(...)`, because `Total_Pair` picks up a length-1
+                #array from the halo-mass-function call while the `else`
+                #branch below appends a bare `np.nan`. The resulting
+                #ragged list built an object array with a
+                #VisibleDeprecationWarning on NumPy < 1.24 and raises
+                #outright from 1.24 on:
+                #   ValueError: setting an array element with a sequence.
+                #   The requested array has an inhomogeneous shape.
+                #Both branches now append a plain float.
+                PairFracTot.append(float(np.divide(Total_Pair, Total_Cent)))
             else:
-                PairFracTot.append(np.nan)
+                PairFracTot.append(float("nan"))
 
         return self.z[1:], PairFracTot[1:], M_L, M_U
     
@@ -1697,7 +1731,7 @@ if __name__ == "__main__":
                                 'probaS0','probaSab','probaScd','TType','P_S0',
                               'veldisp','veldisperr','raSDSS7','decSDSS7']
 
-        df = pd.read_csv('Data/Observational/Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, delim_whitespace = True)
+        df = pd.read_csv('Data/Observational/Bernardi_SDSS/new_catalog_morph_flag_rtrunc.dat', header = None, names = Header, skiprows = 1, sep = r"\s+")
         goodness_cut = (df.finalflag==3 ) | (df.finalflag==5) | (df.finalflag==1)
 
         df = df[goodness_cut]
@@ -3071,8 +3105,8 @@ if __name__ == "__main__":
                         No_Leg = False
                     else:
                         No_Leg = True
-                    A = Add_SDSS.sSFR_Plot(l, u, SubPlots[x], No_Leg = No_Leg)
-                    B = Add_SDSS.sSFR_Plot_Cen(l, u, SubPlots[x], No_Leg = No_Leg)
+                    A = Add_SDSS().sSFR_Plot(l, u, SubPlots[x], No_Leg = No_Leg)
+                    B = Add_SDSS().sSFR_Plot_Cen(l, u, SubPlots[x], No_Leg = No_Leg)
                 if x==1:
                     if len(Tdyn_Factors) == 1:
                         Label = "Satellites:\nDynamical Quenching"
