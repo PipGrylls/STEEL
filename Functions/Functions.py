@@ -83,7 +83,7 @@ def StarFormationRate(SM, z, Parameters, ScatterOn =True, Quenching = False, P_e
     if Quenching:
         randints = np.random.random(size = np.shape(SM)) 
         log10MperY[randints<P_ellip] = SM[randints<P_ellip] - 12 
-    if ScatterOn:
+    if ScatterOn and SCATTER_ON:
         log10MperY = np.random.normal(log10MperY,0.2) # scatter in the MS
 
     return log10MperY
@@ -108,7 +108,10 @@ def GetGasMass(SM, z, HM, Parameters):
     #New relation using M*-SFR-Mgas proxy
     GasMass = 9.22 + 0.81*StarFormationRate(SM, z, Parameters, ScatterOn = False)
 
-    GasMass = np.random.normal(GasMass,0.2)
+    if SCATTER_ON:
+        GasMass = np.random.normal(GasMass,0.2)
+    else:
+        GasMass = np.asarray(GasMass, dtype = float)
 
     #Controls the maximum amount of mass in a DMHalo
     MaxGas = np.full_like(GasMass, GetMaxGasMass(HM))
@@ -387,7 +390,7 @@ def StarFormation(SM_Sat, TTZ0, Tdyf, z_infall, z_return, z_all, HM_infall, AvaH
     MaxGas = np.power(10, GetGasMass(SM_Sat, z_all[z_bin_i], HM_infall, Paramaters))
     
     #Call the accelerated Cython Function
-    M_out, M_dot, SFH, GMLR = Functions_c.Starformation_c(SM_Sat, t, d_t, z_range, MaxGas, T_quench, Tau_f, StripFactor = StripFactor, z_infall = z_infall, SFR_Model = str(SFR_Model), Stripping = Stripping)
+    M_out, M_dot, SFH, GMLR = Functions_c.Starformation_c(SM_Sat, t, d_t, z_range, MaxGas, T_quench, Tau_f, StripFactor = StripFactor, z_infall = z_infall, SFR_Model = str(SFR_Model), Stripping = Stripping, Scatter_On = 1 if SCATTER_ON else 0)
     #Calculate the Specific Star formation Rate
     sSFR = np.log10(np.divide(np.array(SFH), d_t*np.power(10, 9)*np.power(10, np.array(M_out))))
     
@@ -656,7 +659,7 @@ def DarkMatterToStellarMass(DM, z, Paramaters, ScatterOn = False, Scatter = 0.00
             DM = np.full((np.size(z), np.size(DM)), DM)
         SM =  np.power(10, DM) * (2*N*np.power( (np.power(np.power(10,DM-M), -b) + np.power(np.power(10,DM-M), g)), -1))
     #Adding Scatter
-    if(ScatterOn):
+    if ScatterOn and SCATTER_ON:
         Scatter_Arr = np.random.normal(scale = Scatter, size = np.shape(SM))
         return( np.log10(SM) + Scatter_Arr)
     else:
@@ -714,7 +717,7 @@ def DarkMatterToStellarMass_Alt(DarkMatter, Redshift, Paramaters, ScatterOn = Fa
         M_Star = log10_M+(e_ - Part1 + gamma_*Part2)
 
 
-        if ScatterOn:
+        if ScatterOn and SCATTER_ON:
             Scatter = np.random.normal(scale = Scatter, size = np.shape(M_Star))
             return M_Star + Scatter
         else:
@@ -760,8 +763,8 @@ def DarkMatterToStellarMass_Alt(DarkMatter, Redshift, Paramaters, ScatterOn = Fa
         Part3 = f(0)
 
         M_Star = Part1 + Part2 - Part3
-        Scatter = np.random.normal(scale = Scatter, size = np.shape(M_Star))
-        if ScatterOn:
+        if ScatterOn and SCATTER_ON:
+            Scatter = np.random.normal(scale = Scatter, size = np.shape(M_Star))
             return M_Star + Scatter
         else:
             return M_Star
@@ -817,6 +820,19 @@ def Gauss_Scatt(X, Y, Scatt = 0.1):
 #==========================Random state=========================================
 #Default seed for a run. Override with the STEEL_SEED environment variable.
 DEFAULT_SEED = 42
+
+#Master switch for every stochastic source in the model: the
+#abundance-matching scatter, the star-formation-rate scatter and the
+#gas-mass scatter. Set STEEL_SCATTER=0 for the validation harness's
+#*deterministic mode*, in which the model is a pure function of its grid
+#and can be compared against the Rust port arithmetic-for-arithmetic.
+#
+#This did not previously exist even in principle. Starformation_c has a
+#`Scatter_On` parameter, but GetGasMass below applied
+#`np.random.normal(GasMass, 0.2)` unconditionally -- it has no ScatterOn
+#argument, unlike its sibling StarFormationRate -- so one source stayed
+#live no matter what. See docs/PORT_CORRECTIONS.md A7.
+SCATTER_ON = os.environ.get("STEEL_SCATTER", "1") != "0"
 
 def SeedRandomState(RunParam = None, Seed = None):
     """
