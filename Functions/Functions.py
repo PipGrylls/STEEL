@@ -333,13 +333,22 @@ def StarFormation(SM_Sat, TTZ0, Tdyf, z_infall, z_return, z_all, HM_infall, AvaH
     
     z_bin_i = np.digitize(z_infall, z_all)
     z_bin_r = np.digitize(z_return, z_all)
-    z_range = z_all[z_bin_i:z_bin_r]
+    #`z_bin_r + 1`, not `z_bin_r`. The window has to include the return
+    #redshift itself: Starformation_c writes M_out[k,i+1] only for
+    #i < N-1, so with N grid points it applies N-1 steps and its last
+    #column sits one step *short* of z_return. Slicing to z_bin_r gave
+    #N = i - z_bin points and therefore a track ending at z[z_bin+1],
+    #while every accumulator in STEEL.py labelled those columns as if
+    #they reached z[z_bin]. The satellite never received its final
+    #timestep of evolution, and the redshift attached to every column
+    #was off by one step.
+    z_range = z_all[z_bin_i:z_bin_r+1]
     t = Cosmo.lookbackTime(z_all)
     d_t = t[1:] - t[:-1]
     d_t = np.insert(d_t, -1, d_t[-1])
-    d_t = np.abs(d_t[z_bin_i:z_bin_r])
-    
-    t = t[z_bin_i:z_bin_r] 
+    d_t = np.abs(d_t[z_bin_i:z_bin_r+1])
+
+    t = t[z_bin_i:z_bin_r+1]
     
     if Stripping: Stripping = 1 #change to int for cython
     else:

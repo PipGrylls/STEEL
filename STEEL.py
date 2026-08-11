@@ -380,15 +380,26 @@ def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
                         MassBefore = np.mean(np.power(10, SM_Sat))
                         #print(SM_Sat)
                         if SF and Stripping:
-                            StripFactor = F.StellarMassLoss(AvaHaloMass[i,j], SatHaloMass[k], SM_Sat.T, np.flip(Time_To_0[z_bin:i]), Tdyf, factor_only = True) #Mass Msun
+                            StripFactor = F.StellarMassLoss(AvaHaloMass[i,j], SatHaloMass[k], SM_Sat.T, np.flip(Time_To_0[z_bin:i+1]), Tdyf, factor_only = True) #Mass Msun
                             SM_Sat, sSFR = F.StarFormation(SM_Sat, TTZ0, Tdyf, z[i], z[z_bin], z, SatHaloMass[k], AvaHaloMass[z_bin:i,j], Paramaters, StripFactor = StripFactor, Stripping = True) #New Stellar Mass log10 Msun and sSFR log10 yr-1 of galaxies (shape (i-z_bin), i)
                         elif SF:
                             SM_Sat, sSFR = F.StarFormation(SM_Sat, TTZ0, Tdyf, z[i], z[z_bin], z, SatHaloMass[k], AvaHaloMass[z_bin:i,j], Paramaters) #New Stellar Mass log10 Msun and sSFR log10 yr-1 of galaxies (shape (i-z_bin), i)
                         elif Stripping:
-                            SM_Sat = F.StellarMassLoss(AvaHaloMass[i,j], SatHaloMass[k], SM_Sat, np.flip(Time_To_0[z_bin:i]), Tdyf).T #Mass Msun                    
+                            SM_Sat = F.StellarMassLoss(AvaHaloMass[i,j], SatHaloMass[k], SM_Sat, np.flip(Time_To_0[z_bin:i+1]), Tdyf).T #Mass Msun
 
-                        #saving the Total mass made in each scenario for galaxies that have merged
+                        #SM_Sat is now (N, i-z_bin+1): column p is at redshift
+                        #index i-p, so column 0 is infall and column -1 is the
+                        #return epoch z[z_bin]. SM_Window re-presents the
+                        #i-z_bin *steps after* infall in ascending redshift-index
+                        #order, so SM_Window[m] is the satellite at z[z_bin+m].
+                        #That is the ordering every accumulator below slices
+                        #with [z_bin:i], and it is what the old np.flipud calls
+                        #were reconstructing (one step out) from the short
+                        #window.
                         if (Stripping or SF):
+                            SM_Window = np.flipud(SM_Sat.T)[:-1]
+
+                            #saving the Total mass made in each scenario for galaxies that have merged
                             MassAfter = np.mean(np.power(10, SM_Sat[:,-1]))
                             bin_ = HistogramBin(np.log10(MassBefore), Surviving_Sat_SMF_MassRange)
                             if bin_ != -1 and z_Merge_Bin != -1:
@@ -431,8 +442,8 @@ def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
                             Wt_Corr = np.divide(histogram1d(SM_Sat, SatM_len, (SatM_min, SatM_max)), N) #Weight per bin from scatter in SM-HM
                             Wt_Corr = np.full((len(Surviving_Sat_SMF_Weighting_Totals_highz[z_bin:i]), len(Wt_Corr)), Wt_Corr)
                         else:                           
-                            Counterpart = np.multiply(np.ones_like(SM_Sat), np.arange(z_bin,i,1)).T                            
-                            Wt_Corr = np.flipud(np.divide(histogram2d(Counterpart.flatten(), SM_Sat.T.flatten(), (i-z_bin,SatM_len), ((z_bin, i),(SatM_min, SatM_max))), N))
+                            Counterpart = np.multiply(np.ones_like(SM_Window).T, np.arange(z_bin,i,1)).T
+                            Wt_Corr = np.divide(histogram2d(Counterpart.flatten(), SM_Window.flatten(), (i-z_bin,SatM_len), ((z_bin, i),(SatM_min, SatM_max))), N)
                         #SMF
                         Surviving_Sat_SMF_Weighting_Totals_highz[z_bin:i] = Surviving_Sat_SMF_Weighting_Totals_highz[z_bin:i] + np.divide(np.multiply(WeightList*h_3, Wt_Corr.T).T, SatBin) #N Mpc^-3 dex-1
                         #Fractional
@@ -454,8 +465,8 @@ def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
                         else:                           
                             #Counterpart = np.multiply(np.ones_like(SM_Sat), z[z_bin:i]).T                            
                             #Wt_Corr = np.flipud(np.divide(np.histogram2d(Counterpart.flatten(), SM_Sat.T.flatten(), bins=(z[z_bin:i+1], Surviving_Sat_SMF_MassRange), normed = False)[0], N))
-                            Counterpart = np.multiply(np.ones_like(SM_Sat), np.arange(z_bin,i,1)).T                            
-                            Wt_Corr = np.flipud(np.divide(histogram2d(Counterpart.flatten(), SM_Sat.T.flatten(), (i-z_bin,SatM_len), ((z_bin, i),(SatM_min, SatM_max))), N))
+                            Counterpart = np.multiply(np.ones_like(SM_Window).T, np.arange(z_bin,i,1)).T
+                            Wt_Corr = np.divide(histogram2d(Counterpart.flatten(), SM_Window.flatten(), (i-z_bin,SatM_len), ((z_bin, i),(SatM_min, SatM_max))), N)
                         #SMF
                         Sat_SMHM[z_bin:i,k] = Sat_SMHM[z_bin:i,k] + np.divide(np.multiply(WeightList*h_3, Wt_Corr.T).T, SatBin) #N Mpc^-3 dex-1
                         Sat_SMHM_Host[z_bin:i,j] = Sat_SMHM_Host[z_bin:i,j] + np.divide(np.multiply(WeightList*h_3, Wt_Corr.T).T, SatBin) #N Mpc^-3 dex-1
@@ -512,13 +523,12 @@ def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
                                 Wt_Corr = np.divide(histogram1d(SM_Sat, SatM_len, (SatM_min, SatM_max)), N) #Weight per bin from scatter in SM-HM
                                 Wt_Corr = np.full((PF_len, len(Wt_Corr)), Wt_Corr) #matching array sizes
                             else:
-                                #SM_Sat is (N, i-z_bin); column w corresponds to
-                                #redshift index z_bin + (i-z_bin-1-w), the same
-                                #reversed ordering the high-z blocks above undo
-                                #with np.flipud.
-                                SM_Window = np.flipud(SM_Sat.T)[PF_bin_l:PF_bin_u]
-                                Counterpart = np.multiply(np.ones_like(SM_Window).T, np.arange(PF_bin_l, PF_bin_u, 1)).T
-                                Wt_Corr = np.divide(histogram2d(Counterpart.flatten(), SM_Window.flatten(), (PF_len, SatM_len), ((PF_bin_l, PF_bin_u),(SatM_min, SatM_max))), N)
+                                #SM_Window[m] is the satellite at redshift index
+                                #z_bin+m, so this is just the pair-separation
+                                #sub-window of it.
+                                SM_Pair = SM_Window[PF_bin_l:PF_bin_u]
+                                Counterpart = np.multiply(np.ones_like(SM_Pair).T, np.arange(PF_bin_l, PF_bin_u, 1)).T
+                                Wt_Corr = np.divide(histogram2d(Counterpart.flatten(), SM_Pair.flatten(), (PF_len, SatM_len), ((PF_bin_l, PF_bin_u),(SatM_min, SatM_max))), N)
 
                             Corr = np.divide(np.multiply(WeightList_SubOnly[PF_bin_l:PF_bin_u], Wt_Corr.T).T, SatBin)#N dex-1 per halo
                             Pair_Frac[z_bin+PF_bin_l:z_bin+PF_bin_u,j] = Pair_Frac[z_bin+PF_bin_l:z_bin+PF_bin_u,j] + Corr#N dex-1 per halo
