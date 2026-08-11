@@ -1,0 +1,38 @@
+# p3-pft-M_PFT1 -- generated from configs/published_runs.toml.
+# Do not edit by hand; edit the table and re-run
+# Scripts/Validation/make_runfiles.py.
+# Published as: ['1.0', True, True, True, 'CE', 'M_PFT1']
+#   figure: P3 fig:PairFracSystematic
+
+[merger_time]
+dynamical_time_factor = 1.0
+redshift_correction = false
+
+[smhm]
+model = "moster_form"
+preset = "override_z"
+z_evo = true
+legacy_name = "M_PFT1"
+
+[smhm.params]
+m10 = 11.75
+shmnorm10 = 0.032
+beta10 = 1.5
+gamma10 = 0.56
+m11 = 0.6
+shmnorm11 = -0.014
+beta11 = -0.7
+gamma11 = 0.08
+scatter = 0.15
+
+[sfr]
+model = "tomczak_form"
+preset = "ce"
+
+[run]
+log_m_min = 11.0
+log_m_max = 16.6
+log_m_bin = 0.1
+star_formation = true
+pre_processing = false
+stellar_stripping = true

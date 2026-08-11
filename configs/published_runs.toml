@@ -1,0 +1,393 @@
+# Published STEEL run configurations
+#
+# Which model configuration produced which published figure. This
+# mapping did not exist anywhere before: `STEEL.py`'s `Tdyn_Factors`
+# list is a pile of commented-out lines that does not correspond to any
+# paper, so the configurations here are recovered from the plotting and
+# post-processing scripts that consumed the outputs, and cross-checked
+# against the thesis text. Every entry names its `source`.
+#
+# The run tuple is `STEEL.py`'s `Factor_Stripping_SF`:
+#
+#   (f_tdyn, Stripping, SF, z_evo, SFR_Model, AbnMtch)
+#
+# and the output directory is those six fields joined with underscores,
+# `RunParam_<f0>_<f1>_..._`, which is what both implementations write to
+# and what the plotting scripts read from.
+#
+# ---------------------------------------------------------------------
+# A caveat that applies to every Paper 1 entry
+# ---------------------------------------------------------------------
+# Paper 1 predates the current tuple format and its tuples **cannot be
+# replayed by the committed `STEEL.py` without adaptation**:
+#
+#   * field 0 (`f_tdyn`) is a float there, e.g. `1.0` / `np.inf`, but
+#     `STEEL.py:216` does `Factor_Stripping_SF[0][-4:] == "_Alt"`, which
+#     raises `TypeError` on a float. It must be a string: `"1.0"`.
+#   * field 4 is the literal `True` in the no-star-formation runs, but
+#     `STEEL.py:229` does `Factor_Stripping_SF[4][-3:] == "_PP"`, which
+#     raises `TypeError` on a bool. It must be a string.
+#
+# Field 4 is genuinely unused when `SF = False` (it reaches
+# `Paramaters['SFR_Model']`, read only inside `StarFormation`, which is
+# only called when `SF` is true), so substituting a placeholder changes
+# no number. It does change the output directory name — hence both
+# `tuple_published` and `tuple_runnable` below, and `dir` always
+# reflects `tuple_runnable`.
+#
+# Two features the published runs need that the Rust port did not
+# originally expose, both added while building this table:
+#
+#   * `Paramaters['PreProcessing']` -- the `_PP` suffix on the SFR model
+#     field. Four Paper 2 entries use it. It pre-quenches a
+#     mass-dependent prefix of each satellite's realization ensemble at
+#     infall. The `_PP` also has to reach the output directory name, or
+#     a pre-processed run silently overwrites its non-pre-processed twin.
+#   * `[smhm] preset = "override_z"` with explicit `[smhm.params]`, for
+#     Paper 3's fourteen single-coefficient SMHM perturbations, plus a
+#     `legacy_name` field so each lands in its own directory rather than
+#     all fourteen deriving `Override_z`.
+#
+# `f_tdyn = inf` needs no special handling in either implementation:
+# the dynamical friction time becomes infinite, `Tdyf < TTZ0` is never
+# true, nothing merges, the stripping time fraction is 0 and the pair
+# separation never shrinks. Verified in both — see `notes` on
+# `p1-tdyn-inf`.
+
+[meta]
+grid = "AnalyticHaloMass 11.0 -> 16.6 in 0.1 dex, Min_Corr = -1, HighRes = False"
+sm_cuts = [9.0, 9.5, 10.0, 10.5, 11.0, 11.45]
+n_realizations = 5
+note = """The published runs used the code as committed, i.e. before the
+corrections in docs/PORT_CORRECTIONS.md. Reproducing a published figure
+therefore means running the py-as-is leg; the py-corrected and rs-steel
+legs answer a different question."""
+
+
+# =====================================================================
+# Paper 1 -- Grylls+2019, "A statistical semi-empirical model:
+# satellite galaxies in groups and clusters" (arXiv 1812.00015).
+# Thesis Chapter 3.
+#
+# Source: Scripts/Plots/Plots_Paper1.py, __main__ block.
+# =====================================================================
+
+[[run]]
+id = "p1-tdyn-0.5"
+paper = "P1"
+figures = ["P1 Fig7", "P1 Fig8", "Thesis fig:SMF_Tdyn", "Thesis fig:Sat_Dist_Tdyn"]
+tuple_published = [0.5, false, false, true, true, "G18"]
+tuple_runnable = ["0.5", false, false, true, "CE", "G18"]
+dir = "RunParam_0.5_False_False_True_CE_G18_"
+source = "Scripts/Plots/Plots_Paper1.py:526"
+notes = "Frozen model: no stripping, no star formation. Shortest merging timescale of the f_tdyn scan."
+
+[[run]]
+id = "p1-tdyn-1.0"
+paper = "P1"
+figures = ["P1 Fig5", "P1 Fig6", "P1 Fig7", "P1 Fig8", "Thesis fig:SMF_Tdyn", "Thesis fig:Sat_Dist_Tdyn"]
+tuple_published = [1.0, false, false, true, true, "G18"]
+tuple_runnable = ["1.0", false, false, true, "CE", "G18"]
+dir = "RunParam_1.0_False_False_True_CE_G18_"
+source = "Scripts/Plots/Plots_Paper1.py:519,526"
+notes = "The reference model. f_tdyn = 1 is the value pure N-body simulations suggest, and the thesis concludes it gives overall good agreement without extra satellite physics."
+
+[[run]]
+id = "p1-tdyn-2.5"
+paper = "P1"
+figures = ["P1 Fig7", "P1 Fig8", "Thesis fig:SMF_Tdyn", "Thesis fig:Sat_Dist_Tdyn"]
+tuple_published = [2.5, false, false, true, true, "G18"]
+tuple_runnable = ["2.5", false, false, true, "CE", "G18"]
+dir = "RunParam_2.5_False_False_True_CE_G18_"
+source = "Scripts/Plots/Plots_Paper1.py:526"
+
+[[run]]
+id = "p1-tdyn-inf"
+paper = "P1"
+figures = ["P1 Fig5", "P1 Fig6", "Thesis fig:AccretionTime (left panel)"]
+tuple_published = ["inf", false, false, true, true, "G18"]
+tuple_runnable = ["inf", false, false, true, "CE", "G18"]
+dir = "RunParam_inf_False_False_True_CE_G18_"
+source = "Scripts/Plots/Plots_Paper1.py:519"
+notes = """Satellites never merge -- the theoretical maximum satellite
+number density. Verified end to end on the reduced validation grid:
+rs-steel gives 3.22247e-02 integrated surviving satellites and py-steel
+3.22543e-02 (0.09% apart), both with zero mergers and zero pairs, and
+2.15x the f_tdyn = 1.0 total. Neither implementation needed a code
+change to support it."""
+
+[[run]]
+id = "p1-noevo-tdyn-1.0"
+paper = "P1"
+figures = ["P1 Fig5", "P1 Fig6"]
+tuple_published = [1.0, false, false, false, true, "G18"]
+tuple_runnable = ["1.0", false, false, false, "CE", "G18"]
+dir = "RunParam_1.0_False_False_False_CE_G18_"
+source = "Scripts/Plots/Plots_Paper1.py:519"
+notes = "z_evo = False: the SMHM relation is held at its z = 0.1 form rather than evolving."
+
+[[run]]
+id = "p1-noevo-tdyn-inf"
+paper = "P1"
+figures = ["P1 Fig5", "P1 Fig6"]
+tuple_published = ["inf", false, false, false, true, "G18"]
+tuple_runnable = ["inf", false, false, false, "CE", "G18"]
+dir = "RunParam_inf_False_False_False_CE_G18_"
+source = "Scripts/Plots/Plots_Paper1.py:519"
+
+[[run]]
+id = "p1-sf-strip-t16"
+paper = "P1"
+figures = ["P1 Fig9", "P1 Fig10", "P1 Fig11", "P1 Fig12"]
+tuple_published = [1.0, true, true, true, "T16", "G18"]
+tuple_runnable = ["1.0", true, true, true, "T16", "G18"]
+dir = "RunParam_1.0_True_True_True_T16_G18_"
+source = "Scripts/Plots/Plots_Paper1.py:535,545"
+notes = "Star formation + stellar stripping, Tomczak+2016 main sequence. Field 0 still needs quoting."
+
+[[run]]
+id = "p1-sf-strip-s16"
+paper = "P1"
+figures = ["P1 Fig9", "P1 Fig10", "P1 Fig11", "P1 Fig12"]
+tuple_published = [1.0, true, true, true, "S16", "G18"]
+tuple_runnable = ["1.0", true, true, true, "S16", "G18"]
+dir = "RunParam_1.0_True_True_True_S16_G18_"
+source = "Scripts/Plots/Plots_Paper1.py:535,545"
+notes = "Schreiber-form main sequence -- affected by correction A1 (the inverted clamp). Will not reproduce its published figure once corrected; that is the point of the three-way comparison."
+
+[[run]]
+id = "p1-sf-strip-ce"
+paper = "P1"
+figures = ["P1 Fig9", "P1 Fig10", "P1 Fig11", "P1 Fig12", "Thesis fig:SMF_SF_Strip", "Thesis fig:Sat_Dist_SF_Strip"]
+tuple_published = [1.0, true, true, true, "CE", "G18"]
+tuple_runnable = ["1.0", true, true, true, "CE", "G18"]
+dir = "RunParam_1.0_True_True_True_CE_G18_"
+source = "Scripts/Plots/Plots_Paper1.py:535,545"
+notes = "The CE (Grylls+2019 continuity) main sequence, used for the thesis Ch. 3 star-formation/stripping comparison."
+
+
+# =====================================================================
+# Paper 2 -- Grylls+2020, galaxy growth (arXiv 1910.08417).
+# Thesis Chapter 4.
+#
+# Source: Scripts/CentralPostprocessing.py:367-370, which builds three
+# named suites and passes them to the Figures/Paper2/* plot blocks.
+# =====================================================================
+
+[[run]]
+id = "p2-evo-frozen"
+paper = "P2"
+suite = "Evo_Factors"
+figures = ["P2 SMF", "P2 SatelliteAccretion", "P2 SSFR"]
+tuple_published = ["1.0", false, false, true, "CE", "G19_SE"]
+tuple_runnable = ["1.0", false, false, true, "CE", "G19_SE"]
+dir = "RunParam_1.0_False_False_True_CE_G19_SE_"
+source = "Scripts/CentralPostprocessing.py:368"
+notes = "Reference frozen model on the PyMorph (Sersic-Exponential) SMHM relation."
+
+[[run]]
+id = "p2-evo-sf"
+paper = "P2"
+suite = "Evo_Factors"
+figures = ["P2 SMF", "P2 SatelliteAccretion", "P2 SSFR"]
+tuple_published = ["1.0", false, true, true, "CE", "G19_SE"]
+tuple_runnable = ["1.0", false, true, true, "CE", "G19_SE"]
+dir = "RunParam_1.0_False_True_True_CE_G19_SE_"
+source = "Scripts/CentralPostprocessing.py:368"
+
+[[run]]
+id = "p2-evo-sf-strip"
+paper = "P2"
+suite = "Evo_Factors"
+figures = ["P2 SMF", "P2 SatelliteAccretion", "P2 SSFR", "P2 GalaxyMergerRate", "P2 GalaxyMorphologies"]
+tuple_published = ["1.0", true, true, true, "CE", "G19_SE"]
+tuple_runnable = ["1.0", true, true, true, "CE", "G19_SE"]
+dir = "RunParam_1.0_True_True_True_CE_G19_SE_"
+source = "Scripts/CentralPostprocessing.py:368"
+notes = "Affected by corrections B1 (pair fractions were zero), A2 (window) and A3 (SFH units)."
+
+[[run]]
+id = "p2-strip-only"
+paper = "P2"
+suite = "cMod_Factors"
+figures = ["P2 SatelliteAccretion (lower limit)"]
+tuple_published = ["1.0", true, false, true, "CE", "G19_cMod"]
+tuple_runnable = ["1.0", true, false, true, "CE", "G19_cMod"]
+dir = "RunParam_1.0_True_False_True_CE_G19_cMod_"
+source = "Scripts/CentralPostprocessing.py:367"
+notes = "Stripping with star formation off -- the accretion lower limit described in thesis Ch. 4."
+
+[[run]]
+id = "p2-cmod-frozen"
+paper = "P2"
+suite = "cMod_Factors"
+tuple_published = ["1.0", false, false, true, "CE", "G19_cMod"]
+tuple_runnable = ["1.0", false, false, true, "CE", "G19_cMod"]
+dir = "RunParam_1.0_False_False_True_CE_G19_cMod_"
+source = "Scripts/CentralPostprocessing.py:367"
+notes = "cmodel (de Vaucouleurs) photometry variant of the SMHM relation."
+
+[[run]]
+id = "p2-cmod-sf-pp"
+paper = "P2"
+suite = "cMod_Factors"
+tuple_published = ["1.0", false, true, true, "CE_PP", "G19_cMod"]
+tuple_runnable = ["1.0", false, true, true, "CE_PP", "G19_cMod"]
+dir = "RunParam_1.0_False_True_True_CE_PP_G19_cMod_"
+source = "Scripts/CentralPostprocessing.py:367"
+notes = "`_PP` suffix sets Paramaters['PreProcessing'] = True, which pre-quenches a mass-dependent fraction of the ensemble at infall."
+
+[[run]]
+id = "p2-cmod-sf-strip-pp"
+paper = "P2"
+suite = "cMod_Factors"
+tuple_published = ["1.0", true, true, true, "CE_PP", "G19_cMod"]
+tuple_runnable = ["1.0", true, true, true, "CE_PP", "G19_cMod"]
+dir = "RunParam_1.0_True_True_True_CE_PP_G19_cMod_"
+source = "Scripts/CentralPostprocessing.py:367"
+
+[[run]]
+id = "p2-dpl-frozen"
+paper = "P2"
+suite = "DPL_Factors"
+tuple_published = ["1.0", false, false, true, "G19_DPL", "G19_SE"]
+tuple_runnable = ["1.0", false, false, true, "G19_DPL", "G19_SE"]
+dir = "RunParam_1.0_False_False_True_G19_DPL_G19_SE_"
+source = "Scripts/CentralPostprocessing.py:369"
+
+[[run]]
+id = "p2-dpl-sf"
+paper = "P2"
+suite = "DPL_Factors"
+tuple_published = ["1.0", false, true, true, "G19_DPL", "G19_SE"]
+tuple_runnable = ["1.0", false, true, true, "G19_DPL", "G19_SE"]
+dir = "RunParam_1.0_False_True_True_G19_DPL_G19_SE_"
+source = "Scripts/CentralPostprocessing.py:369"
+
+[[run]]
+id = "p2-dpl-sf-strip"
+paper = "P2"
+suite = "DPL_Factors"
+tuple_published = ["1.0", true, true, true, "G19_DPL", "G19_SE"]
+tuple_runnable = ["1.0", true, true, true, "G19_DPL", "G19_SE"]
+dir = "RunParam_1.0_True_True_True_G19_DPL_G19_SE_"
+source = "Scripts/CentralPostprocessing.py:369"
+
+[[run]]
+id = "p2-dpl-tdyn-0.8"
+paper = "P2"
+suite = "DPL_Factors"
+tuple_published = ["0.8", true, true, true, "G19_DPL", "G19_SE"]
+tuple_runnable = ["0.8", true, true, true, "G19_DPL", "G19_SE"]
+dir = "RunParam_0.8_True_True_True_G19_DPL_G19_SE_"
+source = "Scripts/CentralPostprocessing.py:369"
+notes = "The f_tdyn = 0.8/1.2 pair is a merging-timescale systematic, distinct from Paper 1's 0.5/1.0/2.5 scan."
+
+[[run]]
+id = "p2-dpl-tdyn-0.8-pp"
+paper = "P2"
+suite = "DPL_Factors"
+tuple_published = ["0.8", true, true, true, "G19_DPL_PP", "G19_SE"]
+tuple_runnable = ["0.8", true, true, true, "G19_DPL_PP", "G19_SE"]
+dir = "RunParam_0.8_True_True_True_G19_DPL_PP_G19_SE_"
+source = "Scripts/CentralPostprocessing.py:369"
+
+[[run]]
+id = "p2-dpl-tdyn-1.2"
+paper = "P2"
+suite = "DPL_Factors"
+tuple_published = ["1.2", true, true, true, "G19_DPL", "G19_SE"]
+tuple_runnable = ["1.2", true, true, true, "G19_DPL", "G19_SE"]
+dir = "RunParam_1.2_True_True_True_G19_DPL_G19_SE_"
+source = "Scripts/CentralPostprocessing.py:369"
+
+[[run]]
+id = "p2-dpl-tdyn-1.2-pp"
+paper = "P2"
+suite = "DPL_Factors"
+tuple_published = ["1.2", true, true, true, "G19_DPL_PP", "G19_SE"]
+tuple_runnable = ["1.2", true, true, true, "G19_DPL_PP", "G19_SE"]
+dir = "RunParam_1.2_True_True_True_G19_DPL_PP_G19_SE_"
+source = "Scripts/CentralPostprocessing.py:369"
+
+
+# =====================================================================
+# Paper 3 -- galaxy pairs (arXiv 2001.06017). Thesis Chapter 5.
+#
+# Paper 3 is a systematics study: it perturbs one coefficient of the
+# SMHM relation at a time and reads off the effect on the pair fraction.
+# The variants are `AbnMtch['PFT'] = True` plus exactly one of the
+# fourteen `*_PFT*` flags, each a single-coefficient offset from a
+# common base (Functions/Functions.py:611-638):
+#
+#   base: M10 = 12.0, N10 = 0.032, beta10 = 1.5, gamma10 = 0.56
+#         M11 =  0.6, N11 = -0.014, beta11 = -0.7, gamma11 = 0.08
+#         scatter = 0.15
+#
+# The variant names appear only in the commented-out `*_Factors` lists
+# at Scripts/CentralPostprocessing.py:362-366, so which figure used
+# which is inferred from thesis Ch. 5 fig:PairFracSystematic, which
+# shows exactly four parameter groups (M, N, beta, gamma) each with a
+# reference plus three perturbations.
+#
+# In the Rust these are the `override_z` SMHM preset with explicit
+# `[smhm.params]` plus a `legacy_name`; the coefficient sets are
+# generated into `rust/runfiles/published/p3-pft-*.toml`.
+# =====================================================================
+
+[[run]]
+id = "p3-reference"
+paper = "P3"
+figures = ["P3 fig:PairFracSystematic (blue, all panels)"]
+tuple_published = ["1.0", true, true, true, "CE", "G19_SE"]
+tuple_runnable = ["1.0", true, true, true, "CE", "G19_SE"]
+dir = "RunParam_1.0_True_True_True_CE_G19_SE_"
+source = "Thesis Chapters/C5_GalaxyPairs.tex:103"
+notes = "The PyMorph reference relation the perturbations are measured against."
+
+[[run]]
+id = "p3-pft-family"
+paper = "P3"
+figures = ["P3 fig:PairFracSystematic"]
+generated = "rust/runfiles/published/p3-pft-*.toml"
+source = "Functions/Functions.py:611-638; Scripts/CentralPostprocessing.py:362-366"
+notes = """Fourteen single-coefficient perturbations. Expanded into
+explicit SMHM coefficients by Scripts/Validation/make_runfiles.py, since
+neither the Rust registry nor a runfile has (or should have) fourteen
+more named presets."""
+
+[[run]]
+id = "p3-cmodel"
+paper = "P3"
+figures = ["P3 fig:PairFractionData"]
+tuple_published = ["1.0", true, true, true, "CE", "G19_cMod"]
+tuple_runnable = ["1.0", true, true, true, "CE", "G19_cMod"]
+dir = "RunParam_1.0_True_True_True_CE_G19_cMod_"
+source = "Thesis Chapters/C5_GalaxyPairs.tex:146-147"
+notes = "cmodel photometry: shallower high-mass slope than PyMorph, ~0.1 dex higher pair fraction."
+
+[[run]]
+id = "p3-illustris"
+paper = "P3"
+figures = ["P3 fig:PairFractionIll"]
+tuple_published = ["1.0", true, true, true, "Illustris", "Illustris"]
+tuple_runnable = ["1.0", true, true, true, "Illustris", "Illustris"]
+dir = "RunParam_1.0_True_True_True_Illustris_Illustris_"
+source = "STEEL.py Tdyn_Factors (commented); Thesis Chapters/C5_GalaxyPairs.tex:136"
+notes = "SMHM relation calibrated to Illustris TNG, compared against pair fractions extracted directly from TNG."
+
+
+# =====================================================================
+# Gaps
+# =====================================================================
+# Recorded rather than guessed at:
+#
+# * Paper 2's iterative SFR <-> satellite-accretion loop (thesis Ch. 4)
+#   is described in the text but has no driver in the repository. It is
+#   not a single run tuple and cannot be reconstructed from the scripts.
+# * The gamma_z scan of thesis fig:PairFractionHMevo (gamma11 from 0.0
+#   to 0.5 in steps of 0.1, on the cmodel relation) is a sixth family
+#   with no corresponding `*_Factors` list; expressible via `override_z`
+#   but its exact base coefficients are not recorded anywhere.
+# * No observational data exists in the repository, so no entry here can
+#   currently be checked against the data overlays in its figure.

@@ -174,10 +174,28 @@ pub struct RunConfig {
     pub z_reference_min: f64,
     /// `SF` in `Factor_Stripping_SF`.
     pub star_formation: bool,
+    /// `Paramaters['PreProcessing']` — carried in `STEEL.py`'s run
+    /// tuple as a `_PP` suffix on the `SFR_Model` field. Pre-quenches a
+    /// mass-dependent fraction of each satellite's realization ensemble
+    /// at infall, standing in for environmental processing the
+    /// satellite underwent before entering this host.
+    pub pre_processing: bool,
     /// `Stripping` in `Factor_Stripping_SF`.
     pub stellar_stripping: bool,
     /// `N` — abundance-matching scatter realizations per subhalo bin.
     pub n_realizations: usize,
+    /// Master switch for every stochastic source in the model: the
+    /// abundance-matching scatter, the star-formation-rate scatter
+    /// (`Functions_c.pyx`'s `Scatter_On`) and the gas-mass scatter.
+    ///
+    /// `false` is the validation harness's *deterministic mode*. With
+    /// scatter off on both sides the Rust and the Python evaluate the
+    /// same arithmetic on the same grid, so any disagreement is a real
+    /// numerical difference rather than Monte-Carlo noise from two
+    /// unrelated generators. Every real science run leaves this `true`;
+    /// with `n_realizations > 1` it makes the realizations identical
+    /// and is simply wasteful.
+    pub scatter: bool,
     /// `SatM_min`/`SatM_max`/`SatBin` for the output stellar-mass grid.
     pub sat_sm_min: f64,
     pub sat_sm_max: f64,
@@ -205,8 +223,10 @@ impl Default for RunConfig {
             sat_min_offset: -1.0,
             z_reference_min: 0.1,
             star_formation: false,
+            pre_processing: false,
             stellar_stripping: false,
             n_realizations: 5,
+            scatter: true,
             sat_sm_min: 9.0,
             sat_sm_max: 13.0,
             sat_sm_bin: 0.1,
@@ -618,11 +638,42 @@ impl Simulation {
                     // ---- abundance matching at infall ----
                     let sm_infall_dm = sat_mass[k] - log_h;
                     for slot in sm_infall.iter_mut() {
-                        *slot = self.smhm.stellar_mass(sm_infall_dm, z[i], Some(&mut rng));
+                        let draw = if config.scatter {
+                            self.smhm.stellar_mass(sm_infall_dm, z[i], Some(&mut rng))
+                        } else {
+                            self.smhm.stellar_mass(sm_infall_dm, z[i], None)
+                        };
+                        *slot = draw;
                     }
 
                     // ---- baryonic evolution over the infall window ----
                     let evolved = n_w > 0 && (config.star_formation || config.stellar_stripping);
+
+                    // `Paramaters['PreProcessing']`: pre-quench part of
+                    // the ensemble at infall.
+                    // `Functions.py::StarFormation` derives `PP_Frac`
+                    // from the ensemble-mean infall stellar mass and
+                    // then does `T_quench[:int(PP_Frac*len)] = t[0]` —
+                    // a *prefix* of the realization axis, not a random
+                    // subset. Since the realizations are i.i.d. draws
+                    // that is equivalent to choosing at random, and
+                    // taking the prefix reproduces the Python exactly.
+                    let n_pre_quenched = if config.pre_processing {
+                        let mean_sm = ((0..n_real).map(|r| 10f64.powf(sm_infall[r])).sum::<f64>()
+                            * per_realization)
+                            .log10();
+                        let pp_frac = if mean_sm < 6.0 {
+                            0.6
+                        } else if mean_sm > 8.0 {
+                            0.3
+                        } else {
+                            0.6 - 0.3 * ((mean_sm - 6.0) / 2.0)
+                        };
+                        (pp_frac * n_real as f64) as usize
+                    } else {
+                        0
+                    };
+
                     if evolved {
                         // PORT-FIX 1: the window spans `z_bin..=i`
                         // inclusive, so the track ends exactly at the
@@ -646,13 +697,13 @@ impl Simulation {
                                 log_host_mass_infall: host_mass[i][j],
                                 log_sat_mass_infall: sat_mass[k],
                                 z_infall: z[i],
-                                pre_quenched: false,
+                                pre_quenched: r < n_pre_quenched,
                             };
                             let history = self.baryonic.evolve(
                                 &galaxy,
                                 &timeline,
                                 config.stellar_stripping,
-                                true,
+                                config.scatter,
                                 &mut rng,
                             );
                             ssfr_final[r] = *history.log_ssfr.last().unwrap();

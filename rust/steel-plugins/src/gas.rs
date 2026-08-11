@@ -34,15 +34,16 @@ impl GasMassModel for StewartScaling {
         log_halo_mass + (self.omega_b0 / self.omega_m0).log10()
     }
 
-    fn gas_mass(&self, log_sfr: f64, log_halo_mass: f64, rng: &mut dyn RngCore) -> f64 {
+    fn gas_mass(&self, log_sfr: f64, log_halo_mass: f64, rng: Option<&mut dyn RngCore>) -> f64 {
         let mean = 9.22 + 0.81 * log_sfr;
         // `scatter` is a public field; guard against a non-positive or
         // non-finite value rather than letting `Normal::new(..).unwrap()`
         // panic (same class of issue as the SMHM models').
-        let draw = if self.scatter > 0.0 && self.scatter.is_finite() {
-            Normal::new(mean, self.scatter).unwrap().sample(rng)
-        } else {
-            mean
+        let draw = match rng {
+            Some(rng) if self.scatter > 0.0 && self.scatter.is_finite() => {
+                Normal::new(mean, self.scatter).unwrap().sample(rng)
+            }
+            _ => mean,
         };
         draw.min(self.max_gas_mass(log_halo_mass))
     }
@@ -69,7 +70,7 @@ mod tests {
         let model = StewartScaling::from_cosmology(&cosmo);
         let mut rng = StdRng::seed_from_u64(7);
         for _ in 0..1000 {
-            let g = model.gas_mass(2.0, 10.0, &mut rng); // deliberately high SFR to try to blow the cap
+            let g = model.gas_mass(2.0, 10.0, Some(&mut rng)); // deliberately high SFR to try to blow the cap
             assert!(g <= model.max_gas_mass(10.0) + 1e-9, "gas_mass={g} exceeded the cap");
         }
     }
@@ -84,7 +85,7 @@ mod tests {
             let mut model = StewartScaling::from_cosmology(&cosmo);
             model.scatter = bad;
             let mut rng = StdRng::seed_from_u64(1);
-            let got = model.gas_mass(-1.0, 14.0, &mut rng);
+            let got = model.gas_mass(-1.0, 14.0, Some(&mut rng));
             assert!((got - expected_mean).abs() < 1e-12, "scatter={bad} should give the unscattered mean");
         }
     }
