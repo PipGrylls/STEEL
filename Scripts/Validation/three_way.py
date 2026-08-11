@@ -72,12 +72,33 @@ def mah_table_name(grid) -> str:
 
 
 def ensure_mah_table(root: Path, grid, cosmology: str) -> None:
-    """Build `root`'s MAH table under `cosmology` if it isn't there."""
+    """Build `root`'s MAH table under `cosmology` if it isn't there.
+
+    Also drops the two *derived* caches, which are cosmology-dependent
+    and keyed without it:
+
+    * ``SHMFs_Entering_*.npy`` (`STEEL.py:143`) is built from
+      ``AvaHaloMass``, i.e. straight out of the MAH table, but its key is
+      grid + h + array shapes;
+    * ``hmf_fun.pkl`` (`Functions.Make_HMF_Interp`) has no key at all.
+
+    Leaving either in place silently mixes one cosmology's accretion
+    histories with another's subhalo mass function -- the same trap as
+    the MAH table itself, one level down.
+    """
     out = root / "Data" / "Model" / "Input" / mah_table_name(grid)
     stamp = out.with_suffix(".cosmology")
     if out.exists() and stamp.exists() and stamp.read_text().strip() == cosmology:
         return
     print(f"building {out} ({cosmology})", file=sys.stderr)
+    for stale in (out.parent).glob("SHMFs_Entering_*.npy"):
+        print(f"  dropping derived cache {stale.name}", file=sys.stderr)
+        stale.unlink()
+    for name in ("hmf_fun.pkl",):
+        stale = out.parent / name
+        if stale.exists():
+            print(f"  dropping derived cache {name}", file=sys.stderr)
+            stale.unlink()
     subprocess.run(
         [str(REPO_ROOT / "env" / "py-legacy" / "bin" / "python"),
          str(REPO_ROOT / "Scripts" / "Validation" / "make_mah_table.py"),
