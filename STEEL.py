@@ -442,11 +442,34 @@ def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
                         
                         PF_bin_u = len(Radius[Radius < 30])
                         PF_bin_l = len(Radius[Radius < 5])
-                        if len(np.shape(SM_Sat)) == 1:
-                            Wt_Corr = np.divide(histogram1d(SM_Sat, SatM_len, (SatM_min, SatM_max)), N) #Weight per bin from scatter in SM-HM
-                            Wt_Corr = np.full((len(Time_To_0[z_bin+PF_bin_l:z_bin+PF_bin_u]), len(Wt_Corr)), Wt_Corr) #matching array sizes
+                        #This block used to sit entirely inside
+                        #`if len(np.shape(SM_Sat)) == 1:` with no else. SM_Sat
+                        #is 2-D exactly when the satellite was evolved, i.e.
+                        #whenever Stripping or SF is on -- so the pair
+                        #fractions were written as all-zero for precisely the
+                        #configurations they are used to interpret. Note
+                        #Pair_Frac_Halo does not even depend on SM_Sat; it was
+                        #skipped only because it shared the guard.
+                        #
+                        #The two cases differ only in how the per-bin stellar
+                        #mass weights are built: an unevolved satellite has one
+                        #mass, held over the whole window, while an evolved one
+                        #has a mass per timestep.
+                        PF_len = PF_bin_u - PF_bin_l
+                        if PF_len > 0:
+                            if len(np.shape(SM_Sat)) == 1:
+                                Wt_Corr = np.divide(histogram1d(SM_Sat, SatM_len, (SatM_min, SatM_max)), N) #Weight per bin from scatter in SM-HM
+                                Wt_Corr = np.full((PF_len, len(Wt_Corr)), Wt_Corr) #matching array sizes
+                            else:
+                                #SM_Sat is (N, i-z_bin); column w corresponds to
+                                #redshift index z_bin + (i-z_bin-1-w), the same
+                                #reversed ordering the high-z blocks above undo
+                                #with np.flipud.
+                                SM_Window = np.flipud(SM_Sat.T)[PF_bin_l:PF_bin_u]
+                                Counterpart = np.multiply(np.ones_like(SM_Window).T, np.arange(PF_bin_l, PF_bin_u, 1)).T
+                                Wt_Corr = np.divide(histogram2d(Counterpart.flatten(), SM_Window.flatten(), (PF_len, SatM_len), ((PF_bin_l, PF_bin_u),(SatM_min, SatM_max))), N)
 
-                            Corr = np.divide(np.multiply(WeightList_SubOnly[PF_bin_l:PF_bin_u], Wt_Corr.T).T, SatBin)#N dex-1 per halo                            
+                            Corr = np.divide(np.multiply(WeightList_SubOnly[PF_bin_l:PF_bin_u], Wt_Corr.T).T, SatBin)#N dex-1 per halo
                             Pair_Frac[z_bin+PF_bin_l:z_bin+PF_bin_u,j] = Pair_Frac[z_bin+PF_bin_l:z_bin+PF_bin_u,j] + Corr#N dex-1 per halo
                             Pair_Frac_Halo[z_bin+PF_bin_l:z_bin+PF_bin_u,j,k] = Pair_Frac_Halo[z_bin+PF_bin_l:z_bin+PF_bin_u,j,k] + WeightList_SubOnly[PF_bin_l:PF_bin_u]/AnalyticHaloBin #N dex-1 per halo
                     
