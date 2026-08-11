@@ -13,6 +13,47 @@ are inert in the `Stripping=False, SF=False` configuration, so a
 corrected-vs-as-is comparison that only runs that config will show no
 difference and prove nothing.
 
+## Which baseline this is measured against
+
+**`PipGrylls`, not `master`.** `master`'s tip is 2019-03-04, before all
+three papers. `PipGrylls` (tip 2019-11-15) is 26 commits ahead of it on
+the model core and carries `bfdb4d8`, *"This is the version of the code
+used for the 1st submission of Paper2 on 02/05/19"*. Papers 1–3 were run
+from that line of development, not from `master`.
+
+The first version of this document, and the first version of the port,
+were both written against `master`. That was wrong, and the difference is
+not cosmetic — the two branches disagree about the SFR main sequence, two
+of the three abundance-matching presets, and the strength of tidal
+stripping:
+
+| | `master` | `PipGrylls` |
+|---|---|---|
+| `G19_DPL` satellites (`Starformation_c`) | `N = 10^(0.74 + 0.71z − 0.087z²)`, `α = 1.035 − 0.022z + 0.0077z²`, `β = 1.55 − 0.35z − 0.02z²` | `N = 10^(0.69 + 0.71z − 0.085z²)`, `α = 1.0 − 0.022z + 0.007z²`, `β = 1.8 − 0.7z − 0.035z²` |
+| `G19_DPL` centrals (`Starformation_Centrals`) | *identical to the satellite block* | `M_n = 10.65 + 0.33z − 0.08z²`, `N = 10^(0.69 + 0.71z − 0.088z²)`, `α = 1.0 − 0.022z + 0.009z²`, `β = 1.8 − 1.0z + 0.1z²` |
+| `G19_SE` | 12.0, 0.032, 1.5, 0.56 / 0.6, −0.014, −0.7, 0.08 | 11.925, 0.032, 1.639, 0.532 / 0.576, −0.014, −0.693, 0.03 |
+| `G19_cMod` | 12.0, 0.032, 1.74, 0.66 / 0.4, −0.024, −0.74, −0.12 | 11.91, 0.029, 2.09, 0.64 / 0.644, −0.019, −1.422, −0.043 |
+| `StellarMassLoss` | Cattaneo+11 as published | Cattaneo+11 **doubled in dex** (`Strip_f = Strip_f*2`) |
+| `RP17`, `HMevo` presets | absent | present |
+| MAH cosmology into `getPWGH` | hardcoded (0.307, 0.678, 0.823, 0.96, 0.02298) | from COLOSSUS, but with `nspec = 1` |
+
+The satellite main sequence alone moves by 0.37 dex at `z = 0`,
+`log M* = 12` and 0.76 dex at `z = 3`. These are *not* defects — they are
+the published model — and the Rust port now implements them. What follows
+below is the list of things that are genuinely wrong on `PipGrylls`
+itself.
+
+Three entries changed status in the rebaseline, and are kept with their
+history rather than deleted, because "`master` has a bug that the paper
+branch does not" is itself a finding about the repository:
+
+* **B1** (zero pair fractions) is a `master`-only defect. `PipGrylls`,
+  `Paper2`, `Refactor` and `saiduc` all have the two-dimensional branch.
+* **D1** (`rm -r` missing a space) is fixed on `PipGrylls`; the `mkdir`
+  without `-p` beside it is not.
+* **F4** (`@jit` that could never compile) is already removed on
+  `PipGrylls`.
+
 ---
 
 ## A. Wrong physics
@@ -384,17 +425,106 @@ of them, a reduced-grid run differs from before by 2e-15 relative.
 ### F6. Removed pandas and SciPy APIs
 
 `get_values()` → `to_numpy()` (removed pandas 1.0);
-`delim_whitespace=True` → `sep=r"\s+"` (removed pandas 2.2, 14 sites);
-`cumtrapz` → `cumulative_trapezoid` (removed SciPy 1.14).
+`delim_whitespace=True` → `sep=r"\s+"` (removed pandas 2.2, 31 sites —
+14 on `master`, 17 more in the code `PipGrylls` added);
+`cumtrapz` → `cumulative_trapezoid` (removed SciPy 1.14); an unused
+`interp2d` import in the new `Scripts/SMHM_Fit_MCMC.py`; four bare
+`@jit` in the new `Scripts/stew_paper.py`, on functions taking and
+returning Python lists and string flags that numba could never type
+(object mode before 0.59, a hard error after).
+
+### F7. `DarkMatterToStellarMass` reads `AbnMtch` keys its own callers do not set
+
+* **Where:** `Functions/Functions.py:651`, `:716` on `PipGrylls`.
+* **What:** the `RP17` and `HMevo` presets were added with unguarded
+  `Paramaters['RP17']` / `Paramaters['HMevo']` lookups, but only
+  `STEEL.py`'s `AbnMtch` dict was updated to carry them.
+  `Scripts/CentralPostprocessing.py`, `Scripts/SMHM_Fit.py` and the
+  notebooks each build their own dict, and all of them therefore raise
+  `KeyError: 'RP17'` on the first call.
+* **Size:** total. **None of the post-processing can run against the
+  model code on its own branch.** This is not a subtle numerical
+  defect; it is a hard crash on import-and-use, and it means the
+  `PipGrylls` analysis path was only ever exercised from notebooks that
+  predated the feature.
+* **Bites:** every caller that is not `STEEL.py`.
+* **Fixed by:** `.get(key, False)` at both sites — which is exactly what
+  a caller predating the feature means — plus the missing key in
+  `CentralPostprocessing.py`'s dict.
 
 **Result:** `CentralPostprocessing` now imports and runs on
 `env/py-legacy` (NumPy 1.26 / SciPy 1.13 / pandas 1.5) with no
-observational data present, and all six analysis methods —
-`Return_PF_Plot`, `Return_Merger_Plot`, `Return_Morph_Plot`,
-`Return_satSMF`, `Return_SSFR`, `Return_Cent_SMF` — produce finite,
-correctly-shaped output against a real run. The first three could not
-have been tested at all before Phase 1, since they consume the merger
-outputs the Rust did not produce and the Python wrote as zeros.
+observational data present, and **twelve of its thirteen** `Return_*`
+methods produce finite, correctly-shaped output against a real run. The
+thirteenth, `Return_NoMerger_Plot`, needs the Bernardi SDSS catalogue,
+which this repository does not ship. The merger-consuming methods could
+not have been tested at all before Phase 1, since they read outputs the
+Rust did not produce and the Python wrote as zeros.
+
+---
+
+## G. Cosmology and the mass-accretion-history cache
+
+### G1. `Halogrowth` passes a Harrison-Zel'dovich spectral index
+
+* **Where:** `Functions/Functions.py::Halogrowth:321` on `PipGrylls`.
+* **What:** `PipGrylls` replaced `master`'s five hardcoded `getPWGH`
+  inputs with the run's own COLOSSUS cosmology — `Cosmo.Om(0)`, `h`,
+  `Cosmo.sigma(8,0)`, `Cosmo.Ob(0)*h²` — except `nspec`, which is the
+  literal `1`. Planck15 has `n_s = 0.9667`.
+* **Size:** measured on a freshly compiled `getPWGH` over
+  `log M0 = 11…15`:
+
+  | change | max ΔlogM(z) |
+  |---|---|
+  | `master` → `PipGrylls` as written (`nspec = 1`) | **0.080 dex** |
+  | `master` → `PipGrylls` with `n_s = 0.9667` | 0.011 dex |
+
+  Seven eighths of the shift is the typo. Downstream on the reduced
+  grid: `AvaHaloMass` max 0.069 dex; `Figure4_6` cut integrals median
+  1.0%, max 11.9%; total star formation −8.3% summed.
+* **Bites:** every run — but only when the MAH cache is cold (see G2).
+* **Fixed by:** `Cosmo.ns`, and
+  `Scripts/Validation/make_mah_table.py`, which builds the table with
+  an explicit, recorded cosmology.
+
+This also sharpens the Milestone 2 validation of the Rust's native van
+den Bosch (2014) MAH: against `getPWGH` fed the *same* cosmology it
+agrees to **0.0021 dex** max over `log M0 = 11…15`. The 0.009 dex
+originally reported was measuring the cosmology mismatch, not the port.
+
+### G2. The MAH cache key does not include the cosmology
+
+* **Where:** `Functions/Functions.py::Get_HM_History:147`.
+* **What:** the cached table is named
+  `<halo_min><halo_max><halo_bin><h>.dat` and regenerated only when
+  absent. Nothing in the key records which cosmology built it, so
+  checking out a branch that changes the cosmology and re-running
+  silently reuses the other branch's grid. G1 is invisible on a warm
+  cache.
+* **Fixed by:** a `.cosmology` stamp written beside each table by the
+  validation harness, and one table per leg of the three-way
+  comparison. The cache key itself is left alone, because changing it
+  would invalidate every table a user already has on disk.
+
+### G3. `Halogrowth` cannot run off one machine
+
+* **Where:** `Functions/OtherModels/VDB13/getPWGH.f:119` and
+  `Functions/Functions.py::Halogrowth:338,341` on `PipGrylls`.
+* **What:** two independent breakages. `getPWGH.f` opens its output as
+  `fileplace//outfile` with
+  `fileplace = "/data/pg1g15/STEEL/Functions/OtherModels/VDB13/"`, a
+  path that exists on one machine (and, being `CHARACTER*47`
+  concatenated without `TRIM`, produces a filename with trailing blanks
+  even there). The Python then reads the result back through a path
+  containing a literal `*`, which neither `np.loadtxt` nor `os.remove`
+  globs, so the call raises `OSError` regardless.
+* **Size:** total, but latent — `Get_HM_History` only calls
+  `Halogrowth` on a cold cache, so this shows up as "the MAH table has
+  to be shipped" rather than as a crash.
+* **Fixed by:** restoring `master`'s working-directory output on both
+  sides. With that, `F.Halogrowth(12.0)` completes and returns a
+  200-point history.
 
 ---
 
