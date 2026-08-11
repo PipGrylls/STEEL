@@ -42,17 +42,45 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 # error rather than a silent no-op, because a silently-unpatched grid
 # would run for 45 minutes and produce output for the wrong config.
 GRID_RE = re.compile(
-    r"^AnalyticHaloMass_min = (?P<min>[0-9.]+); AnalyticHaloMass_max = (?P<max>[0-9.]+)$",
+    r"^AnalyticHaloMass_min = (?P<min>[0-9.]+); AnalyticHaloMass_max = (?P<max>[0-9.]+)"
+    r"(?P<trailer>[^\n]*)$",
     re.MULTILINE,
 )
 BIN_RE = re.compile(r"^(?P<indent>\s+)AnalyticHaloBin = 0\.1$", re.MULTILINE)
+# The run list runs from `Tdyn_Factors = []` to the `msg = ...` line.
+# Matching it as "one or more `Tdyn_Factors +=` lines" was enough on
+# `master`; `PipGrylls` interleaves triple-quoted multi-line blocks and
+# blank lines among the commented-out entries, so anchor on the
+# terminator instead and take everything in between.
 TDYN_RE = re.compile(
-    r"^    Tdyn_Factors = \[\]\n(?:    #?Tdyn_Factors \+=.*\n)+", re.MULTILINE
+    r"^    Tdyn_Factors = \[\]\n.*?(?=^    msg = 'About to run')",
+    re.MULTILINE | re.DOTALL,
 )
 INPUT_RE = re.compile(
     r"^    msg = 'About to run' \+ str\(Tdyn_Factors\)\n"
     r"    shall = input\(.*\)\.lower\(\) != 'y'\n",
     re.MULTILINE,
+)
+# `PipGrylls` ships with the multiprocessing pool commented out and a
+# single-run `OneRealization(Tdyn_Factors[0])` in its place -- fine for
+# the one-run-at-a-time debugging it was left mid-session on, wrong for
+# a driver that takes a list of runs. Restore the pool.
+POOL_RE = re.compile(
+    r"^    #For runnning single runs without multiprocessing bugs\n"
+    r"    OneRealization\(Tdyn_Factors\[0\]\)\n"
+    r"    \n"
+    r"    #run ecah instance on a seperate core\n"
+    r"    #pool = multiprocessing\.Pool\(processes = len\(Tdyn_Factors\)\)\n"
+    r"    #PoolReturn = pool\.map\(OneRealization, Tdyn_Factors\)\n"
+    r"    #pool\.close\(\)\n"
+    r"    #print\(PoolReturn\)",
+    re.MULTILINE,
+)
+POOL_REPLACEMENT = (
+    "    pool = multiprocessing.Pool(processes = len(Tdyn_Factors))\n"
+    "    PoolReturn = pool.map(OneRealization, Tdyn_Factors)\n"
+    "    pool.close()\n"
+    "    print(PoolReturn)"
 )
 
 
@@ -71,7 +99,7 @@ def build_patched_source(
 ) -> str:
     source = _sub_once(
         GRID_RE,
-        f"AnalyticHaloMass_min = {halo_min}; AnalyticHaloMass_max = {halo_max}",
+        rf"AnalyticHaloMass_min = {halo_min}; AnalyticHaloMass_max = {halo_max}\g<trailer>",
         source,
         "the halo mass range",
     )
@@ -79,6 +107,7 @@ def build_patched_source(
     runs_literal = "".join(f"    Tdyn_Factors += [{run!r}]\n" for run in runs)
     source = _sub_once(TDYN_RE, "    Tdyn_Factors = []\n" + runs_literal, source, "Tdyn_Factors")
     source = _sub_once(INPUT_RE, "    shall = False\n", source, "the input() prompt")
+    source = _sub_once(POOL_RE, POOL_REPLACEMENT, source, "the multiprocessing pool")
     return source
 
 
