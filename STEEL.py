@@ -174,6 +174,10 @@ def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
         Paramaters = Paramaters_Glob
         print("Starting:", Factor_Stripping_SF)
     """Runs the Code for one set of parameters"""
+    #Seed once, here, rather than per-call inside DarkMatterToStellarMass.
+    #Under multiprocessing this runs in the worker process, so each run
+    #gets its own independent-but-deterministic stream.
+    F.SeedRandomState(RunParam = Factor_Stripping_SF)
     #Split the Running Paramters here for clarity later
     if Factor_Stripping_SF[0][-4:] == "_Alt":
         Factor = float(Factor_Stripping_SF[0][:-4])
