@@ -528,6 +528,154 @@ originally reported was measuring the cosmology mismatch, not the port.
 
 ---
 
+## H. `Scripts/CentralPostprocessing.py` — a correctness pass on the analysis methods
+
+Phase 5 (§F) made this file *importable and runnable*: removed APIs,
+missing dict keys, a crashing SDSS load. It did not check whether the
+3,110 lines of analysis logic inside `PairFractionData` compute the
+right thing — a materially shallower pass than the one applied to
+`Functions.py`/`STEEL.py`/`Functions_c.pyx`, which is where A1–A7,
+B1–B3 and C1–C3 came from. This section is that pass, run after the
+fact and only on `PairFractionData`'s reusable methods (lines 178–1145,
+about a third of the file) plus two exhaustive whole-file AST scans;
+the ~1,300-line `if __name__ == "__main__"` figure script (1146–2469)
+and the block after it were checked only by tracing which `Return_*`
+calls inside it are reachable (`if True:`/`if False:` guards), not read
+line by line. **Not a complete audit.**
+
+Each call site below was checked against the live script, because a
+defect in a method nobody calls with `if True:` around it did not
+change a published figure and a defect in one that is did.
+
+### H1. `Return_PF_Plot`'s upper mass-ratio cut digitizes against the wrong axis — **live, feeds a Paper 3 figure**
+
+* **Where:** `Scripts/CentralPostprocessing.py::Return_PF_Plot:313-314`.
+* **What:** with `UpperLimit=True` (the default, and the value every
+  call site in the script passes explicitly), the satellite-side upper
+  cut is
+
+  ```python
+  Sat_Mass_Cut_bin_upper = np.digitize(CND_Mass_Upper, SM_Arr)
+  ```
+
+  which is byte-for-byte the same expression already computed three
+  lines above as `M_Cut_bin_upper` (`Return_PF_Plot:298`) — digitizing
+  a mass against `SM_Arr`, the *central*-halo-bin stellar-mass track
+  (57 elements in a published-grid run). The result is then used to
+  slice `self.Pair_Frac[i, M_Cut_bin+j, Sat_Mass_Cut_bin:Sat_Mass_Cut_bin_upper]`
+  along the *satellite* stellar-mass axis
+  (`self.Surviving_Sat_SMF_MassRange`, 40 elements) — the same axis
+  `Sat_Mass_Cut_bin` (the lower bound, three lines above) is correctly
+  digitized against. Measured directly against a real run: at
+  `i=5, Parent_Cut=11`, the lower bound comes out as bin 15 of 40 (via
+  the correct axis); the upper bound as written comes out as bin 29,
+  because it was digitized against a 57-element track covering a
+  similar-looking but different mass range. Neither array is out of
+  bounds, so nothing raises — the sum is just taken over the wrong
+  slice of the satellite mass function, silently.
+* **Size:** unmeasured for the actual published figure (fixing it
+  changes `Figures/Paper3/PairFractionData.png`'s content, which is
+  outside what this port should alter without a decision from whoever
+  owns that figure — see below).
+* **Bites:** `Return_PF_Plot(..., UpperLimit=True)`. Traced against
+  `Scripts/CentralPostprocessing.py`'s `__main__` block: 5 of 7 call
+  sites sit under `if False:`; the other two (lines 1503, 1515) sit
+  under the `if True:` at line 1476, whose block ends by saving
+  `Figures/Paper3/PairFractionData.{png,pdf}` — the pair-fraction vs.
+  observational-data comparison. **This is not a hypothetical
+  defect in unreachable code; it is presently live.**
+* **Not fixed here.** The obviously-wrong part (recomputing
+  `M_Cut_bin_upper` verbatim) is unambiguous, but what
+  `Sat_Mass_Cut_bin_upper` *should* be is not: `UpperLimit`'s intent
+  looks like it was to cap the pair mass ratio from above symmetrically
+  with `Sat_Mass_Cut_bin`'s lower cap, in which case the fix needs a
+  second mass-ratio parameter that does not currently exist anywhere in
+  the function signature — or `UpperLimit` may only ever have been
+  meant to bound the *central* mass range (`M_Cut_bin`/`M_Cut_bin_upper`,
+  which it does correctly), in which case
+  `Sat_Mass_Cut_bin_upper` should simply be `-1` unconditionally,
+  matching the `else` branch already present, and this whole `if`
+  should not exist. Either reading changes `PairFractionData.png`.
+  Flagged for a decision rather than guessed at.
+
+### H2. `Return_Gas_Hard_Threshold_Plot` drops the lenticular fraction to zero the first time the gas threshold isn't met
+
+* **Where:** `Scripts/CentralPostprocessing.py::Return_Gas_Hard_Threshold_Plot:887-892`.
+* **What:** the recursive `P_lentic[i,j] = P_lentic[i+1,j] + ...` update
+  that carries the lenticular fraction forward through the redshift
+  loop is present in the `if CurrentGasFrac >= GasFracThresh:` branch
+  but **absent from the `else:`** — only `P_ellip[i,j]` is set there.
+  `P_lentic` was zero-initialized, so once a bin fails the threshold at
+  any redshift step, every later step in the loop reads
+  `P_lentic[i+1,j] == 0` and the lenticular fraction never recovers.
+  Confirmed structurally: `Return_Gas_Soft_Threshold_Plot` and
+  `Return_New_Gas_Inflow_Plot` are near-identical siblings and both
+  update `P_lentic` in their equivalent `else` branch; only this one
+  drops the statement (`P_ellip`/`P_lentic` assignment counts 3/2
+  here vs. 4/4 and 8/10 in the two siblings).
+* **Bites:** `Return_Gas_Hard_Threshold_Plot`. Its one call site
+  (`Scripts/CentralPostprocessing.py:2010`) is under `if False:`
+  (the "Gas Fraction Restricted Lenticular Plots" block) — **not
+  currently live** in the script.
+* **Not fixed here.** What the `else` branch should compute is a
+  physics choice (carry `P_lentic` forward unchanged? decay it? reset
+  it, as `Return_Sai_Idea_Plot`'s deliberate `else: P_lentic[i,j] = 0`
+  does for a similar but distinct model?) that isn't recoverable from
+  the code alone, and the call site is dead, so there is no live output
+  to regression-test a fix against.
+
+### H3. Two parameters are silently overwritten with a literal, discarding the caller's value
+
+* **Where:** `Return_Sai_Idea_Plot:403` (`GasFracThresh = 0.06`,
+  overwriting the `GasFracThresh` parameter) and
+  `Return_NoMerger_Plot:475` (`z_cut = 1.5`, overwriting `z_cut`).
+  Found by an AST scan for `param = <literal>` assignments inside a
+  function that also declares that name as a defaulted parameter —
+  applied to every function in the file, not just these two.
+* **What:** whatever the caller passes for these arguments has no
+  effect; the function always uses the hardcoded value.
+* **Bites:** both call sites are traceable and both are dead —
+  `Return_Sai_Idea_Plot(MassRatio, 2, GasFracThresh)` at line 2298
+  sits under `if False:` at line 2223 ("Sai's Model Idea"), and
+  `Return_NoMerger_Plot(MassRatio, 1, 0.1)` at line 2202 sits under
+  `if False:` at line 2200, whose preceding comment already says *"This
+  is currently broken as we need to use a time interval instead of
+  redshift interval"* — the author had already found this path broken
+  and disabled it independently of this defect. At the live
+  `GasFracThresh = 0.0` the call site passes, the overwrite changes the
+  value used from 0.0 to 0.06, which would matter if the block were
+  ever re-enabled.
+* **Not fixed here.** Deleting the overwrite is the obvious fix and
+  would cost nothing today (both call sites are dead), but changes
+  what re-enabling either block would compute; left as a documented
+  trap for whoever re-enables them rather than silently resolved.
+
+### H4. Two defects fixed directly (no live output changed)
+
+* **`CreateAverageSM:229`** compared `AvaStellarMass2[i, -1]` against
+  itself (`x < x`, always `False`), so the extrapolation meant to catch
+  a still-non-monotonic trailing bin could never run. Fixed to compare
+  against `[i, -2]`, matching the extrapolation direction already used
+  three lines above. The surrounding `except` block is reached in real
+  runs (14/190 rows on the reduced grid), but the specific tail case
+  this line exists for did not occur in any row tested (0/190) — the
+  main smoothing loop already fixes the trailing bin in every case
+  observed. Confirmed the fix is a no-op on current output before and
+  after.
+* **`JitLoop` (used by `Return_Merger_Plot`)** looped `i in range(m)`
+  with `m = SHMF_Entering.shape[0]` (190 on the published grid) while
+  indexing `z_step[i]`/`t_step[i]`, both length 189 — an out-of-bounds
+  read on the last iteration, inside a numba `nopython` function, so
+  it does not raise a Python exception; it is undefined behaviour, not
+  a defined error. Harmless for the only current caller
+  (`Return_Merger_Plot` only reads rows `0:m-1` of the results, so the
+  corrupted final row is discarded), but "currently discarded" is not
+  the same as "correct" or "safe under other numpy layouts." Fixed by
+  guarding the division with `if i < len(z_step):`. Confirmed the fix
+  is a no-op on current output.
+
+---
+
 ## E. Environment (not defects, but reproducibility findings)
 
 `STEEL.py` cannot run on any current scientific Python stack. See
