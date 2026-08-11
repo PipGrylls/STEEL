@@ -307,6 +307,99 @@ difference and prove nothing.
 
 ---
 
+## F. Post-processing (Phase 5)
+
+Found while making `Scripts/CentralPostprocessing.py` run on a current
+stack. None of these change `STEEL.py`'s numerics — verified: after all
+of them, a reduced-grid run differs from before by 2e-15 relative.
+
+### F1. The module could not be imported without observational data
+
+* **Where:** `Scripts/CentralPostprocessing.py:30-34` (module scope).
+* **What:** the SDSS comparison catalogue was constructed at import
+  time, so `import CentralPostprocessing` read or rebuilt the whole
+  Bernardi catalogue before any function in the file could be called.
+  With no observational data present — the state of this repository —
+  the module could not be imported at all, and none of the
+  post-processing could be inspected, tested, or run against model
+  output that needs no data.
+* **Fixed:** loaded lazily by `Add_SDSS()` on first use.
+
+### F2. `scipy.interpolate.interp2d`'s call semantics were worked around, not used
+
+* **Where:** `Functions.py::Make_HMF_Interp`,
+  `CentralPostprocessing.py::Generate_SMF_interp`, and the consumer at
+  `STEEL.py:341`.
+* **What:** `interp2d.__call__(x, y)` sorts both inputs and returns the
+  full `len(y) × len(x)` outer grid. Every caller in STEEL wants
+  *paired* evaluation, and `STEEL.py` recovered it with
+
+  ```python
+  Arr2D = HMF_fun(AvaHaloMass[z_bin:i, j], z[z_bin:i])
+  WeightList = np.diag(np.fliplr(Arr2D)) * ...
+  ```
+
+  The anti-diagonal is only the right pairing because the halo-mass
+  slice happens to decrease with index while the redshift slice
+  increases — an unstated precondition. Reverse either ordering and it
+  silently returns the wrong weights: demonstrated, with both axes
+  ascending it is wrong by 0.74 against a directly-evaluated truth,
+  where the replacement is exact to 6e-17.
+* **Also:** `interp2d` was removed in SciPy 1.14.
+* **Fixed:** `Functions.GridInterp2D`, a broadcasting adapter over
+  `RegularGridInterpolator`. Verified to reproduce the anti-diagonal to
+  2.8e-17 under STEEL's actual usage.
+
+### F3. The HMF cache pickled a live SciPy object
+
+* **Where:** `Functions.py::Make_HMF_Interp`.
+* **What:** `hmf_fun.pkl` held an `interp2d` *instance*. That is
+  unusable twice over: the class is gone in SciPy ≥ 1.14, and even
+  between SciPy 1.8 and 1.13 the interpolator classes moved modules, so
+  loading raises `AttributeError` across any version change.
+* **Fixed:** the cache (`hmf_table.npz`) stores the three arrays and the
+  interpolator is rebuilt.
+
+### F4. A `@jit` that could never compile
+
+* **Where:** `Functions.py::DarkMatterToStellarMass`.
+* **What:** a bare `@jit` on a function whose second argument is a
+  Python dict, which numba cannot type. It therefore always fell back to
+  object mode: no acceleration, only compilation overhead and a
+  deprecation warning. numba 0.59 made bare `@jit` mean
+  `nopython=True`, at which point the function stops working entirely
+  (`TypingError: non-precise type pyobject`).
+* **Fixed:** decorator removed (a no-op on the numerics). The two
+  genuinely-compilable `@jit`s in `CentralPostprocessing.py` are now
+  explicitly `@jit(nopython=True)`.
+
+### F5. A ragged list that NumPy ≥ 1.24 refuses to build
+
+* **Where:** `CentralPostprocessing.py::Return_PF_Plot`.
+* **What:** one branch appended a length-1 array (the halo mass function
+  call returns one), the other a bare `np.nan`. The resulting ragged
+  list built an object array with a `VisibleDeprecationWarning` on
+  NumPy < 1.24 and raises from 1.24 on:
+  `ValueError: setting an array element with a sequence`.
+* **Fixed:** both branches append a plain float.
+
+### F6. Removed pandas and SciPy APIs
+
+`get_values()` → `to_numpy()` (removed pandas 1.0);
+`delim_whitespace=True` → `sep=r"\s+"` (removed pandas 2.2, 14 sites);
+`cumtrapz` → `cumulative_trapezoid` (removed SciPy 1.14).
+
+**Result:** `CentralPostprocessing` now imports and runs on
+`env/py-legacy` (NumPy 1.26 / SciPy 1.13 / pandas 1.5) with no
+observational data present, and all six analysis methods —
+`Return_PF_Plot`, `Return_Merger_Plot`, `Return_Morph_Plot`,
+`Return_satSMF`, `Return_SSFR`, `Return_Cent_SMF` — produce finite,
+correctly-shaped output against a real run. The first three could not
+have been tested at all before Phase 1, since they consume the merger
+outputs the Rust did not produce and the Python wrote as zeros.
+
+---
+
 ## E. Environment (not defects, but reproducibility findings)
 
 `STEEL.py` cannot run on any current scientific Python stack. See

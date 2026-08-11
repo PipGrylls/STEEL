@@ -338,11 +338,15 @@ def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
                                         
                     #create weightlist==============================================
                     if i != 0 and z_bin != i:
-                        Arr2D = HMF_fun(AvaHaloMass[z_bin:i, j], z[z_bin:i])
-                        if len(Arr2D.shape) > 1:
-                            WeightList = np.diag(np.fliplr(Arr2D))*(SHMFs_Entering[i][j][k])*(AvaHaloMassBins[z_bin:i,j]*AnalyticHaloBin) # N Mpc^-3 h^3
-                        else:	
-                            WeightList = Arr2D*(SHMFs_Entering[i][j][k])*(AvaHaloMassBins[z_bin:i,j]*AnalyticHaloBin) # N Mpc^-3 h^3
+                        #Paired evaluation: HMF_fun broadcasts, so this is
+                        #the halo mass function at (mass[m], z[m]) for each
+                        #step m of the window. This used to build the full
+                        #outer grid with scipy's interp2d and recover the
+                        #pairing as `np.diag(np.fliplr(Arr2D))`, which only
+                        #worked because the mass slice happens to decrease
+                        #while the redshift slice increases -- an unstated
+                        #precondition. See Functions.GridInterp2D.
+                        WeightList = HMF_fun(AvaHaloMass[z_bin:i, j], z[z_bin:i])*(SHMFs_Entering[i][j][k])*(AvaHaloMassBins[z_bin:i,j]*AnalyticHaloBin) # N Mpc^-3 h^3
                     else:
                         #Makes sure acretion in final redshift step is included
                         WeightList = (HMF_fun(AvaHaloMass[i, j], z[i]))*(SHMFs_Entering[i][j][k])*(AvaHaloMassBins[i,j]*AnalyticHaloBin) # N Mpc^-3 h^3
