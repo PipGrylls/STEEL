@@ -17,6 +17,49 @@ difference and prove nothing.
 
 ---
 
+## Which branch? — read this before quoting anything below
+
+The port was made against `master`. `master` is **not** the code that
+produced Papers 2 and 3. Its last code commit is 2019-03-04 (the only
+later ones are ReadMe/LICENSE in 2025), while Paper 2 (arXiv 1910.08417)
+is 2019-10 and Paper 3 (2001.06017) is 2020-01. Development continued on
+other branches, which `git ls-remote` shows and a default clone does not
+fetch:
+
+| branch | tip | |
+|---|---|---|
+| `master` | 2019-03-04 | the public default; the port's baseline |
+| `Refactor` | 2019-09-25 | |
+| `PipGrylls` | 2019-11-15 | between Papers 2 and 3 |
+| `Paper2` | 2020-01-17 | **contemporaneous with Paper 3's submission** |
+| `haofu` | 2020-01-17 | |
+| `saiduc` | 2020-03-04 | |
+| `ChrisMarsden833` | 2019-06-14 | tracks `master`'s pair-fraction state |
+
+Every entry below was re-checked against `PipGrylls`, `Paper2`,
+`Refactor` and `saiduc`:
+
+| # | defect | on `master` | on the working branches |
+|---|---|---|---|
+| A1 | Schreiber clamp inverted | yes | **yes (all)** |
+| A2 | evolution window one step short | yes | **yes (all)** |
+| A3 | `SFH` log-ratio unit error | yes | **yes (all)** |
+| A4 | `dn_dlnX` × 2.30 | yes | yes, except `Refactor` |
+| A5 | per-call clock reseed | yes | **changed** — see A5 |
+| A6 | gas cap never engages | yes | **yes (all)** |
+| B1 | pair fractions zero when evolved | yes | **NO — fixed on all** |
+| B2 | `os.listdir()` cache check | yes | **yes (all)** |
+| C1 | `np.digitize` as a histogram index | yes | **yes (all)** |
+| C2 | sSFR bins vs saved axis | yes | **yes (all)** |
+
+So **B1 is a `master`-only defect** and everything else is present in
+the code contemporaneous with the papers. That inverts the significance
+of the two: B1 is a *reproducibility* finding about the archived public
+snapshot, not a correctness finding about the science; the rest are
+correctness findings that reach the published results.
+
+---
+
 ## A. Wrong physics
 
 ### A1. The Schreiber+2015 main sequence is clamped the wrong way in the compiled hot loop
@@ -119,7 +162,28 @@ difference and prove nothing.
 
   It also makes a run unreproducible even in principle: there is no seed
   to set, and re-running the same configuration gives different answers.
-* **Bites:** every run.
+* **The working branches changed this, and it matters.** `PipGrylls`,
+  `Paper2`, `Refactor` and `saiduc` all use
+
+  ```python
+  np.random.seed(int(str(time()).split('.')[1])+os.getpid())
+  ```
+
+  — the *fractional* clock digits rather than whole seconds. Measured
+  over 20 000 consecutive calls: `master`'s form yields **1 distinct
+  seed**, this one yields **20 000**. So the correlated-scatter problem
+  is real on `master` and effectively absent from the code the papers
+  were run with. The severity claim applies to `master` only.
+
+  Two residual problems remain on the working branches. The seed's
+  magnitude depends on how many digits `repr()` prints for the
+  fractional part, which varies per call (`str(1786467089.0)` gives
+  `'0'`, `str(1786467089.123456)` gives `'123456'`), so the seed
+  distribution is lumpy rather than uniform. And it is still reseeded
+  ~700 000 times per run from a source with no settable value, so a run
+  remains irreproducible in principle.
+* **Bites:** the correlation, `master` only. The irreproducibility,
+  every branch.
 * **Fixed in:** the Rust threads one explicitly-seeded `StdRng` through
   the whole run (`ModelContext::rng_seed`), drawn from continuously
   rather than reset. A run is bit-reproducible — see the
@@ -206,31 +270,41 @@ difference and prove nothing.
   through the last code commit (340c933, 2019-03-04); all seven
   committed revisions of `STEEL.py` contain it.
 * **Fixed in:** `rust/steel-core/src/context.rs` (PORT-FIX 2).
-* **Provenance — what this does *not* establish.** It says nothing
-  about the published figures. This repository is a snapshot of
-  2019-02-19 to 2019-03-04 (the only later commits are ReadMe/LICENSE
-  in 2025). Paper 1 (arXiv 1812.00015) *predates* it; Paper 2
-  (1910.08417) and Paper 3 (2001.06017) postdate the last code commit
-  by 7 and 10 months. The code that produced those figures is not in
-  this repository and its state is unknown here.
+* **Resolved: this is a `master`-only defect.** `PipGrylls`, `Paper2`,
+  `Refactor`, `haofu` and `saiduc` all carry the missing `else:`
+  branch. `Paper2`, whose tip is 2020-01-17 — contemporaneous with
+  Paper 3's submission — has:
 
-  Two further reasons to expect it was fixed before those figures were
-  made. First, an all-zero `Pair_Frac` yields a flat-zero pair fraction
-  out of `Return_PF_Plot` — conspicuous, not subtle. Second, the
+  ```python
+  else:
+      Counterpart = np.multiply(np.ones_like(SM_Sat), np.arange(z_bin,i,1)).T
+      Wt_Corr = np.flipud(np.divide(histogram2d(
+          Counterpart.flatten(), SM_Sat.T.flatten(),
+          (i-z_bin, SatM_len), ((z_bin, i), (SatM_min, SatM_max))), N))[PF_bin_l:PF_bin_u]
+      Corr = np.divide(np.multiply(WeightList_SubOnly[PF_bin_l:PF_bin_u], Wt_Corr.T).T, SatBin)
+  ```
+
+  So the published pair fractions are *not* affected. What is affected
+  is the repository's public default branch, which cannot reproduce
+  them: **`master` writes an all-zero `Pair_Frac` for every stripping or
+  star-formation run.** That is a reproducibility finding about the
+  archived artefact.
+
+  Corroborating that `master` is the outlier rather than the norm: its
   pair-fraction plotting blocks in `CentralPostprocessing.py` iterate
-  over `M_Factors`/`N_Factors`/`b_Factors`/`g_Factors`, which are
-  commented-out lists of *bare strings* (`'G19_SE'`,
-  `'G19_SE_PP_SF_Strip'`). That is the **pre-rework** identifier format:
-  before 340c933 the class did `self.Fit = Fit_in`, after it does
-  `self.Fit = Fit_in[5]`, which on a string returns one character. So
-  those blocks are vestigial even within the repository — the committed
-  post-processing cannot consume the identifiers its own pair-fraction
-  plots reference.
+  over `M_Factors`/`N_Factors`/`b_Factors`/`g_Factors`, commented-out
+  lists of *bare strings* (`'G19_SE_PP_SF_Strip'`). That is the
+  pre-rework identifier format — before 340c933 the class did
+  `self.Fit = Fit_in`, after it does `Fit_in[5]`, one character. Those
+  blocks are vestigial on `master`: the committed post-processing cannot
+  consume the identifiers its own pair-fraction plots reference.
 
-  The defensible claim is therefore narrow: **the archived code cannot
-  produce a non-zero pair fraction in a stripping or star-formation
-  run.** Whether the science code did is outside what this repository
-  can answer.
+* **The reconstruction is validated against it.** The 2-D branch written
+  for `py-steel-corrected` and for the Rust was, at the time, written
+  without a reference. Tested against `Paper2`'s implementation on
+  identical input it is **bit-identical** (`np.array_equal` → `True`,
+  max |diff| 0.0). The two differ only in whether the row slice is taken
+  before or after the histogram, which is equivalent.
 
 ### B2. `Make_HMF_Interp`'s cache check can never be true
 

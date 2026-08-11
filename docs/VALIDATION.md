@@ -91,15 +91,16 @@ That is the validation.
 
 **What the corrections move:**
 
-* **Pair fractions were identically zero.** Not approximately —
-  `np.count_nonzero` is 0. The pair-fraction block sits inside
+* **`master` writes identically zero pair fractions.** Not
+  approximately — `np.count_nonzero` is 0. The block sits inside
   `if len(np.shape(SM_Sat)) == 1:` with no `else`, and `SM_Sat` is 2-D
-  exactly when stripping or star formation is on (correction B1). This
-  holds in every committed revision: the block was written once in the
-  first commit and never touched. **It says nothing about the published
-  figures** — this repository is a 2019-02/03 snapshot, Paper 1 predates
-  it and Papers 2 and 3 postdate its last code commit by 7 and 10
-  months. See `docs/PORT_CORRECTIONS.md` B1 for the provenance.
+  exactly when stripping or star formation is on (correction B1).
+  **This is a `master`-only defect**: the `PipGrylls`, `Paper2`,
+  `Refactor`, `haofu` and `saiduc` branches all carry the missing
+  `else:` branch, and `Paper2`'s tip (2020-01-17) is contemporaneous
+  with Paper 3's submission. So the published pair fractions are not
+  affected; the repository's *public default branch* simply cannot
+  reproduce them. See `docs/PORT_CORRECTIONS.md` B1.
 * **Richness integrals move by +4.7% and +12.5%** — `np.digitize` used
   as a `fast_histogram` bin index, so "satellites above log M* = X"
   started at X + 0.1 (C1).
@@ -216,27 +217,32 @@ against Mundy+2017. That is an eyeball judgement, not a measurement:
 **no published figure has been digitised and compared here**, so this
 does not establish that either implementation reproduces Paper 3.
 
-### The 2-D pair-fraction branch is the least-validated thing in this work
+### The 2-D pair-fraction branch — now validated against a reference
 
-Worth stating plainly. Correction B1 required *writing* the branch that
-handles an evolved satellite, because the Python never had one. There is
-therefore no reference implementation for it anywhere:
+Correction B1 required *writing* the branch that handles an evolved
+satellite, because `master` has none. That made it the least-validated
+part of this work: py-corrected and rs-steel agreeing to 0.5% was
+self-consistency (same author, same reading), not corroboration.
 
-* In the **frozen** config the original 1-D branch does run, and the
-  corrected version integrates to within **0.06%** of it. But that
-  branch is essentially unmodified code, so this shows nothing was
-  broken, not that anything new is right.
-* In the **stripping/star-formation** config — the one that matters —
-  py-corrected and rs-steel agree to 0.5%. Both were written by the same
-  author from the same reading of the surrounding code. That is
-  self-consistency, not corroboration: a shared misreading of the column
-  ordering or the weighting would produce exactly this agreement.
+A reference does exist — on the branches `master` does not merge.
+`Paper2` (tip 2020-01-17) implements it as:
 
-Closing this needs a check against the *method*, not against either
-implementation: a hand-computed pair fraction for one (host, subhalo,
-redshift) bin — Guo+2011 linear infall separation, which timesteps fall
-in the 5–30 kpc window, and the per-central weight — verified against
-thesis Chapter 2 and compared to both codes.
+```python
+else:
+    Counterpart = np.multiply(np.ones_like(SM_Sat), np.arange(z_bin,i,1)).T
+    Wt_Corr = np.flipud(np.divide(histogram2d(
+        Counterpart.flatten(), SM_Sat.T.flatten(),
+        (i-z_bin, SatM_len), ((z_bin, i), (SatM_min, SatM_max))), N))[PF_bin_l:PF_bin_u]
+    Corr = np.divide(np.multiply(WeightList_SubOnly[PF_bin_l:PF_bin_u], Wt_Corr.T).T, SatBin)
+```
+
+Run against the reconstruction on identical input, the two are
+**bit-identical** — `np.array_equal` → `True`, max |diff| exactly 0.
+They differ only in whether the row slice is taken before or after the
+histogram, which is equivalent. The reconstruction is correct.
+
+The frozen-config check stands as before: 0.06% on the integral against
+the original 1-D path, which shows nothing was broken there.
 
 ---
 
