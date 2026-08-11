@@ -200,9 +200,37 @@ difference and prove nothing.
   is on. So the configurations Papers 2 and 3 are built on write
   all-zero pair fractions. Note `Pair_Frac_Halo` does not even depend on
   `SM_Sat` — it is skipped only because it sits inside the same block.
-* **Bites:** every run with `Stripping` or `SF` on. This is the most
-  consequential entry in the list.
+* **Bites:** every run with `Stripping` or `SF` on, in **every version
+  of this repository**. `git log -S` on the block shows it was written
+  once, in the first commit (5aab9f3, 2019-02-19), and never modified
+  through the last code commit (340c933, 2019-03-04); all seven
+  committed revisions of `STEEL.py` contain it.
 * **Fixed in:** `rust/steel-core/src/context.rs` (PORT-FIX 2).
+* **Provenance — what this does *not* establish.** It says nothing
+  about the published figures. This repository is a snapshot of
+  2019-02-19 to 2019-03-04 (the only later commits are ReadMe/LICENSE
+  in 2025). Paper 1 (arXiv 1812.00015) *predates* it; Paper 2
+  (1910.08417) and Paper 3 (2001.06017) postdate the last code commit
+  by 7 and 10 months. The code that produced those figures is not in
+  this repository and its state is unknown here.
+
+  Two further reasons to expect it was fixed before those figures were
+  made. First, an all-zero `Pair_Frac` yields a flat-zero pair fraction
+  out of `Return_PF_Plot` — conspicuous, not subtle. Second, the
+  pair-fraction plotting blocks in `CentralPostprocessing.py` iterate
+  over `M_Factors`/`N_Factors`/`b_Factors`/`g_Factors`, which are
+  commented-out lists of *bare strings* (`'G19_SE'`,
+  `'G19_SE_PP_SF_Strip'`). That is the **pre-rework** identifier format:
+  before 340c933 the class did `self.Fit = Fit_in`, after it does
+  `self.Fit = Fit_in[5]`, which on a string returns one character. So
+  those blocks are vestigial even within the repository — the committed
+  post-processing cannot consume the identifiers its own pair-fraction
+  plots reference.
+
+  The defensible claim is therefore narrow: **the archived code cannot
+  produce a non-zero pair fraction in a stripping or star-formation
+  run.** Whether the science code did is outside what this repository
+  can answer.
 
 ### B2. `Make_HMF_Interp`'s cache check can never be true
 

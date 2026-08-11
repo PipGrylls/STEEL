@@ -94,8 +94,12 @@ That is the validation.
 * **Pair fractions were identically zero.** Not approximately —
   `np.count_nonzero` is 0. The pair-fraction block sits inside
   `if len(np.shape(SM_Sat)) == 1:` with no `else`, and `SM_Sat` is 2-D
-  exactly when stripping or star formation is on. So the configurations
-  Papers 2 and 3 interpret wrote nothing (correction B1).
+  exactly when stripping or star formation is on (correction B1). This
+  holds in every committed revision: the block was written once in the
+  first commit and never touched. **It says nothing about the published
+  figures** — this repository is a 2019-02/03 snapshot, Paper 1 predates
+  it and Papers 2 and 3 postdate its last code commit by 7 and 10
+  months. See `docs/PORT_CORRECTIONS.md` B1 for the provenance.
 * **Richness integrals move by +4.7% and +12.5%** — `np.digitize` used
   as a `fast_histogram` bin index, so "satellites above log M* = X"
   started at X + 0.1 (C1).
@@ -207,8 +211,32 @@ The corrected output gives physically sensible values. Running the real
 | `log M* > 11` | 0.0141 | 0.013 – 0.099 |
 
 A per-cent-level pair fraction at low redshift rising to ~10% by high
-redshift is the expected behaviour, and is what Paper 3 compares against
-Mundy+2017. It cannot have come from this array in this configuration.
+redshift is the expected behaviour for the quantity Paper 3 compares
+against Mundy+2017. That is an eyeball judgement, not a measurement:
+**no published figure has been digitised and compared here**, so this
+does not establish that either implementation reproduces Paper 3.
+
+### The 2-D pair-fraction branch is the least-validated thing in this work
+
+Worth stating plainly. Correction B1 required *writing* the branch that
+handles an evolved satellite, because the Python never had one. There is
+therefore no reference implementation for it anywhere:
+
+* In the **frozen** config the original 1-D branch does run, and the
+  corrected version integrates to within **0.06%** of it. But that
+  branch is essentially unmodified code, so this shows nothing was
+  broken, not that anything new is right.
+* In the **stripping/star-formation** config — the one that matters —
+  py-corrected and rs-steel agree to 0.5%. Both were written by the same
+  author from the same reading of the surrounding code. That is
+  self-consistency, not corroboration: a shared misreading of the column
+  ordering or the weighting would produce exactly this agreement.
+
+Closing this needs a check against the *method*, not against either
+implementation: a hand-computed pair fraction for one (host, subhalo,
+redshift) bin — Guo+2011 linear infall separation, which timesteps fall
+in the 5–30 kpc window, and the per-central weight — verified against
+thesis Chapter 2 and compared to both codes.
 
 ---
 
