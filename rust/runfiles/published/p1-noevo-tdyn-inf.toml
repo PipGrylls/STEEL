@@ -1,0 +1,27 @@
+# p1-noevo-tdyn-inf -- generated from configs/published_runs.toml.
+# Do not edit by hand; edit the table and re-run
+# Scripts/Validation/make_runfiles.py.
+# Published as: ['inf', False, False, False, True, 'G18']
+#   figure: P1 Fig5
+#   figure: P1 Fig6
+
+[merger_time]
+dynamical_time_factor = inf
+redshift_correction = false
+
+[smhm]
+model = "moster_form"
+preset = "g18"
+z_evo = false
+
+[sfr]
+model = "tomczak_form"
+preset = "ce"
+
+[run]
+log_m_min = 11.0
+log_m_max = 16.6
+log_m_bin = 0.1
+star_formation = false
+pre_processing = false
+stellar_stripping = false

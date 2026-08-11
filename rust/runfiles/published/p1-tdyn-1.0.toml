@@ -1,0 +1,31 @@
+# p1-tdyn-1.0 -- generated from configs/published_runs.toml.
+# Do not edit by hand; edit the table and re-run
+# Scripts/Validation/make_runfiles.py.
+# Published as: [1.0, False, False, True, True, 'G18']
+#   figure: P1 Fig5
+#   figure: P1 Fig6
+#   figure: P1 Fig7
+#   figure: P1 Fig8
+#   figure: Thesis fig:SMF_Tdyn
+#   figure: Thesis fig:Sat_Dist_Tdyn
+
+[merger_time]
+dynamical_time_factor = 1.0
+redshift_correction = false
+
+[smhm]
+model = "moster_form"
+preset = "g18"
+z_evo = true
+
+[sfr]
+model = "tomczak_form"
+preset = "ce"
+
+[run]
+log_m_min = 11.0
+log_m_max = 16.6
+log_m_bin = 0.1
+star_formation = false
+pre_processing = false
+stellar_stripping = false

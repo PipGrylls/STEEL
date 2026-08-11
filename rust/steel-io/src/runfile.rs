@@ -65,14 +65,61 @@ impl Default for MergerTimeConfig {
 
 /// `model`: `"moster_form"` or `"behroozi_form"`.
 /// `preset`: for `moster_form` one of `moster13`, `moster10`, `g18`,
-/// `g18_not_se`, `g19_se`, `g19_c_mod`, `illustris`; for
-/// `behroozi_form` one of `b18c`, `b18t`, `behroozi13`, `lorenzo18`.
+/// `g18_not_se`, `g19_se`, `g19_c_mod`, `illustris`, `override_0`,
+/// `override_z`; for `behroozi_form` one of `b18c`, `b18t`,
+/// `behroozi13`, `lorenzo18`. The two `override_*` presets read their
+/// coefficients from `[smhm.params]`.
 #[derive(Debug, Deserialize)]
 pub struct SmhmConfig {
     pub model: String,
     pub preset: String,
     #[serde(default = "default_true")]
     pub z_evo: bool,
+    /// Coefficients for the `override_0` / `override_z` presets, which
+    /// correspond to `AbnMtch['Override_0']` / `AbnMtch['Override_z']`.
+    /// Required for those presets and ignored for the named ones.
+    ///
+    /// Paper 3's pair-fraction systematics suite (`AbnMtch['PFT']` plus
+    /// one of `M_PFT1..3`, `N_PFT1..3`, `b_PFT1..3`, `g_PFT1..4`) is a
+    /// set of single-coefficient perturbations of one base relation, so
+    /// it is expressed here as explicit coefficients rather than
+    /// fourteen more named presets.
+    #[serde(default)]
+    pub params: Option<SmhmParams>,
+    /// Overrides the `AbnMtch` key used in the output directory name.
+    ///
+    /// Needed by Paper 3's pair-fraction systematics: all fourteen
+    /// variants are the same `override_z` preset with different
+    /// coefficients, so without this they would derive the same
+    /// directory name and overwrite each other. In the Python each is
+    /// its own `AbnMtch` key (`M_PFT1`, `g_PFT4`, ...), and that key is
+    /// what the published directory names carry.
+    #[serde(default)]
+    pub legacy_name: Option<String>,
+}
+
+/// Moster-form SMHM coefficients, named as in `Functions.py`'s
+/// `Override` dictionary.
+#[derive(Debug, Deserialize, Clone, Copy)]
+pub struct SmhmParams {
+    pub m10: f64,
+    pub shmnorm10: f64,
+    pub beta10: f64,
+    pub gamma10: f64,
+    #[serde(default)]
+    pub m11: f64,
+    #[serde(default)]
+    pub shmnorm11: f64,
+    #[serde(default)]
+    pub beta11: f64,
+    #[serde(default)]
+    pub gamma11: f64,
+    #[serde(default = "default_scatter")]
+    pub scatter: f64,
+}
+
+fn default_scatter() -> f64 {
+    0.15
 }
 
 /// `model`: `"tomczak_form"` (needs `preset`: `t16`, `ce`, `illustris`),
@@ -118,6 +165,8 @@ pub struct RunSection {
     pub sat_min_offset: f64,
     pub z_reference_min: f64,
     pub star_formation: bool,
+    /// `Paramaters['PreProcessing']` (the `_PP` run-tuple suffix).
+    pub pre_processing: bool,
     pub stellar_stripping: bool,
     pub n_realizations: usize,
     pub sat_sm_min: f64,
@@ -144,6 +193,7 @@ impl Default for RunSection {
             sat_min_offset: -1.0,
             z_reference_min: 0.1,
             star_formation: false,
+            pre_processing: false,
             stellar_stripping: false,
             n_realizations: 5,
             sat_sm_min: 9.0,
@@ -196,6 +246,54 @@ mod tests {
         assert_eq!(run.sfr.model, "double_power_law");
         assert_eq!(run.run.n_realizations, 5); // default
         assert_eq!(run.merger_time.dynamical_time_factor, 1.0); // default
+    }
+
+    #[test]
+    fn parses_smhm_override_coefficients() {
+        // Paper 3's pair-fraction systematics suite perturbs one
+        // coefficient of a common base relation at a time, so it needs
+        // explicit coefficients rather than a named preset.
+        let toml = r#"
+            [smhm]
+            model = "moster_form"
+            preset = "override_z"
+
+            [smhm.params]
+            m10 = 12.0
+            shmnorm10 = 0.032
+            beta10 = 1.5
+            gamma10 = 0.56
+            m11 = 0.6
+            shmnorm11 = -0.014
+            beta11 = -0.7
+            gamma11 = 0.08
+
+            [sfr]
+            model = "double_power_law"
+        "#;
+        let run = RunFile::parse(toml).unwrap();
+        let p = run.smhm.params.expect("params should parse");
+        assert_eq!(p.m10, 12.0);
+        assert_eq!(p.beta11, -0.7);
+        assert_eq!(p.scatter, 0.15, "scatter should default to the Python's 0.15");
+    }
+
+    #[test]
+    fn an_infinite_dynamical_time_factor_parses() {
+        // Paper 1's `f_tdyn = inf` model ("satellites never merge").
+        let toml = r#"
+            [merger_time]
+            dynamical_time_factor = inf
+
+            [smhm]
+            model = "moster_form"
+            preset = "g18"
+
+            [sfr]
+            model = "double_power_law"
+        "#;
+        let run = RunFile::parse(toml).unwrap();
+        assert!(run.merger_time.dynamical_time_factor.is_infinite());
     }
 
     #[test]

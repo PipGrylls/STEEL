@@ -32,6 +32,21 @@ fn build_smhm(cfg: &steel_io::runfile::SmhmConfig) -> Result<Box<dyn SmhmModel>>
                 "g19_se" => MosterFormSmhm::g19_se(cfg.z_evo),
                 "g19_c_mod" => MosterFormSmhm::g19_c_mod(cfg.z_evo),
                 "illustris" => MosterFormSmhm::illustris(cfg.z_evo),
+                preset @ ("override_0" | "override_z") => {
+                    let p = cfg.params.ok_or_else(|| {
+                        anyhow!("smhm preset {preset} requires a [smhm.params] table")
+                    })?;
+                    if preset == "override_0" {
+                        MosterFormSmhm::override_z0(
+                            p.m10, p.shmnorm10, p.beta10, p.gamma10, p.scatter, cfg.z_evo,
+                        )
+                    } else {
+                        MosterFormSmhm::override_full(
+                            p.m10, p.shmnorm10, p.beta10, p.gamma10, p.m11, p.shmnorm11,
+                            p.beta11, p.gamma11, p.scatter, cfg.z_evo,
+                        )
+                    }
+                }
                 other => return Err(anyhow!("unknown moster_form preset: {other}")),
             };
             Ok(Box::new(m))
@@ -102,7 +117,10 @@ fn build_quenching() -> Box<dyn QuenchingModel> {
 /// directory name (`G19_SE`, `Moster`, ...). Needed so Rust-produced
 /// runs land in directories the existing Python plotting scripts
 /// already know how to find.
-pub fn smhm_legacy_name(cfg: &steel_io::runfile::SmhmConfig) -> &'static str {
+pub fn smhm_legacy_name(cfg: &steel_io::runfile::SmhmConfig) -> &str {
+    if let Some(name) = cfg.legacy_name.as_deref() {
+        return name;
+    }
     match (cfg.model.as_str(), cfg.preset.as_str()) {
         ("moster_form", "moster13") => "Moster",
         ("moster_form", "moster10") => "Moster10",
@@ -111,6 +129,8 @@ pub fn smhm_legacy_name(cfg: &steel_io::runfile::SmhmConfig) -> &'static str {
         ("moster_form", "g19_se") => "G19_SE",
         ("moster_form", "g19_c_mod") => "G19_cMod",
         ("moster_form", "illustris") => "Illustris",
+        ("moster_form", "override_0") => "Override_0",
+        ("moster_form", "override_z") => "Override_z",
         ("behroozi_form", "b18c") => "B18c",
         ("behroozi_form", "b18t") => "B18t",
         ("behroozi_form", "behroozi13" | "behrozi13") => "Behroozi13",
@@ -173,6 +193,7 @@ pub fn build_simulation(runfile: &RunFile) -> Result<(Simulation, RunConfig)> {
         sat_min_offset: runfile.run.sat_min_offset,
         z_reference_min: runfile.run.z_reference_min,
         star_formation: runfile.run.star_formation,
+        pre_processing: runfile.run.pre_processing,
         stellar_stripping: runfile.run.stellar_stripping,
         n_realizations: runfile.run.n_realizations,
         sat_sm_min: runfile.run.sat_sm_min,

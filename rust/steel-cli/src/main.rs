@@ -32,12 +32,21 @@ fn main() -> Result<()> {
     // `to_string()` formatting (`1`, `false`) and internal plugin names
     // would put the output somewhere those scripts never look.
     let py_bool = |b: bool| if b { "True" } else { "False" };
+    // `Paramaters['PreProcessing']` is carried in STEEL.py's run tuple
+    // as a `_PP` suffix on the SFR model name, and so appears in the
+    // output directory. Without it a pre-processed run would overwrite
+    // its non-pre-processed twin.
+    let sfr_name = if runfile.run.pre_processing {
+        format!("{}_PP", registry::sfr_legacy_name(&runfile.sfr))
+    } else {
+        registry::sfr_legacy_name(&runfile.sfr).to_string()
+    };
     let run_param_dir = steel_io::run_param_dir_name(&[
         &format!("{:.1}", runfile.merger_time.dynamical_time_factor),
         py_bool(runfile.run.stellar_stripping),
         py_bool(runfile.run.star_formation),
         py_bool(runfile.smhm.z_evo),
-        registry::sfr_legacy_name(&runfile.sfr),
+        &sfr_name,
         registry::smhm_legacy_name(&runfile.smhm),
     ]);
 

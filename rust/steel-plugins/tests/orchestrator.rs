@@ -214,6 +214,44 @@ fn every_enabled_output_family_is_populated_and_finite() {
     );
 }
 
+/// `Paramaters['PreProcessing']` (the `_PP` run-tuple suffix) quenches
+/// a mass-dependent prefix of each satellite's realization ensemble at
+/// infall. Paper 2's cmodel and DPL suites both use it, so a run that
+/// silently ignored the flag would produce a different result under the
+/// same name.
+#[test]
+fn pre_processing_suppresses_satellite_growth() {
+    let sim = build_small_simulation();
+    let mut config = small_config();
+    config.star_formation = true;
+    // `PP_Frac` is quantised by `int(PP_Frac * n_realizations)`, exactly
+    // as in the Python. `PP_Frac` is 0.3 for an ensemble mean above
+    // log M* = 8, so the default 3 realizations of `small_config` give
+    // `int(0.9) = 0` -- nothing is pre-quenched and the flag is a no-op.
+    // 10 realizations puts at least 3 in the pre-quenched prefix.
+    config.n_realizations = 10;
+
+    let normal = sim.run(&config);
+    config.pre_processing = true;
+    let pre_processed = sim.run(&config);
+
+    // Quenching part of the ensemble at infall means less stellar mass
+    // is formed, so the merged-satellite star formation total must drop.
+    let total = |o: &steel_core::RunOutput| {
+        o.total_star_formation_mean.iter().filter(|v| v.is_finite()).sum::<f64>()
+    };
+    assert!(
+        total(&pre_processed) < total(&normal),
+        "pre-processing should reduce total star formation: {} vs {}",
+        total(&pre_processed),
+        total(&normal)
+    );
+
+    // ...and the satellite SMF must actually differ, i.e. the flag is
+    // not being silently ignored.
+    assert_ne!(normal.surviving_sat_smf, pre_processed.surviving_sat_smf);
+}
+
 /// The subhalo mass functions are only accumulated when nothing evolves
 /// the subhalo, matching `STEEL.py:298`'s
 /// `(Stripping_DM == False) and (Stripping or SF) == False` guard.
