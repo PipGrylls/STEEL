@@ -39,9 +39,12 @@ PREV_LINK="$SNAPDIR/.previous"
 if [ -f "$PREV_LINK" ]; then
     PREV="$(cat "$PREV_LINK")"
     echo "=== $PREV -> $LABEL ==="
+    # compare_runs.py exits 1 when shapes differ, which is an expected
+    # outcome for several of these corrections -- don't let `set -e`
+    # abort before the snapshot pointer is advanced.
     "$PY" Scripts/Validation/compare_runs.py \
         "$SNAPDIR/$PREV/$DIRNAME" "$SNAPDIR/$LABEL/$DIRNAME" \
-        | grep -vE '^\S+ +0\.0000e\+00 +0\.0000e\+00 +0\.0000 +0\.0000 +0$'
+        | grep -vE '^\S+ +0\.0000e\+00 +0\.0000e\+00 +0\.0000 +0\.0000 +0$' || true
 else
     echo "=== baseline snapshot: $LABEL ==="
 fi

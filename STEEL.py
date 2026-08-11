@@ -337,10 +337,16 @@ def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
                             WeightList = np.diag(np.fliplr(Arr2D))*(SHMFs_Entering[i][j][k])*(AvaHaloMassBins[z_bin:i,j]*AnalyticHaloBin) # N Mpc^-3 h^3
                         else:	
                             WeightList = Arr2D*(SHMFs_Entering[i][j][k])*(AvaHaloMassBins[z_bin:i,j]*AnalyticHaloBin) # N Mpc^-3 h^3
-                        WeightList_SubOnly = np.full_like(z[z_bin:i], SHMFs_Entering[i][j][k]*AnalyticHaloBin) #N per central
                     else:
                         #Makes sure acretion in final redshift step is included
                         WeightList = (HMF_fun(AvaHaloMass[i, j], z[i]))*(SHMFs_Entering[i][j][k])*(AvaHaloMassBins[i,j]*AnalyticHaloBin) # N Mpc^-3 h^3
+                    #Assigned unconditionally. This used to live inside the
+                    #`i != 0 and z_bin != i` branch only, so when the else ran
+                    #the merger accumulator below read whatever the *previous*
+                    #k iteration had left in the name -- a different subhalo
+                    #mass bin's weight. The value is constant over the window
+                    #either way, so hoisting it out is otherwise a no-op.
+                    WeightList_SubOnly = np.full(max(i - z_bin, 1), SHMFs_Entering[i][j][k]*AnalyticHaloBin) #N per central
                     ###CHECK Z_bin == i ==0
                     #This creates the Unevolved Surviving Subhalo Mass Function
                     #Unstripped (Unevolved Surviving)
