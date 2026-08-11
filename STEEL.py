@@ -165,6 +165,40 @@ else:
 #for each accreted halo calculate if it survives to z = 0 given tdyn
 #Abundance match the galaxy in and count the number of satilites above SM_Cut
 
+def HistogramBin(Value, BinEdges):
+    """
+    Index of the histogram bin `Value` falls into, or -1 if it is outside
+    the range. Matches fast_histogram's convention: a value on a bin's
+    left edge belongs to that bin.
+
+    `np.digitize` returns the index one *past* that bin, and everything
+    else in OneRealization bins through fast_histogram, so mixing the two
+    shifts the mass axis by one bin.
+    """
+    Width = BinEdges[1] - BinEdges[0]
+    Index = int(np.floor((Value - BinEdges[0])/Width + 1e-9))
+    if Index < 0 or Index >= len(BinEdges) - 1:
+        return -1
+    return Index
+
+
+def CutBin(Cut, BinEdges):
+    """
+    Lower index for an "everything above `Cut`" integral: the first bin
+    whose *left edge* is at or above `Cut`.
+
+    This was `np.digitize(Cut, BinEdges)`, which for a `Cut` sitting
+    exactly on a bin edge returns one past that bin and so drops it from
+    the integral. All of STEEL's SM_Cuts except 11.45 sit on an edge, so
+    e.g. "satellites above log M* = 9.0" actually started at 9.1.
+
+    The 1e-9 tolerance absorbs the floating-point noise in np.arange's
+    edges so an exact edge lands on its own bin rather than the next.
+    """
+    Width = BinEdges[1] - BinEdges[0]
+    return int(min(len(BinEdges) - 1, max(0, np.ceil((Cut - BinEdges[0])/Width - 1e-9))))
+
+
 def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
     
     #For the high redhsift fits
@@ -339,8 +373,8 @@ def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
                         #saving the Total mass made in each scenario for galaxies that have merged
                         if (Stripping or SF):
                             MassAfter = np.mean(np.power(10, SM_Sat[:,-1]))
-                            bin_ = np.digitize(np.log10(MassBefore), bins = Surviving_Sat_SMF_MassRange)
-                            if 0 < bin_ <len(Surviving_Sat_SMF_MassRange[:-1]) and z_Merge_Bin != -1:
+                            bin_ = HistogramBin(np.log10(MassBefore), Surviving_Sat_SMF_MassRange)
+                            if bin_ != -1 and z_Merge_Bin != -1:
                                 Total_StarFormation[z_bin][j][bin_].append(MassAfter - MassBefore)
                     #We now have stripped halo mass and Satilite Masses=============
                     
@@ -479,7 +513,7 @@ def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
     AnalyticalModel_Cuts_Frac = []
     AnalyticalModel_Cuts_NoFrac = []
     for i, Cut in enumerate(SM_Cuts):
-        SM_Bin = np.digitize(Cut, Surviving_Sat_SMF_MassRange)
+        SM_Bin = CutBin(Cut, Surviving_Sat_SMF_MassRange)
         Integrals_ = np.array([np.sum(Sat_List)*SatBin for Sat_List in Surviving_Sat_SMF_Weighting[:, SM_Bin:]])
         #Integrals
         AnalyticalModel_Cuts_Frac.append(np.divide(Integrals_, np.sum(Integrals_)))
@@ -492,7 +526,7 @@ def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
         AnalyticalModel_Cuts_Frac_Temp = []
         AnalyticalModel_Cuts_NoFrac_Temp = []
         for j in Surviving_Sat_SMF_Weighting_highz:
-            SM_Bin = np.digitize(Cut, Surviving_Sat_SMF_MassRange)
+            SM_Bin = CutBin(Cut, Surviving_Sat_SMF_MassRange)
             Integrals_ = np.array([np.sum(Sat_List)*SatBin for Sat_List in j[:, SM_Bin:]])
             #Integrals
             AnalyticalModel_Cuts_Frac_Temp.append(np.divide(Integrals_, np.sum(Integrals_)))
