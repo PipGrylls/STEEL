@@ -15,9 +15,6 @@ c**********************************************************************
       REAL      VmaxVvir0,Vmaxrat,VmaxVvir,c0,cc
       REAL      M,Afac,Bfac,Hfac,fac1,fac2,s1
       CHARACTER outfile*30
-      CHARACTER fileplace*47
-
-
       REAL      M0,z0,s0,dc0,delta_dc
       COMMON /fpars/ M0,z0,s0,dc0,delta_dc
 
@@ -116,8 +113,14 @@ c---using the MAH, we now compute Vmax and concentration along the MAH
 
       c0 = get_conc(1.0,0.0)
       VmaxVvir0 = ALOG10(0.465 * SQRT(c0/(ALOG(1.0+c0)-c0/(1.0+c0))))
-      fileplace = "/data/pg1g15/STEEL/Functions/OtherModels/VDB13/"
-      OPEN(10,file=fileplace//outfile,status='UNKNOWN')
+c---Output goes to the working directory, which is what the caller
+c---controls. This used to prepend a hardcoded absolute
+c---'/data/pg1g15/STEEL/Functions/OtherModels/VDB13/', so the program
+c---could not write its result anywhere but the one machine it was
+c---built on. (The prefix was also declared CHARACTER*47 and
+c---concatenated without TRIM, so even on that machine the filename
+c---carried trailing blanks.)
+      OPEN(10,file=outfile,status='UNKNOWN')
       DO j=1,Nz
         z = zz(j)
         psi = 10.0**xlgMAH(j)

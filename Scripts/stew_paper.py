@@ -4,7 +4,12 @@ AbsPath = str(__file__)[:-len("stew_paper.py")]+"/.."
 sys.path.append(AbsPath)
 import scipy.stats
 import numpy as np
-from numba import jit
+#No `@jit` anywhere in this file. Every decorated function took
+#or returned Python lists and string flags, which numba cannot
+#type, so a bare `@jit` fell back to object mode and
+#accelerated nothing. numba 0.59 made bare `@jit` mean
+#`nopython=True`, at which point the same calls raise instead
+#of running.
 import matplotlib.pyplot as plt
 from Functions import Functions as F
 import colossus.halo.mass_adv as massdefs
@@ -115,7 +120,6 @@ Override['beta11'] = 0
 Override['gamma11'] = 0.0
 
 
-@jit
 def make_dist(gamma_in, sigma_in, cen_sat = 'cen'):
     """
     #Function to compute the distribution for a given gamma sigma pair
@@ -145,7 +149,6 @@ def make_dist(gamma_in, sigma_in, cen_sat = 'cen'):
         Y = Y*(10**4)
     return [X, Y]
 
-@jit
 def compare_dist(hod, toy, cen_sat = 'cen'):
     """
     #Function to compare two distributions and return a least suares value
@@ -171,13 +174,11 @@ def compare_dist(hod, toy, cen_sat = 'cen'):
     
     return least_sq
 
-@jit
 def vec_func(values_in, hod, cen_sat = 'cen'):
     gamma_in, sigma_in, = values_in
     toy_dist = make_dist(gamma_in, sigma_in, cen_sat = cen_sat)
     return compare_dist(hod, toy_dist, cen_sat = cen_sat)
 
-@jit
 def find_areas(norm_area):
     """
     #This function takes in a normilised area and returns the levels to plot 

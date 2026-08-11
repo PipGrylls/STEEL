@@ -22,6 +22,17 @@ cdef:
     double O0 = Ol+Om+Or
     gsl_rng* RNG_set = gsl_rng_alloc(gsl_rng_taus)
 
+def SeedRandomState(unsigned long int seed):
+    """Seed the star-formation-rate scatter generator.
+
+    `gsl_rng_alloc` leaves the generator on its fixed built-in default
+    seed, so every process -- including every worker of the
+    multiprocessing pool -- drew the identical scatter sequence, and
+    there was no way to vary or reproduce it deliberately. Called from
+    `Functions.SeedRandomState`.
+    """
+    gsl_rng_set(RNG_set, seed)
+
 def HaloMassLoss_c(double m, double[:] M, double[:] z, double[:] delta_t):
     #accelerated loop for HaloMassLoss
     cdef:
@@ -103,8 +114,17 @@ def Starformation_c(double[:] M_infall, double[:] t, double[:] delta_t, double[:
                     m = M_out[k,i]-9
                     r = c_log10(1+z[i])
                     m0, a0, a1, m1, a2 = 0.5, 1.5, 0.3, 0.36, 2.5
+                    #Schreiber+2015 Eq. 9 is max(0, m - m1 - a2 r): the
+                    #quadratic term switches ON above the knee mass and
+                    #bends the main sequence down at high mass. This used
+                    #to read `if Max > 0: Max = 0`, the opposite, which
+                    #deletes the high-mass bend and applies the penalty to
+                    #low-mass galaxies instead. Functions.py's
+                    #StarFormationRate has always had it the right way
+                    #round; the two disagreed and this, the compiled hot
+                    #loop, is the one that runs.
                     Max = m-m1-a2*r
-                    if Max > 0:
+                    if Max < 0:
                         Max = 0
                     log10MperY = m-m0+a0*r-a1*c_pow(Max, 2)
                 #Schreiber 2015
@@ -112,8 +132,17 @@ def Starformation_c(double[:] M_infall, double[:] t, double[:] delta_t, double[:
                     m = M_out[k,i]-9
                     r = c_log10(1+z[i])
                     m0, a0, a1, m1, a2 = 0.75, 1.75, 0.3, 0.36, 1.75
+                    #Schreiber+2015 Eq. 9 is max(0, m - m1 - a2 r): the
+                    #quadratic term switches ON above the knee mass and
+                    #bends the main sequence down at high mass. This used
+                    #to read `if Max > 0: Max = 0`, the opposite, which
+                    #deletes the high-mass bend and applies the penalty to
+                    #low-mass galaxies instead. Functions.py's
+                    #StarFormationRate has always had it the right way
+                    #round; the two disagreed and this, the compiled hot
+                    #loop, is the one that runs.
                     Max = m-m1-a2*r
-                    if Max > 0:
+                    if Max < 0:
                         Max = 0
                     log10MperY = m-m0+a0*r-a1*c_pow(Max, 2)
                 #Illustrius CE
@@ -143,10 +172,15 @@ def Starformation_c(double[:] M_infall, double[:] t, double[:] delta_t, double[:
                 #Check Gas depletion
                 if Stripping == 1:
                     SM_new = c_pow(10,M_out[k,i]) - c_pow(10,M_out[k,0]+StripFactor[i])
-                    GasMass[k,i] = MaxGas[k]*c_pow(10,StripFactor[i]) - SM_new
+                    #MaxGas is a log10 mass, so it has to be raised
+                    #before being combined with the linear SM_new. This
+                    #line used to treat it as linear while the cap test
+                    #below treated it as a log -- the same variable used
+                    #both ways inside one function.
+                    GasMass[k,i] = c_pow(10, MaxGas[k]+StripFactor[i]) - SM_new
                 else:
                     SM_new = c_pow(10,M_out[k,i]) - c_pow(10,M_out[k,0])
-                    GasMass[k,i] = MaxGas[k] - SM_new
+                    GasMass[k,i] = c_pow(10, MaxGas[k]) - SM_new
                 if SM_new > 0:                
                     if c_log10(SM_new) > MaxGas[k]:
                         SFR = c_pow(10,M_out[k,i]-12.0) 
@@ -165,10 +199,15 @@ def Starformation_c(double[:] M_infall, double[:] t, double[:] delta_t, double[:
                 #Check Gas depletion
                 if Stripping == 1:
                     SM_new = c_pow(10,M_out[k,i]) - c_pow(10,M_out[k,0]+StripFactor[i])
-                    GasMass[k,i] = MaxGas[k]*c_pow(10,StripFactor[i]) - SM_new
+                    #MaxGas is a log10 mass, so it has to be raised
+                    #before being combined with the linear SM_new. This
+                    #line used to treat it as linear while the cap test
+                    #below treated it as a log -- the same variable used
+                    #both ways inside one function.
+                    GasMass[k,i] = c_pow(10, MaxGas[k]+StripFactor[i]) - SM_new
                 else:
                     SM_new = c_pow(10,M_out[k,i]) - c_pow(10,M_out[k,0])
-                    GasMass[k,i] = MaxGas[k] - SM_new
+                    GasMass[k,i] = c_pow(10, MaxGas[k]) - SM_new
                 if SM_new > 0:                
                     if c_log10(SM_new) > MaxGas[k]:
                         SFR = c_pow(10,M_out[k,i]-12.0)
@@ -188,17 +227,28 @@ def Starformation_c(double[:] M_infall, double[:] t, double[:] delta_t, double[:
             #Calculate the GMLR 
             if i > 0 and i < N-1:
                 #(and strip the SFH for the next loop saving additional loop)
-                if Stripping == 1:
-                    for j in range(i):
-                        f_mr_1 = (1 - C0*c_log(((c_abs(t[j]-t[i])*c_pow(10, 9))/Lambda)+1))
-                        f_mr_2 = (1 - C0*c_log(((c_abs(t[j]-t[i+1])*c_pow(10, 9))/Lambda)+1))
-                        GMLR[k,i] = GMLR[k,i] + (c_abs(SFH[k,j]*(f_mr_1 - f_mr_2))/(c_abs(t[i] - t[i+1])*c_pow(10, 9))) #Msun yr-1    
-                        SFH[k,i] = SFH[k,i]+(StripFactor[i+1]-StripFactor[i])
-                else:
-                    for j in range(i):
-                        f_mr_1 = (1 - C0*c_log(((c_abs(t[j]-t[i])*c_pow(10, 9))/Lambda)+1))
-                        f_mr_2 = (1 - C0*c_log(((c_abs(t[j]-t[i+1])*c_pow(10, 9))/Lambda)+1))
-                        GMLR[k,i] = GMLR[k,i] + (c_abs(SFH[k,j]*(f_mr_1 - f_mr_2))/(c_abs(t[i] - t[i+1])*c_pow(10, 9))) #Msun yr-1
+                #The stripping and no-stripping branches were identical
+                #except that the stripped one also ran
+                #    SFH[k,i] = SFH[k,i] + (StripFactor[i+1]-StripFactor[i])
+                #inside this loop. SFH is a mass in Msun (SFR*dt*1e9);
+                #StripFactor is a base-10 logarithm of a surviving
+                #fraction, so their difference is a dimensionless
+                #log-ratio of order -0.01 to -1. Adding it to a quantity
+                #of order 1e8 Msun is a unit error, and being inside
+                #`for j in range(i)` it was applied i times per timestep
+                #rather than once. SFH feeds both the recycled mass-loss
+                #rate below and the reported sSFR.
+                #
+                #Tidal stripping of already-formed stars is applied where
+                #it belongs, to the stellar mass itself, in the M_out
+                #update further down -- which already carries exactly this
+                #(StripFactor[i+1]-StripFactor[i]) term, in the log domain
+                #where it is dimensionally correct. So this line was not
+                #just mis-scaled, it was a double count.
+                for j in range(i):
+                    f_mr_1 = (1 - C0*c_log(((c_abs(t[j]-t[i])*c_pow(10, 9))/Lambda)+1))
+                    f_mr_2 = (1 - C0*c_log(((c_abs(t[j]-t[i+1])*c_pow(10, 9))/Lambda)+1))
+                    GMLR[k,i] = GMLR[k,i] + (c_abs(SFH[k,j]*(f_mr_1 - f_mr_2))/(c_abs(t[i] - t[i+1])*c_pow(10, 9))) #Msun yr-1
             #Set Mdot (rate of change of mass) at time t[i]
             M_dot[k,i] = SFR - GMLR[k,i] #Mun yr-1
             if i < N-1:

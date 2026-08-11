@@ -1,6 +1,8 @@
 import sys
 import multiprocessing
 import os
+import shutil
+import zlib
 import pickle
 import numpy as np
 from Functions import Functions_c
@@ -72,7 +74,7 @@ def StarFormationRate(SM, z, Parameters, ScatterOn =True, Quenching = False, P_e
         randints = np.random.random(size = np.shape(SM)) 
         log10MperY[randints<P_ellip] = SM[randints<P_ellip] - 12
         log10MperY[randints>=P_ellip] = np.log10(np.power(10.0, log10MperY[randints>=P_ellip])-np.power(10.0, -12.0)*np.mean(P_ellip))-np.log10(1-np.mean(P_ellip))
-    if ScatterOn:
+    if ScatterOn and SCATTER_ON:
         log10MperY = np.random.normal(log10MperY,0.2) # scatter in the MS
 
     return log10MperY
@@ -97,7 +99,10 @@ def GetGasMass(SM, z, HM, Parameters):
     #New relation using M*-SFR-Mgas proxy
     GasMass = 9.22 + 0.81*StarFormationRate(SM, z, Parameters, ScatterOn = False)
 
-    GasMass = np.random.normal(GasMass,0.2)
+    if SCATTER_ON:
+        GasMass = np.random.normal(GasMass,0.2)
+    else:
+        GasMass = np.asarray(GasMass, dtype = float)
 
     #Controls the maximum amount of mass in a DMHalo
     MaxGas = np.full_like(GasMass, GetMaxGasMass(HM))
@@ -188,6 +193,49 @@ def Get_HM_History(AnalyticHaloMass, AnalyticHaloMass_min, AnalyticHaloMass_max,
     return z[z_Cut_Bin:], AvaHaloMass_wz[z_Cut_Bin:]
     #Units are Mvir h-1
 
+class GridInterp2D:
+    """Bilinear interpolation on a regular (x, y) grid.
+
+    Replaces `scipy.interpolate.interp2d`, removed in SciPy 1.14, and
+    deliberately does **not** reproduce its call semantics.
+
+    `interp2d.__call__(x, y)` sorts both inputs and returns the full
+    `len(y) x len(x)` outer grid. Every caller in STEEL wants paired
+    evaluation instead, and `STEEL.py` recovered it by taking the
+    anti-diagonal of the grid:
+
+        Arr2D = HMF_fun(AvaHaloMass[z_bin:i, j], z[z_bin:i])
+        WeightList = np.diag(np.fliplr(Arr2D)) * ...
+
+    which only works because the halo-mass slice happens to be
+    monotonically decreasing while the redshift slice increases -- an
+    unstated precondition that would silently give wrong weights if
+    either ordering changed. This evaluates pointwise with NumPy
+    broadcasting, so `f(masses, redshifts)` pairs them elementwise,
+    `f(masses, z_scalar)` broadcasts, and the anti-diagonal trick is no
+    longer needed anywhere.
+
+    The result is always at least 1-D, so scalar calls that index `[0]`
+    keep working.
+    """
+
+    def __init__(self, x, y, values):
+        """values has shape (len(y), len(x)), as interp2d expected."""
+        self.x = np.asarray(x, dtype=float)
+        self.y = np.asarray(y, dtype=float)
+        self.values = np.asarray(values, dtype=float)
+        self._interp = inter.RegularGridInterpolator(
+            (self.y, self.x), self.values,
+            method="linear", bounds_error=False, fill_value=None,  # extrapolate
+        )
+
+    def __call__(self, x, y):
+        x_b, y_b = np.broadcast_arrays(np.asarray(x, dtype=float), np.asarray(y, dtype=float))
+        pts = np.column_stack((y_b.ravel(), x_b.ravel()))
+        out = self._interp(pts).reshape(x_b.shape)
+        return np.atleast_1d(out)
+
+
 #Makes the HMF interpolation function using HMF calc
 def Make_HMF_Interp():
     """
@@ -195,8 +243,26 @@ def Make_HMF_Interp():
     Returns:
         HMF_fun: a function that take Mhalo and redshift and returns a numberdensity
     """
-    if AbsFP+"/../Data/Model/Input/hmf_fun.pkl" in os.listdir():
-        HMF_fun = pickle.load(open(AbsFP+"/../Data/Model/Input/hmf_fun.pkl", 'rb'))
+    #os.path.isfile, not `... in os.listdir()`. os.listdir() with no
+    #argument lists the *current working directory* and returns bare file
+    #names, so comparing them against an absolute path was never true:
+    #the interpolation table (700 redshift steps of COLOSSUS massFunction
+    #calls over 800 masses) was rebuilt and re-pickled on every import,
+    #and the committed hmf_fun.pkl was never read.
+    #The cache stores the interpolation *table*, not a pickled
+    #interpolator object.
+    #
+    #The previously-committed `hmf_fun.pkl` held a live
+    #`scipy.interpolate.interp2d` instance. That is unusable twice over:
+    #interp2d was removed in SciPy 1.14 so the pickle cannot be loaded at
+    #all there, and even between 1.8 and 1.13 the interpolator classes
+    #moved modules, so the pickle raises `AttributeError` across any
+    #version change. Storing three plain arrays and rebuilding the
+    #interpolator is portable and costs microseconds.
+    CachePath = AbsFP+"/../Data/Model/Input/hmf_table.npz"
+    if os.path.isfile(CachePath):
+        Cached = np.load(CachePath)
+        HMF_fun = GridInterp2D(Cached["log_m"], Cached["z"], Cached["dndlog10m"])
     else:
         #The mass and redshift range should be larger than the simulation
         #Mass
@@ -211,8 +277,8 @@ def Make_HMF_Interp():
             HMF_dndlog10m =  mass_function.massFunction(HMF_x, z_step, mdef = 'vir', model = 'despali16', q_out='dndlnM')*np.log(10)
             HMF_z = np.vstack((HMF_z, HMF_dndlog10m))
 
-        HMF_fun = inter.interp2d(np.log10(HMF_x), HMF_y, HMF_z)
-        pickle.dump(HMF_fun, open(AbsFP+"/../Data/Model/Input/hmf_fun.pkl", 'wb'))
+        HMF_fun = GridInterp2D(np.log10(HMF_x), HMF_y, HMF_z)
+        np.savez_compressed(CachePath, log_m=np.log10(HMF_x), z=HMF_y, dndlog10m=HMF_z)
         
         
     return HMF_fun # differential mass function h^3 Mpc^-3 dex-1
@@ -231,7 +297,11 @@ def dn_dlnX(Parameters, X):
     Part1 = Parameters['gamma']*np.power(Parameters['a']*X, Parameters['alpha'])
     Part2 = np.exp(-Parameters['beta']*np.power(Parameters['a']*X, Parameters['omega']))
     dn_dlnX_arr = Part1*Part2
-    dn_dlogX_arr = dn_dlnX_arr*2.30
+    #ln(10), not the truncated 2.30 this used to carry: the natural-log
+    #to base-10 conversion factor is 2.302585..., so the old constant
+    #scaled the entire unevolved subhalo mass function -- and therefore
+    #every satellite number density in the model -- low by 0.11%.
+    dn_dlogX_arr = dn_dlnX_arr*np.log(10)
     return dn_dlogX_arr #N dex-1
 
 #
@@ -248,7 +318,23 @@ def Halogrowth(log_M_h, FullReturn = False):
     PID = log_M_h
     print(PID, end = "\r")
     #Input String is written to a file to be paees into VDB14 as paramaters
-    O0, sig8, nspec, Ob = Cosmo.Om(0), Cosmo.sigma(8, 0), 1, Cosmo.Ob(0)*(h**2)
+    #`Cosmo.ns`, not a hardcoded 1. Every other entry on this line is
+    #taken from the run's own COLOSSUS cosmology; the spectral index was
+    #left at 1 (Harrison-Zel'dovich) where Planck15 has n_s = 0.9667.
+    #
+    #`master` hardcoded all five literals as (0.307, 0.678, 0.823, 0.96,
+    #0.02298), so parameterising them was the right move -- but the
+    #`nspec` slip is larger than the change it was meant to make. Against
+    #master's values, switching to the COLOSSUS cosmology with nspec = 1
+    #moves the MAHs by up to 0.080 dex (largest at log M0 = 11, high z);
+    #with n_s = 0.9667 the same switch moves them by at most 0.011 dex.
+    #Seven eighths of the shift was the typo.
+    #
+    #This is invisible on a warm cache: `Get_HM_History` keys its cached
+    #table on <min><max><bin><h> and not on the cosmology, so switching
+    #branches silently reuses the other branch's grid. Use
+    #`Scripts/Validation/make_mah_table.py` to build one deliberately.
+    O0, sig8, nspec, Ob = Cosmo.Om(0), Cosmo.sigma(8, 0), Cosmo.ns, Cosmo.Ob(0)*(h**2)
     Input_Str =("\
     %.3f                                        ! Omega_0\n\
     %.3f                                        ! h (= H_0/100)\n\
@@ -265,10 +351,18 @@ def Halogrowth(log_M_h, FullReturn = False):
     #starts the system command to run VDB14
     os.system(AbsFP+"/../Functions/OtherModels/VDB13/getPWGH < "+AbsFP+"/../Functions/OtherModels/VDB13/%s.in" %(PID))
     #Loads the output of VDB14
-    log_Mz_M0 = np.loadtxt(AbsFP+"/../Functions/OtherModels/VDB13/*%s.dat" %(PID))
+    #No literal asterisk in these two paths. They used to point at
+    #".../VDB13/" followed by an asterisk and then the PID -- which
+    #`np.loadtxt` and `os.remove` both treat as an ordinary filename
+    #character, since neither globs. `Halogrowth` therefore raised
+    #OSError on every call and no mass-accretion history could be
+    #generated. Together with `getPWGH.f`'s hardcoded output prefix
+    #(fixed alongside this), the MAH grid could only ever be built on
+    #the one machine the code was written on.
+    log_Mz_M0 = np.loadtxt(AbsFP+"/../%s.dat" %(PID))
     #Removes the file we made to run VDB14 and the file created by VDB14
     os.remove(AbsFP+"/../Functions/OtherModels/VDB13/%s.in"%(PID))
-    os.remove(AbsFP+"/../Functions/OtherModels/VDB13/*%s.dat"%(PID))
+    os.remove(AbsFP+"/../%s.dat" %(PID))
 
 
     if FullReturn:
@@ -307,13 +401,22 @@ def StarFormation(SM_Sat, TTZ0, Tdyf, z_infall, z_return, z_all, HM_infall, AvaH
     
     z_bin_i = np.digitize(z_infall, z_all)
     z_bin_r = np.digitize(z_return, z_all)
-    z_range = z_all[z_bin_i:z_bin_r]
+    #`z_bin_r + 1`, not `z_bin_r`. The window has to include the return
+    #redshift itself: Starformation_c writes M_out[k,i+1] only for
+    #i < N-1, so with N grid points it applies N-1 steps and its last
+    #column sits one step *short* of z_return. Slicing to z_bin_r gave
+    #N = i - z_bin points and therefore a track ending at z[z_bin+1],
+    #while every accumulator in STEEL.py labelled those columns as if
+    #they reached z[z_bin]. The satellite never received its final
+    #timestep of evolution, and the redshift attached to every column
+    #was off by one step.
+    z_range = z_all[z_bin_i:z_bin_r+1]
     t = Cosmo.lookbackTime(z_all)
     d_t = t[1:] - t[:-1]
     d_t = np.insert(d_t, -1, d_t[-1])
-    d_t = np.abs(d_t[z_bin_i:z_bin_r])
-    
-    t = t[z_bin_i:z_bin_r] 
+    d_t = np.abs(d_t[z_bin_i:z_bin_r+1])
+
+    t = t[z_bin_i:z_bin_r+1]
     
     if Stripping: Stripping = 1 #change to int for cython
     else:
@@ -348,15 +451,24 @@ def StarFormation(SM_Sat, TTZ0, Tdyf, z_infall, z_return, z_all, HM_infall, AvaH
     SFR_Model = Paramaters['SFR_Model']
     
     
-    #GasMass
-    MaxGas = np.power(10, GetGasMass(SM_Sat, z_all[z_bin_i], HM_infall, Paramaters))
+    #GasMass, in log10 Msun -- NOT linear.
+    #
+    #This used to be `np.power(10, GetGasMass(...))`, a linear mass of
+    #order 4e9, while Starformation_c tests it as
+    #    if c_log10(SM_new) > MaxGas[k]
+    #`log10(SM_new)` cannot exceed ~12 for any physical stellar mass, so
+    #the branch was never taken and the gas supply never limited star
+    #formation. The whole GetGasMass/GetMaxGasMass machinery -- a scaling
+    #relation, its scatter, and a baryon-fraction ceiling -- had no
+    #effect on any result. See docs/PORT_CORRECTIONS.md A6.
+    MaxGas = GetGasMass(SM_Sat, z_all[z_bin_i], HM_infall, Paramaters)
     
     #For reviwer
     #StripFactor = StripFactor*2
     #StripFactor[StripFactor > 1] = 1
     
     #Call the accelerated Cython Function
-    M_out, M_dot, SFH, GMLR = Functions_c.Starformation_c(SM_Sat, t, d_t, z_range, MaxGas, T_quench, Tau_f, StripFactor = StripFactor, z_infall = z_infall, SFR_Model = str(SFR_Model), Stripping = Stripping)
+    M_out, M_dot, SFH, GMLR = Functions_c.Starformation_c(SM_Sat, t, d_t, z_range, MaxGas, T_quench, Tau_f, StripFactor = StripFactor, z_infall = z_infall, SFR_Model = str(SFR_Model), Stripping = Stripping, Scatter_On = 1 if SCATTER_ON else 0)
     #Calculate the Specific Star formation Rate
     sSFR = np.log10(np.divide(np.array(SFH), d_t*np.power(10, 9)*np.power(10, np.array(M_out))))
     
@@ -492,6 +604,17 @@ def DynamicalFriction(HostHaloMass, SatiliteHaloMass, Redshift, Paramaters):
 
 
 ##DarkMatterToStellarMassStart #moster 2013
+#No `@jit` here -- `PipGrylls` had already dropped it, and `master` had
+#not. It was a bare `@jit`, and this function takes `Paramaters`, a
+#Python dict, which numba cannot type, so it always fell back to object
+#mode and never accelerated anything; it only added compilation
+#overhead and a deprecation warning. numba 0.59 made bare `@jit` mean
+#`nopython=True`, at which point the same call raises
+#
+#    TypingError: non-precise type pyobject
+#    ... Cannot determine Numba type of <class 'dict'>
+#
+#and the function stops working entirely.
 def DarkMatterToStellarMass(DM, z, Paramaters, ScatterOn = False, Scatter = 0.001, Pairwise = True):
     """ 
     This funtion returns Stellar mass in log10 Msun, all arguments should be passed in simmilar cosmology (Planck 15 unless otherwise stated)
@@ -512,7 +635,25 @@ def DarkMatterToStellarMass(DM, z, Paramaters, ScatterOn = False, Scatter = 0.00
     Raises: 
         N/A
     """
-    np.random.seed(int(str(time()).split('.')[1])+os.getpid())
+    # No reseeding here. This used to run
+    #     np.random.seed(int(str(time()).split('.')[1])+os.getpid())
+    # on *every* call, and this function is called once per
+    # (redshift, host, subhalo) bin -- ~700,000 times in a full run.
+    #
+    # `master` spelled the same line `int(time()+os.getpid()*1000)`,
+    # whose integer truncation left the seed constant for a whole
+    # wall-clock second: every bin evaluated within that second got the
+    # *identical* N-element scatter vector (1 distinct seed in 20,000
+    # calls, measured). `PipGrylls` takes the fractional part of
+    # `time()` instead, which does vary per call (20,000 distinct seeds
+    # in 20,000 calls) -- so the under-sampling is gone here, but the
+    # cost is the opposite failure: reseeding a Mersenne Twister from a
+    # low-entropy, monotonically-drifting integer ~700,000 times is not
+    # a defensible way to sample a Gaussian, and it still leaves the
+    # run unreproducible because there is no seed to set.
+    #
+    # The generator is now seeded once per worker process, in
+    # `Functions.SeedRandomState`, and drawn from continuously.
     Paramaters = Paramaters['AbnMtch']
     if Paramaters['z_Evo']:
         if Paramaters['Moster']:
@@ -530,8 +671,13 @@ def DarkMatterToStellarMass(DM, z, Paramaters, ScatterOn = False, Scatter = 0.00
     if Paramaters['Override_0'] or Paramaters['Override_z']:
         Override = Paramaters['Override']
 
-    # Go to RP17 abundance matching
-    if Paramaters['RP17']:
+    # Go to RP17 abundance matching.
+    #`.get`, not `[...]`. `RP17` and `HMevo` were added to this function
+    #without being added to the `AbnMtch` dicts its other callers build
+    #(`Scripts/CentralPostprocessing.py`, `Scripts/SMHM_Fit.py`, the
+    #notebooks), so every one of them raised KeyError here. Defaulting
+    #to False is exactly what a caller predating the feature means.
+    if Paramaters.get('RP17', False):
         return SHMR_RP17(z, DM)
     # parameters from moster 2013
     if(Paramaters['Moster']):
@@ -596,7 +742,7 @@ def DarkMatterToStellarMass(DM, z, Paramaters, ScatterOn = False, Scatter = 0.00
             gamma11 = gamma11 - 0.2
         if(Paramaters['g_PFT4']):
             gamma10 = gamma10 - 0.1
-    if Paramaters['HMevo']:
+    if Paramaters.get('HMevo', False):
         M10, SHMnorm10, beta10, gamma10, Scatter = 11.91,0.029,2.09,0.64,0.15
         M11, SHMnorm11, beta11 = 0.518,-0.018,-1.031 
         gamma11 = Paramaters["HMevo_param"]
@@ -618,7 +764,7 @@ def DarkMatterToStellarMass(DM, z, Paramaters, ScatterOn = False, Scatter = 0.00
             DM = np.full((np.size(z), np.size(DM)), DM)
         SM =  np.power(10, DM) * (2*N*np.power( (np.power(np.power(10,DM-M), -b) + np.power(np.power(10,DM-M), g)), -1))
     #Adding Scatter
-    if(ScatterOn):
+    if ScatterOn and SCATTER_ON:
         Scatter_Arr = np.random.normal(scale = Scatter, size = np.shape(SM))
         return( np.log10(SM) + Scatter_Arr)
     else:
@@ -678,7 +824,8 @@ def SHMR_RP17(z, log10Mvir):  # Best fitting model for the SHMR RP17.
 
 
 def DarkMatterToStellarMass_Alt(DarkMatter, Redshift, Paramaters, ScatterOn = False, Scatter = 0.001):
-    np.random.seed()
+    # `np.random.seed()` removed -- it reseeded from OS entropy on every
+    # call, discarding the run's seed. See DarkMatterToStellarMass.
     Paramaters = Paramaters['AbnMtch']
     z = Redshift
     if(Paramaters['Behroozi18']):
@@ -728,7 +875,7 @@ def DarkMatterToStellarMass_Alt(DarkMatter, Redshift, Paramaters, ScatterOn = Fa
         M_Star = log10_M+(e_ - Part1 + gamma_*Part2)
 
 
-        if ScatterOn:
+        if ScatterOn and SCATTER_ON:
             Scatter = np.random.normal(scale = Scatter, size = np.shape(M_Star))
             return M_Star + Scatter
         else:
@@ -774,8 +921,8 @@ def DarkMatterToStellarMass_Alt(DarkMatter, Redshift, Paramaters, ScatterOn = Fa
         Part3 = f(0)
 
         M_Star = Part1 + Part2 - Part3
-        Scatter = np.random.normal(scale = Scatter, size = np.shape(M_Star))
-        if ScatterOn:
+        if ScatterOn and SCATTER_ON:
+            Scatter = np.random.normal(scale = Scatter, size = np.shape(M_Star))
             return M_Star + Scatter
         else:
             return M_Star
@@ -828,14 +975,76 @@ def Gauss_Scatt(X, Y, Scatt = 0.1):
     return X_Out[:-1]+(X_Bin/2), Y_Out
 
 
+#==========================Random state=========================================
+#Default seed for a run. Override with the STEEL_SEED environment variable.
+DEFAULT_SEED = 42
+
+#Master switch for every stochastic source in the model: the
+#abundance-matching scatter, the star-formation-rate scatter and the
+#gas-mass scatter. Set STEEL_SCATTER=0 for the validation harness's
+#*deterministic mode*, in which the model is a pure function of its grid
+#and can be compared against the Rust port arithmetic-for-arithmetic.
+#
+#This did not previously exist even in principle. Starformation_c has a
+#`Scatter_On` parameter, but GetGasMass below applied
+#`np.random.normal(GasMass, 0.2)` unconditionally -- it has no ScatterOn
+#argument, unlike its sibling StarFormationRate -- so one source stayed
+#live no matter what. See docs/PORT_CORRECTIONS.md A7.
+SCATTER_ON = os.environ.get("STEEL_SCATTER", "1") != "0"
+
+def SeedRandomState(RunParam = None, Seed = None):
+    """
+    Seed every generator the model draws from, once per worker process.
+
+    STEEL uses two independent generators: NumPy's global generator (the
+    abundance-matching and gas-mass scatter, in this module) and GSL's
+    taus generator (the star-formation-rate scatter, inside
+    Functions_c.Starformation_c). Neither was seeded deliberately --
+    NumPy's was reseeded from the wall clock on every call, and GSL's was
+    left on its fixed default, so every parallel worker drew the
+    *identical* star-formation scatter sequence.
+
+    Both are now seeded here. Under multiprocessing each run gets a
+    distinct but deterministic seed derived from its RunParam tuple, so
+    workers are independent of each other and the whole run reproduces
+    exactly from the same STEEL_SEED.
+
+    Args:
+        RunParam: the run tuple, mixed into the seed so parallel workers
+                  differ. None for a single-process run.
+        Seed: explicit base seed, overriding DEFAULT_SEED/STEEL_SEED.
+    Returns:
+        The seed actually used.
+    """
+    if Seed is None:
+        Seed = int(os.environ.get("STEEL_SEED", DEFAULT_SEED))
+    if RunParam is not None:
+        # zlib.crc32 rather than hash(): Python's string hash is salted
+        # per process (PYTHONHASHSEED), which would put us straight back
+        # to irreproducible runs.
+        Seed = (Seed + zlib.crc32(str(RunParam).encode())) % (2**32)
+    np.random.seed(Seed)
+    Functions_c.SeedRandomState(Seed)
+    return Seed
+
 #==========================Saving Output========================================
 OutputFolder = AbsFP+"/../Data/Model/Output/RunFiles/"
 
-def PrepareToSave(RunParam_List): 
+def PrepareToSave(RunParam_List):
+    #`master` shelled out to `os.system("rm -r" + path)` -- note the
+    #missing space, which makes it `rm -r/path/...`, an unknown option,
+    #so it always failed and stale output directories were never
+    #cleared. `PipGrylls` fixed the space, but the `mkdir` on the next
+    #line still has no `-p`, so it fails whenever the directory already
+    #exists (which, after a successful `rm -r`, it does not -- but
+    #after an interrupted run, it does) and a re-run then writes into
+    #whatever was left behind. shutil/os do the same job without a
+    #shell, and without the quoting hazard the string concatenation
+    #carried.
     for RunParam in RunParam_List:
-        os.system("rm -r " + OutputFolder +"RunParam_{}".format("".join(("{}_".format(i) for i in RunParam))))
-    for RunParam in RunParam_List:
-        os.system("mkdir " + OutputFolder +"RunParam_{}".format("".join(("{}_".format(i) for i in RunParam))))
+        Folder = OutputFolder + "RunParam_{}".format("".join(("{}_".format(i) for i in RunParam)))
+        shutil.rmtree(Folder, ignore_errors = True)
+        os.makedirs(Folder, exist_ok = True)
 def SaveData_3(AvaHaloMass, AnalyticalModel_SMF, Surviving_Sat_SMF_MassRange, RunParam):
     """Figure 3"""
     np.save(OutputFolder +"RunParam_{}/Figure3_AvaHaloMass.npy".format("".join(("{}_".format(i) for i in RunParam))), AvaHaloMass)

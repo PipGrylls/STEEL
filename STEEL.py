@@ -157,6 +157,40 @@ else:
 #for each accreted halo calculate if it survives to z = 0 given tdyn
 #Abundance match the galaxy in and count the number of satilites above SM_Cut
 
+def HistogramBin(Value, BinEdges):
+    """
+    Index of the histogram bin `Value` falls into, or -1 if it is outside
+    the range. Matches fast_histogram's convention: a value on a bin's
+    left edge belongs to that bin.
+
+    `np.digitize` returns the index one *past* that bin, and everything
+    else in OneRealization bins through fast_histogram, so mixing the two
+    shifts the mass axis by one bin.
+    """
+    Width = BinEdges[1] - BinEdges[0]
+    Index = int(np.floor((Value - BinEdges[0])/Width + 1e-9))
+    if Index < 0 or Index >= len(BinEdges) - 1:
+        return -1
+    return Index
+
+
+def CutBin(Cut, BinEdges):
+    """
+    Lower index for an "everything above `Cut`" integral: the first bin
+    whose *left edge* is at or above `Cut`.
+
+    This was `np.digitize(Cut, BinEdges)`, which for a `Cut` sitting
+    exactly on a bin edge returns one past that bin and so drops it from
+    the integral. All of STEEL's SM_Cuts except 11.45 sit on an edge, so
+    e.g. "satellites above log M* = 9.0" actually started at 9.1.
+
+    The 1e-9 tolerance absorbs the floating-point noise in np.arange's
+    edges so an exact edge lands on its own bin rather than the next.
+    """
+    Width = BinEdges[1] - BinEdges[0]
+    return int(min(len(BinEdges) - 1, max(0, np.ceil((Cut - BinEdges[0])/Width - 1e-9))))
+
+
 def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
     
     #For the high redhsift fits
@@ -166,6 +200,10 @@ def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
         Paramaters = Paramaters_Glob
         print("Starting:", Factor_Stripping_SF)
     """Runs the Code for one set of parameters"""
+    #Seed once, here, rather than per-call inside DarkMatterToStellarMass.
+    #Under multiprocessing this runs in the worker process, so each run
+    #gets its own independent-but-deterministic stream.
+    F.SeedRandomState(RunParam = Factor_Stripping_SF)
     #Split the Running Paramters here for clarity later
     if Factor_Stripping_SF[0][-4:] == "_Alt":
         Factor = float(Factor_Stripping_SF[0][:-4])
@@ -219,13 +257,30 @@ def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
     Surviving_Sat_SMF_Weighting = np.zeros((b, np.size(Surviving_Sat_SMF_MassRange[:-1])))
     Surviving_Sat_SMF_Weighting_highz = np.zeros( (a, b, len(Surviving_Sat_SMF_MassRange[:-1])) )
     #For saving satilite massases and associated halo/subhalo masses
-    Sat_SMHM = np.zeros((a, c+1, len(Surviving_Sat_SMF_Weighting_Totals))) #redshift, subhalo, SM
-    Sat_SMHM_Host = np.zeros((a, b+1, len(Surviving_Sat_SMF_Weighting_Totals))) #redshift, parent halo, SM
+    #`c` and `b`, not `c+1`/`b+1`. The trailing slot on the halo-mass axis
+    #was never written -- only indices [.., k, ..] for k in range(c) and
+    #[.., j, ..] for j in range(b) are ever assigned -- and was saved as a
+    #column of zeros next to a SatHaloMass/AvaHaloMass axis array with c/b
+    #entries, so the data and its own axis disagreed in length. Verified
+    #all-zero in a full run.
+    Sat_SMHM = np.zeros((a, c, len(Surviving_Sat_SMF_Weighting_Totals))) #redshift, subhalo, SM
+    Sat_SMHM_Host = np.zeros((a, b, len(Surviving_Sat_SMF_Weighting_Totals))) #redshift, parent halo, SM
     
     #Saving sSFR for galaxies
-    sSFR_Range = np.arange(-14, -8, 0.1)
-    sSFR_min, sSFR_max, sSFR_len = -14, -8, np.size(sSFR_Range)-1
-    Satilite_sSFR = np.zeros((len(Surviving_Sat_SMF_MassRange[:-1]), len(sSFR_Range[:-1])))
+    #sSFR_Range holds the *left edges* of the bins, exactly as
+    #Surviving_Sat_SMF_MassRange[:-1] does for stellar mass.
+    #
+    #This used to be `np.arange(-14, -8, 0.1)` with
+    #`sSFR_len = np.size(sSFR_Range)-1`, i.e. 59 bins spread over the
+    #full (-14, -8) range -- 0.1017 dex wide -- while the axis saved
+    #alongside was 0.1-spaced and stopped at -8.2. Every sSFR
+    #distribution was therefore plotted against the wrong abscissa, with
+    #the error growing to ~0.1 dex at the top of the range. 60 bins of
+    #exactly 0.1 dex makes the bins and the axis the same thing.
+    sSFR_min, sSFR_max, sSFR_Bin = -14, -8, 0.1
+    sSFR_len = int(round((sSFR_max - sSFR_min)/sSFR_Bin))
+    sSFR_Range = sSFR_min + np.arange(sSFR_len)*sSFR_Bin
+    Satilite_sSFR = np.zeros((len(Surviving_Sat_SMF_MassRange[:-1]), sSFR_len))
     #Saving bulk stars made per central halo per satellite mass bin
     Total_StarFormation = [[[[] for k in range(0, len(Surviving_Sat_SMF_MassRange[:-1]))] for j in range(0, b)] for i in range(0, a)]
 
@@ -277,24 +332,39 @@ def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
                                         
                     #create weightlist==============================================
                     if i != 0 and z_bin != i:
-                        Arr2D = HMF_fun(AvaHaloMass[z_bin:i, j], z[z_bin:i])
-                        if len(Arr2D.shape) > 1:
-                            WeightList = np.diag(np.fliplr(Arr2D))*(SHMFs_Entering[i][j][k])*(AvaHaloMassBins[z_bin:i,j]*AnalyticHaloBin) # N Mpc^-3 h^3
-                        else:	
-                            WeightList = Arr2D*(SHMFs_Entering[i][j][k])*(AvaHaloMassBins[z_bin:i,j]*AnalyticHaloBin) # N Mpc^-3 h^3
-                        WeightList_SubOnly = np.full_like(z[z_bin:i], SHMFs_Entering[i][j][k]*AnalyticHaloBin) #N per central
+                        #Paired evaluation: HMF_fun broadcasts, so this is
+                        #the halo mass function at (mass[m], z[m]) for each
+                        #step m of the window. This used to build the full
+                        #outer grid with scipy's interp2d and recover the
+                        #pairing as `np.diag(np.fliplr(Arr2D))`, which only
+                        #worked because the mass slice happens to decrease
+                        #while the redshift slice increases -- an unstated
+                        #precondition. See Functions.GridInterp2D.
+                        WeightList = HMF_fun(AvaHaloMass[z_bin:i, j], z[z_bin:i])*(SHMFs_Entering[i][j][k])*(AvaHaloMassBins[z_bin:i,j]*AnalyticHaloBin) # N Mpc^-3 h^3
                     else:
                         #Makes sure acretion in final redshift step is included
                         WeightList = (HMF_fun(AvaHaloMass[i, j], z[i]))*(SHMFs_Entering[i][j][k])*(AvaHaloMassBins[i,j]*AnalyticHaloBin) # N Mpc^-3 h^3
+                    #Assigned unconditionally. This used to live inside the
+                    #`i != 0 and z_bin != i` branch only, so when the else ran
+                    #the merger accumulator below read whatever the *previous*
+                    #k iteration had left in the name -- a different subhalo
+                    #mass bin's weight. The value is constant over the window
+                    #either way, so hoisting it out is otherwise a no-op.
+                    WeightList_SubOnly = np.full(max(i - z_bin, 1), SHMFs_Entering[i][j][k]*AnalyticHaloBin) #N per central
                     ###CHECK Z_bin == i ==0
                     #This creates the Unevolved Surviving Subhalo Mass Function
                     #Unstripped (Unevolved Surviving)
                     if ((Stripping_DM == False) and (Stripping or SF) == False):              
-                        Bin = k
-                        ix = [np.arange(z_bin, i), np.full_like(np.arange(z_bin, i), Bin)]
-                        SurvivingSubhalos[ix] = SurvivingSubhalos[ix] + WeightList/AnalyticHaloBin # N Mpc^-3 h^3 dex^-1
-                        ix = [np.arange(z_bin, i), np.full_like(Bin, j), Bin]
-                        SurvivingSubhalos_ByParent[ix] = SurvivingSubhalos_ByParent[ix] + WeightList/AnalyticHaloBin # N Mpc^-3 h^3 dex^-1
+                        # Plain slices. These were previously indexed with a
+                        # *list* of index arrays (`SurvivingSubhalos[[rows, cols]]`).
+                        # NumPy treated that as a tuple until 1.15, deprecated it
+                        # then, and removed it in 1.23 -- after removal the list is
+                        # read as a single fancy index on axis 0 and the run dies
+                        # with a broadcast error. The subhalo bin `k` and parent
+                        # bin `j` are scalars and the redshift index is contiguous,
+                        # so a slice says the same thing and works on every version.
+                        SurvivingSubhalos[z_bin:i, k] = SurvivingSubhalos[z_bin:i, k] + WeightList/AnalyticHaloBin # N Mpc^-3 h^3 dex^-1
+                        SurvivingSubhalos_ByParent[z_bin:i, j, k] = SurvivingSubhalos_ByParent[z_bin:i, j, k] + WeightList/AnalyticHaloBin # N Mpc^-3 h^3 dex^-1
                         SurvivingSubhalos_z_z[z_bin:i, i, k] = SurvivingSubhalos_z_z[z_bin:i, i, k] + WeightList/AnalyticHaloBin# N Mpc^-3 h^3 dex^-1
                     #Stripped (Evolved Surviving)
                     if (i !=0):                        
@@ -314,18 +384,29 @@ def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
                         MassBefore = np.mean(np.power(10, SM_Sat))
                         #print(SM_Sat)
                         if SF and Stripping:
-                            StripFactor = F.StellarMassLoss(AvaHaloMass[i,j], SatHaloMass[k], SM_Sat.T, np.flip(Time_To_0[z_bin:i]), Tdyf, factor_only = True) #Mass Msun
+                            StripFactor = F.StellarMassLoss(AvaHaloMass[i,j], SatHaloMass[k], SM_Sat.T, np.flip(Time_To_0[z_bin:i+1]), Tdyf, factor_only = True) #Mass Msun
                             SM_Sat, sSFR = F.StarFormation(SM_Sat, TTZ0, Tdyf, z[i], z[z_bin], z, SatHaloMass[k], AvaHaloMass[z_bin:i,j], Paramaters, StripFactor = StripFactor, Stripping = True) #New Stellar Mass log10 Msun and sSFR log10 yr-1 of galaxies (shape (i-z_bin), i)
                         elif SF:
                             SM_Sat, sSFR = F.StarFormation(SM_Sat, TTZ0, Tdyf, z[i], z[z_bin], z, SatHaloMass[k], AvaHaloMass[z_bin:i,j], Paramaters) #New Stellar Mass log10 Msun and sSFR log10 yr-1 of galaxies (shape (i-z_bin), i)
                         elif Stripping:
-                            SM_Sat = F.StellarMassLoss(AvaHaloMass[i,j], SatHaloMass[k], SM_Sat, np.flip(Time_To_0[z_bin:i]), Tdyf).T #Mass Msun                    
+                            SM_Sat = F.StellarMassLoss(AvaHaloMass[i,j], SatHaloMass[k], SM_Sat, np.flip(Time_To_0[z_bin:i+1]), Tdyf).T #Mass Msun
 
-                        #saving the Total mass made in each scenario for galaxies that have merged
+                        #SM_Sat is now (N, i-z_bin+1): column p is at redshift
+                        #index i-p, so column 0 is infall and column -1 is the
+                        #return epoch z[z_bin]. SM_Window re-presents the
+                        #i-z_bin *steps after* infall in ascending redshift-index
+                        #order, so SM_Window[m] is the satellite at z[z_bin+m].
+                        #That is the ordering every accumulator below slices
+                        #with [z_bin:i], and it is what the old np.flipud calls
+                        #were reconstructing (one step out) from the short
+                        #window.
                         if (Stripping or SF):
+                            SM_Window = np.flipud(SM_Sat.T)[:-1]
+
+                            #saving the Total mass made in each scenario for galaxies that have merged
                             MassAfter = np.mean(np.power(10, SM_Sat[:,-1]))
-                            bin_ = np.digitize(np.log10(MassBefore), bins = Surviving_Sat_SMF_MassRange)
-                            if 0 < bin_ <len(Surviving_Sat_SMF_MassRange[:-1]) and z_Merge_Bin != -1:
+                            bin_ = HistogramBin(np.log10(MassBefore), Surviving_Sat_SMF_MassRange)
+                            if bin_ != -1 and z_Merge_Bin != -1:
                                 Total_StarFormation[z_bin][j][bin_].append(MassAfter - MassBefore)
                     #We now have stripped halo mass and Satilite Masses=============
                     
@@ -365,8 +446,8 @@ def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
                             Wt_Corr = np.divide(histogram1d(SM_Sat, SatM_len, (SatM_min, SatM_max)), N) #Weight per bin from scatter in SM-HM
                             Wt_Corr = np.full((len(Surviving_Sat_SMF_Weighting_Totals_highz[z_bin:i]), len(Wt_Corr)), Wt_Corr)
                         else:                           
-                            Counterpart = np.multiply(np.ones_like(SM_Sat), np.arange(z_bin,i,1)).T                            
-                            Wt_Corr = np.flipud(np.divide(histogram2d(Counterpart.flatten(), SM_Sat.T.flatten(), (i-z_bin,SatM_len), ((z_bin, i),(SatM_min, SatM_max))), N))
+                            Counterpart = np.multiply(np.ones_like(SM_Window).T, np.arange(z_bin,i,1)).T
+                            Wt_Corr = np.divide(histogram2d(Counterpart.flatten(), SM_Window.flatten(), (i-z_bin,SatM_len), ((z_bin, i),(SatM_min, SatM_max))), N)
                         #SMF
                         Surviving_Sat_SMF_Weighting_Totals_highz[z_bin:i] = Surviving_Sat_SMF_Weighting_Totals_highz[z_bin:i] + np.divide(np.multiply(WeightList*h_3, Wt_Corr.T).T, SatBin) #N Mpc^-3 dex-1
                         #Fractional
@@ -388,8 +469,8 @@ def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
                         else:                           
                             #Counterpart = np.multiply(np.ones_like(SM_Sat), z[z_bin:i]).T                            
                             #Wt_Corr = np.flipud(np.divide(np.histogram2d(Counterpart.flatten(), SM_Sat.T.flatten(), bins=(z[z_bin:i+1], Surviving_Sat_SMF_MassRange), normed = False)[0], N))
-                            Counterpart = np.multiply(np.ones_like(SM_Sat), np.arange(z_bin,i,1)).T                            
-                            Wt_Corr = np.flipud(np.divide(histogram2d(Counterpart.flatten(), SM_Sat.T.flatten(), (i-z_bin,SatM_len), ((z_bin, i),(SatM_min, SatM_max))), N))
+                            Counterpart = np.multiply(np.ones_like(SM_Window).T, np.arange(z_bin,i,1)).T
+                            Wt_Corr = np.divide(histogram2d(Counterpart.flatten(), SM_Window.flatten(), (i-z_bin,SatM_len), ((z_bin, i),(SatM_min, SatM_max))), N)
                         #SMF
                         Sat_SMHM[z_bin:i,k] = Sat_SMHM[z_bin:i,k] + np.divide(np.multiply(WeightList*h_3, Wt_Corr.T).T, SatBin) #N Mpc^-3 dex-1
                         Sat_SMHM_Host[z_bin:i,j] = Sat_SMHM_Host[z_bin:i,j] + np.divide(np.multiply(WeightList*h_3, Wt_Corr.T).T, SatBin) #N Mpc^-3 dex-1
@@ -427,20 +508,39 @@ def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
                         
                         PF_bin_u = len(Radius[Radius < 30])
                         PF_bin_l = len(Radius[Radius < 5])
-                        if len(np.shape(SM_Sat)) == 1:
-                            Wt_Corr = np.divide(histogram1d(SM_Sat, SatM_len, (SatM_min, SatM_max)), N) #Weight per bin from scatter in SM-HM
-                            Wt_Corr = np.full((len(Time_To_0[z_bin+PF_bin_l:z_bin+PF_bin_u]), len(Wt_Corr)), Wt_Corr) #matching array sizes
-                            #print(np.shape(Wt_Corr))
-                            Corr = np.divide(np.multiply(WeightList_SubOnly[PF_bin_l:PF_bin_u], Wt_Corr.T).T, SatBin)#N dex-1 per halo 
-                            
-                        else:
-                            Counterpart = np.multiply(np.ones_like(SM_Sat), np.arange(z_bin,i,1)).T                            
-                            Wt_Corr = np.flipud(np.divide(histogram2d(Counterpart.flatten(), SM_Sat.T.flatten(), (i-z_bin,SatM_len), ((z_bin, i),(SatM_min, SatM_max))), N))[PF_bin_l:PF_bin_u]
+                        #`PipGrylls` already computes both cases here (`master`
+                        #had only the 1-D branch, with no else, so the pair
+                        #fractions were all-zero for every Stripping/SF
+                        #configuration -- i.e. for exactly the runs they are
+                        #used to interpret). What changes with A2 is the array
+                        #this reads: the evolved satellite now runs to its
+                        #return epoch, so `SM_Window` is the full track and
+                        #`SM_Sat` only its z_bin..i prefix.
+                        #
+                        #The `PF_len > 0` guard is new. `histogram2d` with a
+                        #zero-width first axis returns an empty array, and the
+                        #accumulate below then broadcasts nothing into a
+                        #zero-length slice -- harmless, but only by accident.
+                        PF_len = PF_bin_u - PF_bin_l
+                        if PF_len > 0:
+                            if len(np.shape(SM_Sat)) == 1:
+                                Wt_Corr = np.divide(histogram1d(SM_Sat, SatM_len, (SatM_min, SatM_max)), N) #Weight per bin from scatter in SM-HM
+                                Wt_Corr = np.full((PF_len, len(Wt_Corr)), Wt_Corr) #matching array sizes
+                            else:
+                                #SM_Window[m] is the satellite at redshift index
+                                #z_bin+m, so this is just the pair-separation
+                                #sub-window of it. `PipGrylls` builds the same
+                                #quantity as `flipud` of a histogram taken over
+                                #(z_bin, i); the two agree element for element,
+                                #verified directly, and this spelling drops the
+                                #flip rather than relying on it.
+                                SM_Pair = SM_Window[PF_bin_l:PF_bin_u]
+                                Counterpart = np.multiply(np.ones_like(SM_Pair).T, np.arange(PF_bin_l, PF_bin_u, 1)).T
+                                Wt_Corr = np.divide(histogram2d(Counterpart.flatten(), SM_Pair.flatten(), (PF_len, SatM_len), ((PF_bin_l, PF_bin_u),(SatM_min, SatM_max))), N)
+
                             Corr = np.divide(np.multiply(WeightList_SubOnly[PF_bin_l:PF_bin_u], Wt_Corr.T).T, SatBin)#N dex-1 per halo
-                            
-                        Pair_Frac[z_bin+PF_bin_l:z_bin+PF_bin_u,j] = Pair_Frac[z_bin+PF_bin_l:z_bin+PF_bin_u,j] + Corr#N dex-1 per halo
-                            
-                        Pair_Frac_Halo[z_bin+PF_bin_l:z_bin+PF_bin_u,j,k] = Pair_Frac_Halo[z_bin+PF_bin_l:z_bin+PF_bin_u,j,k] + WeightList_SubOnly[PF_bin_l:PF_bin_u]/AnalyticHaloBin #N dex-1 per halo
+                            Pair_Frac[z_bin+PF_bin_l:z_bin+PF_bin_u,j] = Pair_Frac[z_bin+PF_bin_l:z_bin+PF_bin_u,j] + Corr#N dex-1 per halo
+                            Pair_Frac_Halo[z_bin+PF_bin_l:z_bin+PF_bin_u,j,k] = Pair_Frac_Halo[z_bin+PF_bin_l:z_bin+PF_bin_u,j,k] + WeightList_SubOnly[PF_bin_l:PF_bin_u]/AnalyticHaloBin #N dex-1 per halo
                     
                     #===============================================================
                     
@@ -448,7 +548,7 @@ def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
     AnalyticalModel_Cuts_Frac = []
     AnalyticalModel_Cuts_NoFrac = []
     for i, Cut in enumerate(SM_Cuts):
-        SM_Bin = np.digitize(Cut, Surviving_Sat_SMF_MassRange)
+        SM_Bin = CutBin(Cut, Surviving_Sat_SMF_MassRange)
         Integrals_ = np.array([np.sum(Sat_List)*SatBin for Sat_List in Surviving_Sat_SMF_Weighting[:, SM_Bin:]])
         #Integrals
         AnalyticalModel_Cuts_Frac.append(np.divide(Integrals_, np.sum(Integrals_)))
@@ -461,7 +561,7 @@ def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
         AnalyticalModel_Cuts_Frac_Temp = []
         AnalyticalModel_Cuts_NoFrac_Temp = []
         for j in Surviving_Sat_SMF_Weighting_highz:
-            SM_Bin = np.digitize(Cut, Surviving_Sat_SMF_MassRange)
+            SM_Bin = CutBin(Cut, Surviving_Sat_SMF_MassRange)
             Integrals_ = np.array([np.sum(Sat_List)*SatBin for Sat_List in j[:, SM_Bin:]])
             #Integrals
             AnalyticalModel_Cuts_Frac_Temp.append(np.divide(Integrals_, np.sum(Integrals_)))
@@ -513,7 +613,7 @@ def OneRealization(Factor_Stripping_SF, ParamOverRide = False, AltParam = None):
         F.SaveData_10(AvaHaloMass, Surviving_Sat_SMF_Weighting, Surviving_Sat_SMF_MassRange, Factor_Stripping_SF)
         F.SaveData_SMFhz(AvaHaloMass, Surviving_Sat_SMF_Weighting_Totals_highz, Surviving_Sat_SMF_MassRange[:-1], Factor_Stripping_SF)
         F.SaveData_z_infall(Surviving_Sat_SMF_MassRange[:-1], z, z_infall, Factor_Stripping_SF)
-        F.SaveData_sSFR(Surviving_Sat_SMF_MassRange[:-1], sSFR_Range[:-1], Satilite_sSFR, Factor_Stripping_SF)
+        F.SaveData_sSFR(Surviving_Sat_SMF_MassRange[:-1], sSFR_Range, Satilite_sSFR, Factor_Stripping_SF)
         F.SaveData_Sat_SMHM(z, SatHaloMass, AvaHaloMass, Surviving_Sat_SMF_MassRange[:-1], Sat_SMHM, Sat_SMHM_Host, Factor_Stripping_SF)
         F.SaveData_Mergers(Accretion_History, z, AvaHaloMass, Surviving_Sat_SMF_MassRange[:-1], Factor_Stripping_SF)
         F.SaveData_Pair_Frac(Pair_Frac, z, AvaHaloMass, Surviving_Sat_SMF_MassRange[:-1], Factor_Stripping_SF)
