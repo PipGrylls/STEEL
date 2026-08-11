@@ -1,7 +1,10 @@
-//! Dumps a `BaryonicPipeline::evolve` trajectory (noiseless,
-//! unstripped) plus the age(z) grid it ran on, for cross-checking
-//! against a Python translation of `Functions_c.pyx::Starformation_c`.
-//! Throwaway validation tool.
+//! Dumps `BaryonicPipeline::evolve` trajectories (noiseless, both
+//! stripped and unstripped) for cross-checking against the real
+//! `Functions_c.pyx::Starformation_c` -- see
+//! `Scripts/Validation/reference_baryonic.py`, which drives the
+//! committed Cython on the same fixture.
+//!
+//! Fixture matches `steel-plugins/tests/baryonic_pipeline.rs`.
 
 use rand::rngs::StdRng;
 use rand::SeedableRng;
@@ -43,7 +46,7 @@ fn main() {
         t: t.clone(),
         dt: dt.clone(),
         log_host_mass: vec![13.0; z.len()],
-        t_dyn_friction: 2.0,
+        t_dyn_friction: 3.0,
     };
 
     let pipeline = BaryonicPipeline::new(
@@ -53,36 +56,25 @@ fn main() {
         Box::new(Cattaneo11),
     );
 
-    // Print the exact MaxGas draw too, so the Python reference can be
-    // given the same value rather than trying to (impossibly) sync
-    // RNG streams across languages.
+    // With scatter off the gas ceiling is the relation's mean, so both
+    // sides can compute it independently and still agree -- no need to
+    // (impossibly) sync RNG streams across languages.
     let sfr_at_infall = steel_core::sfr::SfrModel::log_sfr(&TomczakFormSfr::ce(), galaxy.log_sm_infall, galaxy.z_infall);
-    let mut gas_rng = StdRng::seed_from_u64(1);
     let max_gas = steel_core::gas::GasMassModel::gas_mass(
         &StewartScaling::from_cosmology(&cosmo),
         sfr_at_infall,
         galaxy.log_sat_mass_infall,
-        &mut gas_rng,
+        None,
     );
     println!("# max_gas (log10 Msun)");
     println!("{max_gas:.10}");
 
-    let mut rng = StdRng::seed_from_u64(1);
-    let history = pipeline.evolve(&galaxy, &timeline, false, false, &mut rng);
-
-    println!("# log_sm (unstripped, noiseless)");
-    for v in &history.log_sm {
-        println!("{v:.10}");
-    }
-    println!("# log_ssfr (unstripped, noiseless)");
-    for v in &history.log_ssfr {
-        println!("{v:.10}");
-    }
-
-    let mut rng2 = StdRng::seed_from_u64(1);
-    let stripped = pipeline.evolve(&galaxy, &timeline, true, false, &mut rng2);
-    println!("# log_sm (stripped, noiseless)");
-    for v in &stripped.log_sm {
-        println!("{v:.10}");
+    for (label, stripping) in [("unstripped", false), ("stripped", true)] {
+        let mut rng = StdRng::seed_from_u64(1);
+        let history = pipeline.evolve(&galaxy, &timeline, stripping, false, &mut rng);
+        println!("# log_sm ({label}, noiseless)");
+        for v in &history.log_sm {
+            println!("{v:.10}");
+        }
     }
 }

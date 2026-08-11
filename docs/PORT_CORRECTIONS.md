@@ -123,6 +123,68 @@ difference and prove nothing.
   rather than reset. A run is bit-reproducible — see the
   `a_fixed_seed_reproduces_the_whole_run` test.
 
+### A6. The gas-supply cap never engages
+
+* **Where:** `Functions/Functions.py::StarFormation:378` (which passes
+  the ceiling) and `Functions/Functions_c.pyx:150-152`, `:172-174`
+  (which tests it).
+* **What:** `StarFormation` computes the ceiling as
+
+  ```python
+  MaxGas = np.power(10, GetGasMass(SM_Sat, z, HM_infall, Paramaters))
+  ```
+
+  — a **linear** mass in Msun, of order `4e9`. `Starformation_c` then
+  tests it against a logarithm:
+
+  ```
+  if SM_new > 0:
+      if c_log10(SM_new) > MaxGas[k]:
+          SFR = c_pow(10, M_out[k,i]-12.0)
+  ```
+
+  `log10(SM_new)` cannot exceed ~12 for any physical stellar mass and
+  `MaxGas[k]` is ~4e9, so the branch is never taken. **The gas supply
+  never limits star formation.** The entire `GetGasMass` /
+  `GetMaxGasMass` machinery — a whole physical ingredient, with its own
+  scaling relation, scatter and baryon-fraction ceiling — has no effect
+  on any result.
+
+  `Starformation_c` also uses `MaxGas` *linearly* four lines earlier
+  (filling its `GasMass` array, which is returned and never read), so it
+  contradicts itself inside one function.
+* **Size:** on the M4 fixture the cap costs 0.013 dex of final stellar
+  mass for an unstripped `M* = 1e10` satellite over `z = 1 -> 0.5`. It
+  does not engage at all for a stripped satellite, which is losing mass
+  rather than accumulating it.
+* **Bites:** runs with `SF = True`. Larger for gas-poor, rapidly
+  star-forming satellites, i.e. exactly the regime the ceiling exists to
+  regulate.
+* **Fixed in:** `rust/steel-core/src/baryonic.rs` keeps the ceiling in
+  log throughout. Verified against the committed Cython: with the cap
+  neutralised the two agree to 1e-9 step for step over the whole
+  trajectory, and the stripped case (where the cap never binds) agrees
+  to 1e-9 with no adjustment at all. See
+  `rust/steel-plugins/tests/baryonic_pipeline.rs` and
+  `Scripts/Validation/reference_baryonic.py`.
+
+### A7. `Scatter_On = 0` does not give a noiseless run
+
+* **Where:** `Functions/Functions.py::GetGasMass:110`.
+* **What:** `GetGasMass` applies `np.random.normal(GasMass, 0.2)`
+  unconditionally — it has no `ScatterOn` parameter, unlike its sibling
+  `StarFormationRate`. So even with `Starformation_c`'s `Scatter_On = 0`
+  and `DarkMatterToStellarMass(..., ScatterOn=False)`, one stochastic
+  source stays live.
+* **Bites:** any attempt to run the model deterministically. It is why
+  the three-way comparison could not have a trustworthy deterministic
+  mode without this fix.
+* **Fixed in:** the Rust routes every stochastic source through one
+  `RunConfig::scatter` switch, and `GasMassModel::gas_mass` takes
+  `Option<&mut dyn RngCore>` (the convention `SmhmModel::stellar_mass`
+  already used). The `noiseless_evolution_does_not_consume_randomness`
+  test pins it.
+
 ---
 
 ## B. Dead or unreachable code paths

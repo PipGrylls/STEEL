@@ -214,6 +214,42 @@ fn every_enabled_output_family_is_populated_and_finite() {
     );
 }
 
+/// Deterministic mode: with `scatter = false` every stochastic source
+/// is off, so the run is a pure function of the grid. This is what the
+/// three-way validation compares against the Python's `ScatterOn=False`
+/// / `Scatter_On=0` path, and the claim only holds if *all* the sources
+/// are switched -- abundance matching, the star-formation main
+/// sequence, and the gas-mass relation.
+#[test]
+fn deterministic_mode_makes_realizations_identical() {
+    let sim = build_small_simulation();
+    let mut config = small_config();
+    config.star_formation = true;
+    config.stellar_stripping = true;
+    config.scatter = false;
+    config.n_realizations = 4;
+
+    let a = sim.run(&config);
+
+    // With no scatter the N realizations are the same galaxy, so the
+    // result must not depend on how many of them there are.
+    config.n_realizations = 1;
+    let b = sim.run(&config);
+    for (i, (x, y)) in a.surviving_sat_smf.iter().zip(b.surviving_sat_smf.iter()).enumerate() {
+        assert!(
+            (x - y).abs() < 1e-9 * x.abs().max(1.0),
+            "bin {i}: {x} vs {y} -- realizations still differ, so some scatter source is live"
+        );
+    }
+
+    // And it must differ from the scattered run, i.e. the flag is doing
+    // something rather than being ignored.
+    config.n_realizations = 4;
+    config.scatter = true;
+    let scattered = sim.run(&config);
+    assert_ne!(a.surviving_sat_smf, scattered.surviving_sat_smf);
+}
+
 /// `Paramaters['PreProcessing']` (the `_PP` run-tuple suffix) quenches
 /// a mass-dependent prefix of each satellite's realization ensemble at
 /// infall. Paper 2's cmodel and DPL suites both use it, so a run that

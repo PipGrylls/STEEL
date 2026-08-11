@@ -169,6 +169,9 @@ pub struct RunSection {
     pub pre_processing: bool,
     pub stellar_stripping: bool,
     pub n_realizations: usize,
+    /// Master switch for all stochastic sources; `false` is the
+    /// validation harness's deterministic mode.
+    pub scatter: bool,
     pub sat_sm_min: f64,
     pub sat_sm_max: f64,
     pub sat_sm_bin: f64,
@@ -196,6 +199,7 @@ impl Default for RunSection {
             pre_processing: false,
             stellar_stripping: false,
             n_realizations: 5,
+            scatter: true,
             sat_sm_min: 9.0,
             sat_sm_max: 13.0,
             sat_sm_bin: 0.1,

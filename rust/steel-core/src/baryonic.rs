@@ -195,7 +195,11 @@ impl BaryonicPipeline {
         // Gas ceiling, set once at infall from the noiseless infall SFR
         // and the satellite's own (subhalo) mass at infall.
         let sfr_at_infall = self.sfr.log_sfr(galaxy.log_sm_infall, galaxy.z_infall);
-        let max_gas = self.gas.gas_mass(sfr_at_infall, galaxy.log_sat_mass_infall, rng);
+        let max_gas = self.gas.gas_mass(
+            sfr_at_infall,
+            galaxy.log_sat_mass_infall,
+            if scatter_on { Some(&mut *rng) } else { None },
+        );
 
         // Stripping factor track: both masses fixed at their infall
         // values (matching `StellarMassLoss(AvaHaloMass[i,j],

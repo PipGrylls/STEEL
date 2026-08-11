@@ -184,6 +184,18 @@ pub struct RunConfig {
     pub stellar_stripping: bool,
     /// `N` — abundance-matching scatter realizations per subhalo bin.
     pub n_realizations: usize,
+    /// Master switch for every stochastic source in the model: the
+    /// abundance-matching scatter, the star-formation-rate scatter
+    /// (`Functions_c.pyx`'s `Scatter_On`) and the gas-mass scatter.
+    ///
+    /// `false` is the validation harness's *deterministic mode*. With
+    /// scatter off on both sides the Rust and the Python evaluate the
+    /// same arithmetic on the same grid, so any disagreement is a real
+    /// numerical difference rather than Monte-Carlo noise from two
+    /// unrelated generators. Every real science run leaves this `true`;
+    /// with `n_realizations > 1` it makes the realizations identical
+    /// and is simply wasteful.
+    pub scatter: bool,
     /// `SatM_min`/`SatM_max`/`SatBin` for the output stellar-mass grid.
     pub sat_sm_min: f64,
     pub sat_sm_max: f64,
@@ -214,6 +226,7 @@ impl Default for RunConfig {
             pre_processing: false,
             stellar_stripping: false,
             n_realizations: 5,
+            scatter: true,
             sat_sm_min: 9.0,
             sat_sm_max: 13.0,
             sat_sm_bin: 0.1,
@@ -625,7 +638,12 @@ impl Simulation {
                     // ---- abundance matching at infall ----
                     let sm_infall_dm = sat_mass[k] - log_h;
                     for slot in sm_infall.iter_mut() {
-                        *slot = self.smhm.stellar_mass(sm_infall_dm, z[i], Some(&mut rng));
+                        let draw = if config.scatter {
+                            self.smhm.stellar_mass(sm_infall_dm, z[i], Some(&mut rng))
+                        } else {
+                            self.smhm.stellar_mass(sm_infall_dm, z[i], None)
+                        };
+                        *slot = draw;
                     }
 
                     // ---- baryonic evolution over the infall window ----
@@ -685,7 +703,7 @@ impl Simulation {
                                 &galaxy,
                                 &timeline,
                                 config.stellar_stripping,
-                                true,
+                                config.scatter,
                                 &mut rng,
                             );
                             ssfr_final[r] = *history.log_ssfr.last().unwrap();

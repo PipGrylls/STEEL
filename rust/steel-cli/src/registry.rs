@@ -196,6 +196,7 @@ pub fn build_simulation(runfile: &RunFile) -> Result<(Simulation, RunConfig)> {
         pre_processing: runfile.run.pre_processing,
         stellar_stripping: runfile.run.stellar_stripping,
         n_realizations: runfile.run.n_realizations,
+        scatter: runfile.run.scatter,
         sat_sm_min: runfile.run.sat_sm_min,
         sat_sm_max: runfile.run.sat_sm_max,
         sat_sm_bin: runfile.run.sat_sm_bin,
