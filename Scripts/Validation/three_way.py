@@ -50,11 +50,42 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from compare_runs import compare, deviations  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-ASIS_BRANCH = "claude/phd-code-rust-plan-zqyvff"
+ASIS_BRANCH = "origin/PipGrylls"
+
+# Each leg gets a mass-accretion-history table built with the cosmology
+# its own code asks for. `Get_HM_History` keys its cache on
+# `<min><max><bin><h>` and *not* on the cosmology, so without this the
+# two Python legs silently share whichever table happened to be written
+# first -- which would hide correction 16 completely and make the
+# comparison meaningless. See `make_mah_table.py`.
+LEG_COSMOLOGY = {"py-as-is": "pipgrylls", "py-corrected": "corrected"}
+HUBBLE = 0.6774
 
 
 def run_dir_for(run_tuple: str) -> str:
     return "RunParam_" + "".join(f"{f}_" for f in run_tuple.split(","))
+
+
+def mah_table_name(grid) -> str:
+    """`Get_HM_History`'s cache filename for this grid."""
+    return "{}{}{}{}.dat".format(grid[0], grid[1], grid[2], HUBBLE)
+
+
+def ensure_mah_table(root: Path, grid, cosmology: str) -> None:
+    """Build `root`'s MAH table under `cosmology` if it isn't there."""
+    out = root / "Data" / "Model" / "Input" / mah_table_name(grid)
+    stamp = out.with_suffix(".cosmology")
+    if out.exists() and stamp.exists() and stamp.read_text().strip() == cosmology:
+        return
+    print(f"building {out} ({cosmology})", file=sys.stderr)
+    subprocess.run(
+        [str(REPO_ROOT / "env" / "py-legacy" / "bin" / "python"),
+         str(REPO_ROOT / "Scripts" / "Validation" / "make_mah_table.py"),
+         "--cosmology", cosmology,
+         "--halo-min", str(grid[0]), "--halo-max", str(grid[1]), "--halo-bin", str(grid[2]),
+         "--out", str(out)],
+        check=True, capture_output=True)
+    stamp.write_text(cosmology + "\n")
 
 
 def run_python(interpreter: Path, root: Path, run_tuple: str, grid, scatter: bool, seed: int) -> Path:
@@ -62,7 +93,8 @@ def run_python(interpreter: Path, root: Path, run_tuple: str, grid, scatter: boo
     if not scatter:
         env["STEEL_SCATTER"] = "0"
     cmd = [
-        str(interpreter), str(root / "Scripts" / "Validation" / "run_py_steel.py"),
+        str(interpreter), str(REPO_ROOT / "Scripts" / "Validation" / "run_py_steel.py"),
+        "--root", str(root),
         # Explicit: the driver defaults to *its own* repo root's venv,
         # and the py-as-is worktree has no env/ of its own -- both legs
         # share the one interpreter.
@@ -138,7 +170,7 @@ def main(argv: list[str] | None = None) -> int:
                         metavar=("MIN", "MAX", "BIN"))
     parser.add_argument("--seeds", type=int, nargs="+", default=[1],
                         help="stochastic mode: seeds to average over")
-    parser.add_argument("--asis-worktree", type=Path, default=REPO_ROOT.parent / "STEEL-asis")
+    parser.add_argument("--asis-worktree", type=Path, default=REPO_ROOT.parent / "STEEL-pipgrylls")
     parser.add_argument("--work", type=Path, default=Path(os.environ.get("TMPDIR", "/tmp")) / "steel-three-way")
     parser.add_argument("--json", type=Path, default=None)
     args = parser.parse_args(argv)
@@ -151,6 +183,7 @@ def main(argv: list[str] | None = None) -> int:
     timings: dict[str, float] = {}
 
     # --- py-corrected (this worktree) ---
+    ensure_mah_table(REPO_ROOT, args.grid, LEG_COSMOLOGY["py-corrected"])
     corrected = []
     for seed in seeds:
         out, elapsed = run_python(
@@ -179,11 +212,12 @@ def main(argv: list[str] | None = None) -> int:
         if not (args.asis_worktree / "STEEL.py").exists():
             print(
                 f"\nNo py-as-is worktree at {args.asis_worktree}. Create one with:\n"
-                f"    git worktree add {args.asis_worktree} {ASIS_BRANCH}\n"
+                f"    git worktree add --detach {args.asis_worktree} {ASIS_BRANCH}\n"
                 f"    cd {args.asis_worktree}/Functions && "
                 f"{REPO_ROOT}/env/py-asis/bin/python Setup.py build_ext --inplace\n"
                 "Skipping the py-as-is leg.\n", file=sys.stderr)
         else:
+            ensure_mah_table(args.asis_worktree, args.grid, LEG_COSMOLOGY["py-as-is"])
             asis = []
             for seed in seeds:
                 out, elapsed = run_python(

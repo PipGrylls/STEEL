@@ -140,6 +140,15 @@ def main(argv: list[str] | None = None) -> int:
         default=str(REPO_ROOT / "env" / "py-asis" / "bin" / "python"),
         help="interpreter to run STEEL.py with (default: the py-asis venv)",
     )
+    parser.add_argument(
+        "--root",
+        type=Path,
+        default=REPO_ROOT,
+        help="repository (or worktree) whose STEEL.py to run; defaults to this "
+             "script's own. The py-as-is leg is a detached worktree at "
+             "origin/PipGrylls, which predates Scripts/Validation entirely, so "
+             "the driver has to be this copy pointed at that tree.",
+    )
     parser.add_argument("--halo-min", type=float, default=11.0)
     parser.add_argument("--halo-max", type=float, default=16.6)
     parser.add_argument("--halo-bin", type=float, default=0.1)
@@ -158,8 +167,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    steel_py = REPO_ROOT / "STEEL.py"
-    patched = REPO_ROOT / "STEEL_generated.py"
+    root = args.root.resolve()
+    steel_py = root / "STEEL.py"
+    patched = root / "STEEL_generated.py"
     source = steel_py.read_text()
     patched.write_text(
         build_patched_source(source, args.halo_min, args.halo_max, args.halo_bin, args.run)
@@ -168,8 +178,8 @@ def main(argv: list[str] | None = None) -> int:
     # STEEL.py's PrepareToSave calls `mkdir` without -p and fails
     # noisily if the directory exists; make sure the parent is there and
     # let it handle the leaves.
-    (REPO_ROOT / "Data" / "Model" / "Output" / "RunFiles").mkdir(parents=True, exist_ok=True)
-    (REPO_ROOT / "Data" / "Model" / "Input").mkdir(parents=True, exist_ok=True)
+    (root / "Data" / "Model" / "Output" / "RunFiles").mkdir(parents=True, exist_ok=True)
+    (root / "Data" / "Model" / "Input").mkdir(parents=True, exist_ok=True)
 
     print(
         f"grid: log M = [{args.halo_min}, {args.halo_max}) step {args.halo_bin}; "
@@ -178,7 +188,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     started = time.time()
     try:
-        proc = subprocess.run([args.python, str(patched)], cwd=REPO_ROOT)
+        proc = subprocess.run([args.python, str(patched)], cwd=root)
     finally:
         if not args.keep_patched:
             patched.unlink(missing_ok=True)
