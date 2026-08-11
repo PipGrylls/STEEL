@@ -1,6 +1,7 @@
 /Data/Model/Input/*.dat
 /Data/Model/Input/*.pkl
 /Data/Model/Input/*.npy
+/Data/Model/Input/*.cosmology
 *.ipynb_checkpoints/
 Data/Model/Output/Other/SMHM_Fitting/*.pkl
 Data/Model/Output/Other/SMHM_Fitting/*.png
@@ -19,6 +20,7 @@ Scripts/__pycache__/
 Scripts/CentralPostprocessing/*.pkl
 Scripts/CentralPostprocessing/*.npy
 Scripts/Plots/__pycache__/
+Scripts/Validation/__pycache__/
 Figures/Paper2/*.png
 Figures/Paper2/*.pdf
 Figures/Paper3/*.png
