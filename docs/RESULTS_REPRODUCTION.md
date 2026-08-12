@@ -37,7 +37,7 @@ run (§Figure 3) and the frozen-model run (§Fig. 14/2).
 | 1 | Method diagram | diagram | skip |
 | 2 | Method diagram | diagram | skip |
 | 3 | SMHM relation (PyMorph/cmodel/M13) + central SMF vs Illustris | fn + data | **left panel done** (`SMHM_Relation.png`, M13/Illustris omitted) |
-| 4 | Merger rate per Gyr at fixed halo mass vs Fakhouri+2010 | run + data | pending |
+| 4 | Merger rate per Gyr at fixed halo mass vs Fakhouri+2010 | run + data | **done** (`Paper1_Fig4_MergerRate.png`: 4 halo masses; all mass ratios, not major-mergers-only; Fakhouri+2010 band omitted) |
 | 5 | Satellite number density vs parent halo mass, multi-z, vs SDSS/Illustris | run + data | **done** (`Paper1_Fig5_SatelliteDistribution_MultiZ.png`: 6 redshifts, M*>10^10 cut; SDSS/Wang+16/Wen&Han+18/Illustris overlays omitted) |
 | 6 | Mass tracks (PyMorph): accretion vs SFR mass budget | run | **top-panel strand done** (`MassTrack.png`: abundance-matching vs. in-situ-SFR-only, one target mass; accretion-decomposition and middle/bottom ratio panels not built; py-as-is absent, G3) |
 | 7 | SFR-M* relation from central tracks vs SDSS | run + data | pending |
