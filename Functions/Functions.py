@@ -428,12 +428,19 @@ def StarFormation(SM_Sat, TTZ0, Tdyf, z_infall, z_return, z_all, HM_infall, AvaH
     Tau_f[Tau_f <= 0.2] = 0.2 # Fadetime
     Tau_d = 3.5 - (np.exp( (SM_Sat - 10.8)*2 ))
     Tau_d[Tau_d <= 1.0] = 1.0   
-    #Host Dep, Fillingham+ 16       
+    #Host Dep, Fillingham+ 16
+    #PORT-FIX A8: this clamped Host_Dep to a floor of 0, which pins the
+    #cutoff mass at 9+Host_Dep = exactly 9.0 for every host halo below
+    #log Mh = 15 -- i.e. for every host in any realistic run, since the
+    #published grids top out at 16.6 and typical group/cluster hosts
+    #sit at 11-14. Paper 2 eq. (8), log(Mcutoff) = 9 - (15-log Mh,host)/5,
+    #has no such floor, and gives three *distinct* cutoffs (8.0, 8.5,
+    #9.0) for the paper's own example host masses (10, 12.5, 15) -- the
+    #three example masses Figure 6 is built around. The floor is
+    #algebraically identical to Host_Dep = (Mh-15)/5, just clamped, so
+    #removing the clamp reproduces eq. (8) exactly. See
+    #docs/PORT_CORRECTIONS.md A8.
     Host_Dep = (AvaHaloMass[0] -15)/5
-    if Host_Dep < 0:
-        Host_Dep = 0
-    elif Host_Dep > 1:
-        Host_Dep = 1
     Tau_d[SM_Sat < 9+Host_Dep] = 2.0
     
     Tau_d = Tau_d*np.power(1+z_infall, -3/2) #Dynamicalmodel from Cowley 2019

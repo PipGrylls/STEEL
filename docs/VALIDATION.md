@@ -198,3 +198,12 @@ files.
   `getPWGH` to 0.0021 dex max over `log M0 = 11…15` when the Fortran is
   fed the same cosmology (G1). That is the floor on any py/rs
   comparison and is well below every disagreement reported here.
+* **These tables predate PORT_CORRECTIONS.md A8** (the Fillingham+2016
+  host-mass-dependence clamp, found while reproducing Paper 2 Figure 6,
+  fixed in both py-corrected and rs-steel). A8 touches every satellite
+  below its cutoff mass in every host below `1e15 Msun` — most
+  satellites in most runs — through the quenching timescale, so the
+  py-corrected/rs-steel agreement above is unaffected (both sides of
+  §1 already carry the fix, applied identically) but the *magnitudes*
+  in both tables should be re-measured against a run built after A8
+  before being treated as final.
