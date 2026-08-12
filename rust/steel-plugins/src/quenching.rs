@@ -40,7 +40,15 @@ impl QuenchingModel for Wetzel13 {
 
         // Fillingham+2016 host-mass-dependent floor for low-mass
         // satellites of massive hosts.
-        let host_dep = ((log_host_mass_infall - 15.0) / 5.0).clamp(0.0, 1.0);
+        //
+        // PORT-FIX A8: this used to be `.clamp(0.0, 1.0)`, which pins
+        // the cutoff mass at exactly 9.0 for every host below
+        // log_host_mass = 15 -- i.e. every host in any realistic run.
+        // Paper 2 eq. (8) has no such floor and gives three distinct
+        // cutoffs (8.0, 8.5, 9.0) for the paper's own example host
+        // masses (10, 12.5, 15), which is what Figure 6 plots. See
+        // docs/PORT_CORRECTIONS.md A8.
+        let host_dep = (log_host_mass_infall - 15.0) / 5.0;
         if log_sm_infall < 9.0 + host_dep {
             tau_delay = 2.0;
         }
@@ -82,6 +90,31 @@ mod tests {
         let t_infall = 5.0;
         let q = model.timescales(10.0, 0.5, 13.0, t_infall, true);
         assert_eq!(q.t_quench, t_infall);
+    }
+
+    /// PORT-FIX A8: Paper 2 Figure 6 plots three visibly distinct
+    /// cutoff masses (log M* ~ 8.0, 8.5, 9.0) for host masses 10, 12.5,
+    /// 15 -- eq. (8) unclamped. The clamped version this replaced gave
+    /// cutoff 9.0 for all three, since (Mh-15)/5 is negative for every
+    /// Mh < 15 and was floored to zero.
+    #[test]
+    fn fillingham_cutoff_mass_differs_between_host_masses_below_1e15() {
+        let model = Wetzel13::new();
+        // z=0 removes the Cowley+2019 (1+z)^-1.5 scaling so tau_delay is
+        // directly comparable to the paper's static eq. (8)/(9) plot.
+        let overridden = |log_sm: f64, log_host: f64| model.timescales(log_sm, 0.0, log_host, 0.0, false).tau_delay == 2.0;
+
+        // Between the host=10 cutoff (8.0) and the host=12.5 cutoff (8.5):
+        // only the more massive hosts have reduced this satellite's delay.
+        assert!(!overridden(8.2, 10.0), "host=10 should not yet reduce tau_delay at log M*=8.2");
+        assert!(overridden(8.2, 12.5), "host=12.5 should reduce tau_delay at log M*=8.2");
+        assert!(overridden(8.2, 15.0), "host=15 should reduce tau_delay at log M*=8.2");
+
+        // Between the host=12.5 cutoff (8.5) and the host=15 cutoff (9.0):
+        // only the most massive host has reduced this satellite's delay.
+        assert!(!overridden(8.6, 10.0), "host=10 should not reduce tau_delay at log M*=8.6");
+        assert!(!overridden(8.6, 12.5), "host=12.5 should not yet reduce tau_delay at log M*=8.6");
+        assert!(overridden(8.6, 15.0), "host=15 should reduce tau_delay at log M*=8.6");
     }
 
     #[test]

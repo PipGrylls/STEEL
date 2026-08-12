@@ -226,6 +226,54 @@ branch does not" is itself a finding about the repository:
   already used). The `noiseless_evolution_does_not_consume_randomness`
   test pins it.
 
+### A8. The Fillingham+2016 host-mass dependence is clamped to zero for every host below a cluster
+
+* **Where:** `Functions/Functions.py::StarFormation:432-437` (both
+  `master` and `PipGrylls` — confirmed present verbatim at
+  `origin/PipGrylls:Functions/Functions.py:329-334`, the branch
+  actually submitted for Paper 2); mirrored in
+  `rust/steel-plugins/src/quenching.rs::Wetzel13::timescales`.
+* **What:** found while reproducing Paper 2 Figure 6, not by code
+  review. The code computed
+
+  ```python
+  Host_Dep = (AvaHaloMass[0] - 15)/5
+  if Host_Dep < 0: Host_Dep = 0
+  elif Host_Dep > 1: Host_Dep = 1
+  Tau_d[SM_Sat < 9+Host_Dep] = 2.0
+  ```
+
+  Paper 2 eq. (8) is `log(Mcutoff) = 9 - (15 - log Mh,host)/5`, i.e.
+  `Mcutoff = 9 + Host_Dep` with `Host_Dep = (Mh,host-15)/5` and *no*
+  floor. For any host below `log Mh = 15` (every host in any realistic
+  run — the published grids top out at 16.6, but typical group/cluster
+  hosts sit at 11-14), `Host_Dep` is negative and the floor silently
+  pins it to 0, so the cutoff mass is the same 9.0 regardless of host
+  mass. The paper's own Figure 6 plots three *visibly distinct* cutoffs
+  (log M* ≈ 8.0, 8.5, 9.0) for its three example host masses
+  (log Mh,cent = 10, 12.5, 15) — confirmed against the published PDF
+  page image, not just the equation. As committed, the code cannot
+  reproduce its own figure: the host-mass dependence the whole section
+  is about is inert for two of the three example hosts, and for every
+  host mass typically explored in this model.
+* **Size:** at `log Mh,cent = 10`, the buggy code keeps a satellite
+  quenching-delayed at 2.0 Gyr up to `log M* = 9.0`; the fixed code
+  hands it off to the smooth W13 curve (~3.49 Gyr) a full 1.0 dex
+  earlier, at `log M* = 8.0`. See
+  `Figures/PortValidation/Paper2_Fig6_Quenching.png`.
+* **Fixed by:** removing the clamp (`Host_Dep = (AvaHaloMass[0]-15)/5`,
+  used directly), matching eq. (8) exactly — and the same in the Rust.
+  `rust/steel-plugins/src/quenching.rs`'s
+  `fillingham_cutoff_mass_differs_between_host_masses_below_1e15` pins
+  three distinct cutoffs for host masses 10, 12.5, 15.
+* **Not yet measured** on a full published-grid run (this was found and
+  fixed while building the Figure 6 reproduction, not while re-running
+  the three-way comparison in `docs/VALIDATION.md`, which predates this
+  fix). It touches every satellite below the cutoff mass in every host
+  less massive than `1e15 Msun`, i.e. most satellites in most runs, so
+  the deterministic/stochastic tables in `docs/VALIDATION.md` should be
+  re-measured before being treated as final.
+
 ---
 
 ## B. Dead or unreachable code paths
