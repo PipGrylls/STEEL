@@ -43,14 +43,21 @@ fn invert_smhm(smhm: &dyn SmhmModel, target_log_sm: f64, z: f64) -> f64 {
 }
 
 fn main() {
-    let target_log_sm: f64 = std::env::args()
-        .nth(1)
-        .expect("usage: dump_mass_tracks <target_log10_Mstar_at_z0>")
+    let mut args = std::env::args().skip(1);
+    let target_log_sm: f64 = args
+        .next()
+        .expect("usage: dump_mass_tracks <target_log10_Mstar_at_z0> [gamma11]")
         .parse()
         .unwrap();
+    // Optional second arg: HMevo preset's high-mass-slope-evolution
+    // parameter (Paper 3's family). Omit for G19_SE (PyMorph).
+    let gamma11: Option<f64> = args.next().map(|s| s.parse().unwrap());
 
     let cosmo = Planck15::new();
-    let smhm = MosterFormSmhm::g19_se(true);
+    let smhm = match gamma11 {
+        Some(g) => MosterFormSmhm::hmevo(g, true),
+        None => MosterFormSmhm::g19_se(true),
+    };
     let growth = VandenBosch14::new(&cosmo);
     let log_h = cosmo.h().log10();
 
