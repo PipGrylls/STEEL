@@ -164,20 +164,22 @@ def combine_and_plot(args):
     ax.set_ylim(0.8, 3.7)
     ax.legend(loc="upper right", frameon=False, fontsize=9)
     ax.set_title(
-        r"Paper 2 Fig. 6 -- quenching delay time-scale (G19), $\log M_{h,\mathrm{cent}}=10$",
+        r"Paper 1 Fig. 6 -- quenching delay time-scale (G19), $\log M_{h,\mathrm{cent}}=10$",
         fontsize=10,
     )
     fig.tight_layout()
-    out6 = os.path.join(args.outdir, "Paper2_Fig6_Quenching.png")
+    out6 = os.path.join(args.outdir, "Paper1_Fig6_Quenching.png")
     fig.savefig(out6, dpi=200)
     plt.close(fig)
 
     # --- Figure 7 ---
-    # One host mass (13, the middle of the paper's three) -- no known
+    # All three host masses the paper shows (12, 13, 14) -- no known
     # correction touches DynamicalFriction/DynamicalTime_Fun, so unlike
     # Figure 6 this is a clean three-way overlap: the point is fidelity,
-    # not a bug story.
-    fig7_host = 13.0
+    # not a bug story. py-as-is omitted from the plot for clarity (it's
+    # visually identical to py-corrected here); HOST_MASSES_FIG7 in the
+    # dump already covers all three.
+    HOST_COLORS = {12.0: "#4C72B0", 13.0: "#DD8452", 14.0: "#55A868"}
 
     def load_merger(path):
         with open(path) as fh:
@@ -190,38 +192,40 @@ def combine_and_plot(args):
         })
         return df, t0
 
-    m = {
-        "py-as-is": load_merger(args.asis_fig7),
-        "py-corrected": load_merger(args.corrected_fig7),
-        "rs-steel": load_merger(args.rust_fig7),
-    }
+    corrected_df, t0 = load_merger(args.corrected_fig7)
+    rust_df, _ = load_merger(args.rust_fig7)
+
     fig, axes = plt.subplots(1, 2, figsize=(10.5, 5.0), sharey=True)
-    for leg, (df, _) in m.items():
-        style = LEG_STYLE[leg]
-        sub = df[np.isclose(df["host_mass"], fig7_host)].sort_values("log_subhalo_mass")
-        axes[0].plot(sub["log_subhalo_mass"], sub["t_merge"], **style)
-        axes[1].plot(sub["log_sat_mass"], sub["t_merge"], **{k: v for k, v in style.items() if k != "label"})
-    for leg, (_, t0) in m.items():
-        axes[0].axhline(t0, color=LEG_STYLE[leg]["color"], lw=0.8, ls=":", alpha=0.6)
+    for host_mass in HOST_MASSES_FIG7:
+        color = HOST_COLORS[host_mass]
+        for df, ls, lw, label in [(corrected_df, "-", 1.8, rf"$\log M_{{h,\mathrm{{cent}}}}={host_mass:g}$"),
+                                   (rust_df, "--", 1.3, None)]:
+            sub = df[np.isclose(df["host_mass"], host_mass)].sort_values("log_subhalo_mass")
+            kwargs = dict(color=color, ls=ls, lw=lw, label=label)
+            if ls == "--":
+                kwargs["dashes"] = (4, 2)
+            axes[0].plot(sub["log_subhalo_mass"], sub["t_merge"], **kwargs)
+            axes[1].plot(sub["log_sat_mass"], sub["t_merge"], **{k: v for k, v in kwargs.items() if k != "label"})
+    axes[0].axhline(t0, color="0.3", lw=0.8, ls=":", label="time to $z=0$")
 
     axes[0].set_xlabel(r"$\log_{10} M_{h,\mathrm{sat}}\ [\mathrm{M}_\odot]$")
     axes[1].set_xlabel(r"$\log_{10} M_{*,\mathrm{sat}}\ [\mathrm{M}_\odot]$ (G19 SMHM, $z=1.5$)")
     axes[0].set_ylabel(r"$\tau_\mathrm{merge}$ [Gyr]")
     axes[0].set_ylim(0, 14)
-    axes[0].set_xlim(11, 13)
-    axes[1].set_xlim(4, 11)
-    axes[0].legend(loc="upper right", frameon=False, fontsize=9)
+    axes[0].set_xlim(11, 14)
+    axes[1].set_xlim(4, 12.5)
+    axes[0].legend(loc="upper right", frameon=False, fontsize=8.5,
+                    title="solid=py-corrected, dashed=rs-steel")
     fig.suptitle(
-        r"Paper 2 Fig. 7 -- dynamical-friction merging time-scale (G19), $\log M_{h,\mathrm{cent}}=13$",
+        r"Paper 1 Fig. 7 -- dynamical-friction merging time-scale (G19), 3 host masses",
         fontsize=10,
     )
     fig.tight_layout()
-    out7 = os.path.join(args.outdir, "Paper2_Fig7_MergerTimescale.png")
+    out7 = os.path.join(args.outdir, "Paper1_Fig7_MergerTimescale.png")
     fig.savefig(out7, dpi=200)
     plt.close(fig)
 
-    t0s = {leg: t0 for leg, (_, t0) in m.items()}
-    print("time_to_z0 [Gyr]:", ", ".join(f"{k}={v:.4f}" for k, v in t0s.items()))
+    print("time_to_z0 [Gyr]:", t0)
     print("wrote:", out6)
     print("wrote:", out7)
 
