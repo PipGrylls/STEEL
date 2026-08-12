@@ -27,6 +27,7 @@ def main():
     ap.add_argument("--run", action="append", required=True, help="label:py_corrected_dir:rs_steel_dir")
     ap.add_argument("--sm-cut", type=float, default=10.0)
     ap.add_argument("--out", required=True)
+    ap.add_argument("--title", default="Paper 2 Fig. 15 style -- satellites per parent halo, config sweep (G19)")
     args = ap.parse_args()
 
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
@@ -51,7 +52,7 @@ def main():
     ax.set_xlabel(r"$\log_{10} M_{h,\mathrm{cent}}\ [\mathrm{M}_\odot]$")
     ax.set_ylabel(r"$\log_{10} N(>10^{%.0f}\,\mathrm{M}_\odot)\ [\mathrm{Mpc}^{-3}]$" % args.sm_cut)
     ax.legend(loc="upper right", frameon=False, fontsize=9, title="solid=py-corrected, dashed=rs-steel")
-    ax.set_title("Paper 2 Fig. 15 style -- satellites per parent halo, config sweep (G19)", fontsize=10)
+    ax.set_title(args.title, fontsize=10)
     fig.tight_layout()
     fig.savefig(args.out, dpi=200)
     plt.close(fig)
