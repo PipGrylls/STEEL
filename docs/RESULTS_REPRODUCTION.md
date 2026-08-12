@@ -32,9 +32,9 @@ Four classes, assigned per figure below:
 | 3 | SMHM relation (PyMorph/cmodel/M13) + central SMF vs Illustris | fn + data | **left panel done** (`SMHM_Relation.png`, M13/Illustris omitted) |
 | 4 | Merger rate per Gyr at fixed halo mass vs Fakhouri+2010 | run + data | pending |
 | 5 | Satellite number density vs parent halo mass, multi-z, vs SDSS/Illustris | run + data | pending |
-| 6 | Mass tracks (PyMorph): accretion vs SFR mass budget | run | pending |
+| 6 | Mass tracks (PyMorph): accretion vs SFR mass budget | run | **top-panel strand done** (`MassTrack.png`: abundance-matching vs. in-situ-SFR-only, one target mass; accretion-decomposition and middle/bottom ratio panels not built; py-as-is absent, G3) |
 | 7 | SFR-M* relation from central tracks vs SDSS | run + data | pending |
-| 8 | Mass tracks (cmodel) | run | pending |
+| 8 | Mass tracks (cmodel) | run | same coverage as Fig. 6 above, but `MassTrack.png` uses G19_SE (PyMorph) not cmodel -- not yet re-run with G19_cMod |
 | 9 | sSFR of satellites/centrals vs SDSS, 3 mass bins | run + data | pending |
 | 11 | Elliptical fraction vs stellar mass, 3 redshifts, vs SDSS | run + data | pending |
 
@@ -68,7 +68,7 @@ Four classes, assigned per figure below:
 | 4 | SMHM (Illustris/PyMorph) + pair fraction vs Illustris TNG | fn + run + data | left panel covered by `SMHM_Relation.png` (PyMorph only, no Illustris-tuned variant); pair fraction vs z shown generically in `Paper3_PairFraction_vs_z.png` (not the Illustris-comparison mass cut) |
 | 5 | SMHM (PyMorph/cmodel, 2 z) + pair fraction evolution vs Mundy+2017 | fn + run + data | **left panel done** (`SMHM_Relation.png`, z=0.1/2.0 both shown); pair fraction generic version in `Paper3_PairFraction_vs_z.png` (not mass-cut-matched to Mundy) |
 | 6 | SMHM (cmodel, altered slope evolution) + pair fraction vs Mundy+2017 | fn + run + data | left panel needs non-default `gamma11`/`z_evo` variants (`HMevo` preset) -- not yet done |
-| 7 | Mass tracks (accretion vs SFR), multiple slope-evolution values | run | pending |
+| 7 | Mass tracks (accretion vs SFR), multiple slope-evolution values | run | same top-panel-strand coverage as Paper 1 Fig. 6 (`MassTrack.png`); the slope-evolution (`gamma11`) sweep across multiple `HMevo` values is not built |
 
 ## Notes
 
