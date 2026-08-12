@@ -55,7 +55,7 @@ Four classes, assigned per figure below:
 | 11 | Satellite distributions, f_tdyn=0.5/1.0/2.5, vs SDSS | run + data | pending |
 | 12 | SSMF, Tomczak vs continuity SFR, vs SDSS | run + data | pending |
 | 13 | sSFR distributions, T16 vs CE, vs SDSS | run + data | pending |
-| 14 | SSMF, frozen/SF/SF+strip, vs SDSS | run + data | (Fig. 3 above is the SF+strip case of this family) |
+| 14 | SSMF, frozen/SF/SF+strip, vs SDSS | run + data | **2 of 3 lines done** (`Paper2_Fig14_ConfigSweep.png`: frozen and SF+stripping, each py-corrected vs rs-steel; SF-only line and SDSS overlay not built) |
 | 15 | Satellite distributions, frozen/SF/SF+strip, vs SDSS | run + data | pending |
 
 ## Paper 3 (pair-fraction / SMHM-systematics paper)
