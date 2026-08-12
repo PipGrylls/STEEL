@@ -24,13 +24,13 @@ Four classes, assigned per figure below:
   reproduced.
 
 **Running count** (results figures only, diagrams excluded): Paper 1
-4/8 touched (1 fully, 3 partial); Paper 2 14/14 touched (6 fully, 8
-partial); Paper 3 3/5 touched (0 fully, 3 partial). 23 figures under
+5/8 touched (1 fully, 4 partial); Paper 2 14/14 touched (6 fully, 8
+partial); Paper 3 3/5 touched (0 fully, 3 partial). 24 figures under
 `Figures/PortValidation/` so far -- Paper 2 fully touched. Remaining
-pending: Paper 1 Fig. 7; Paper 3 Fig. 3. Fresh simulation runs beyond
-the published-grid deterministic run (§Figure 3) and the frozen-model
-run (§Fig. 14/2): f_tdyn=0.5/2.5 (§Fig. 10/11) and T16 SFR (§Fig.
-12/13).
+pending: Paper 3 Fig. 3 (a discussion figure, not a new run -- may
+not need a separate reproduction). Fresh simulation runs beyond the
+published-grid deterministic run (§Figure 3) and the frozen-model run
+(§Fig. 14/2): f_tdyn=0.5/2.5 (§Fig. 10/11) and T16 SFR (§Fig. 12/13).
 
 ## Paper 1 (thesis Ch. 3 / MNRAS central-galaxy SFR paper)
 
@@ -42,7 +42,7 @@ run (§Fig. 14/2): f_tdyn=0.5/2.5 (§Fig. 10/11) and T16 SFR (§Fig.
 | 4 | Merger rate per Gyr at fixed halo mass vs Fakhouri+2010 | run + data | **done** (`Paper1_Fig4_MergerRate.png`: 4 halo masses; all mass ratios, not major-mergers-only; Fakhouri+2010 band omitted) |
 | 5 | Satellite number density vs parent halo mass, multi-z, vs SDSS/Illustris | run + data | **done** (`Paper1_Fig5_SatelliteDistribution_MultiZ.png`: 6 redshifts, M*>10^10 cut; SDSS/Wang+16/Wen&Han+18/Illustris overlays omitted) |
 | 6 | Mass tracks (PyMorph): accretion vs SFR mass budget | run | **top-panel strand done** (`MassTrack.png`: abundance-matching vs. in-situ-SFR-only, one target mass; accretion-decomposition and middle/bottom ratio panels not built; py-as-is absent, G3) |
-| 7 | SFR-M* relation from central tracks vs SDSS | run + data | pending |
+| 7 | SFR-M* relation from central tracks vs SDSS | run + data | **done** (`Paper1_Fig7_SFR_Mstar.png`: main-sequence relation at z=0/1/2 from 5 central mass tracks per leg, G19_DPL SFR recomputed from each track's in-situ mass at that z -- path-dependent track output, not the bare closed-form function; py-as-is omitted, G3; SDSS overlay omitted) |
 | 8 | Mass tracks (cmodel) | run | same coverage as Fig. 6 above, but `MassTrack.png` uses G19_SE (PyMorph) not cmodel -- not yet re-run with G19_cMod |
 | 9 | sSFR of satellites/centrals vs SDSS, 3 mass bins | run + data | **satellite side done** (`Paper1_Fig9_sSFR.png`, 3 mass bins; central-galaxy post-processed line and SDSS overlay not built; sparse-bin noise is small-number statistics, not a port defect -- same caveat as Fig. 3's p90 column) |
 | 11 | Elliptical fraction vs stellar mass, 3 redshifts, vs SDSS | run + data | **infeasible from STEEL.py itself** -- `P_Elliptical = np.full((a,b), 0.)` (`STEEL.py:288`) is the *only* occurrence of `P_Elliptical` in the file: allocated, never written, never saved. Confirmed by grep, not inferred. `steel-io`'s own doc comment already flags this as dead code it deliberately doesn't reproduce. Whatever generated the published figure isn't in `OneRealization`. |
