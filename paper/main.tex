@@ -54,12 +54,14 @@ high-mass tail where individual bins hold at most one object. The
 reimplementation runs $4.5\times$ faster than the (already
 Cython-accelerated) Python on the published parameter grid. In the
 process of building and validating this reproduction we found and fixed
-a number of defects in the original code, the most consequential of
-which silently zeroed the pair-fraction output in every configuration
-Papers 2 and 3 actually use. We give the full list, quantify which
-published results move and by how much, and argue that a from-scratch,
-independently-typed reimplementation validated this way is a
-practical and under-used check on semi-empirical model code.
+a number of defects in the code branch the three papers were run from,
+none individually dramatic but collectively shifting the shape (not the
+normalisation) of the merger accretion history and pair-fraction outputs
+by tens of per cent under the corrections' combined effect. We give the
+full list, quantify which published results move and by how much, and
+argue that a from-scratch, independently-typed reimplementation
+validated this way is a practical and under-used check on
+semi-empirical model code.
 \end{abstract}
 
 \begin{keywords}
@@ -161,15 +163,21 @@ serialisation), \texttt{steel-cli}, \texttt{steel-fit}, and
 \texttt{steel-postprocess}.
 
 Several components were re-derived natively rather than ported line by
-line, because the originals depend on external packages (\textsc{colossus},
-\texttt{hmf}) or the machine-specific Fortran binary described above: the
-Eisenstein \& Hu (1998) transfer function and $\sigma(M)$ mass variance,
-the linear growth factor, the \citet{Despali2016} halo mass function, and
-a native root-find of the van den Bosch (2014) mass-accretion-history
-model. The last of these was checked against a freshly compiled
-\texttt{getPWGH} run under a matched cosmology and agrees to $0.0021$~dex
-over $\log M_0 = 11$--$15$, which sets the floor on any subsequent
-py/rs comparison.
+line, because the originals depend on external packages
+(\textsc{colossus}, \texttt{hmf}) or the machine-specific Fortran binary
+described above: the \citet{EisensteinHu1998} transfer function and
+$\sigma(M)$ mass variance, the linear growth factor, the
+\citet{Despali2016} halo mass function, and a native root-find of the
+\citet{vandenBosch2014} mass-accretion-history model. The last of these
+was checked against a freshly compiled \texttt{getPWGH} run under a
+matched cosmology and agrees to $0.0021$~dex over $\log M_0 = 11$--$15$,
+which sets the floor on any subsequent py/rs comparison. The unevolved
+subhalo mass function \citep{JiangVandenBosch2016} and the dynamical-
+friction merger time-scale it is combined with \citep{BoylanKolchin2008,
+McCavana2012} were transcribed directly rather than re-derived, since
+both are closed-form fits rather than external-package calls, but are
+independent reimplementations from the published functional forms in
+the same sense as the rest of the port.
 
 \section{Validation methodology}
 \label{sec:method}
@@ -248,23 +256,15 @@ single-implementation development process could not have caught. We
 group them by consequence; the full list of thirty, including several
 with no effect on any published number, is maintained alongside the code.
 
-\textbf{Silently zero pair fractions.} The entire pair-fraction
-accumulation block in \texttt{STEEL.py} is nested inside a conditional on
-the satellite stellar-mass array's dimensionality, with no \texttt{else}
-branch. That array is two-dimensional exactly when satellites are
-evolved after infall -- i.e.\ exactly when stellar stripping or star
-formation is switched on. Every configuration Papers 2 and 3 use has one
-or both switched on, so the pair-fraction output those papers report on
-was zero for every run built after this code path was (evidently
-inadvertently) introduced. This is the single most consequential defect
-in the list.
-
 \textbf{A one-timestep-short evolution window and a unit mismatch.} The
 satellite post-infall evolution loop runs one timestep short of the
 window the papers describe, and separately, the star-formation-history
 accumulator adds a log-ratio quantity into a linear-solar-mass running
 total. Both bite only when stellar stripping or star formation is on --
-again, every configuration Papers 2 and 3 use.
+i.e.\ every configuration Papers 2 and 3 use -- and both are live on the
+branch (\texttt{PipGrylls}, \S\ref{sec:method}) those papers were
+actually run from. These are the most consequential defects in the
+list.
 
 \textbf{A quenching time-scale clamped to a single value.} The
 Fillingham et al. (2016) host-halo-mass dependence of the rapid
@@ -285,7 +285,21 @@ $0.069$~dex.
 upper mass-ratio cut against the wrong array, silently admitting pairs
 above the intended selection.
 
-Table~\ref{tab:defects} summarises the effect of these fixes: in
+One entry in the full list is worth flagging for what it is not: an
+earlier development line of \texttt{STEEL.py} (the repository's
+\texttt{master} branch, which predates all three papers) nests the
+entire pair-fraction accumulation block inside a conditional on the
+satellite array's dimensionality with no \texttt{else} branch, so that
+block silently never executes once stripping or star formation is
+switched on. This is not live on \texttt{PipGrylls}, the branch the
+three papers were actually run from -- it already carries the
+two-dimensional case, evidently fixed by the author independently
+during the papers' preparation, before this validation project began.
+We note it only because "one branch of the repository has a defect the
+other does not" is itself part of the code's history; it does not
+affect any number in this letter.
+
+Table~\ref{tab:defects} summarises the effect of the live fixes: in
 stochastic mode, comparing \texttt{py-as-is} against
 \texttt{py-corrected}, the integrated satellite stellar mass function
 moves by under $1\%$ -- the model's overall normalisation is robust to
@@ -413,10 +427,12 @@ after enough major-version churn in its dependencies, and semi-empirical
 models with a handful of users and no packaging discipline are
 particularly exposed. What is more specific to this exercise is
 \S\ref{sec:bugs}: every defect we found with a measurable effect on a
-published figure was found by trying to reproduce that figure from an
-independent implementation, not by reading the original code, and the
-most consequential of them (the zeroed pair fraction) is exactly the
-kind of silent, no-exception, no-warning failure that a single-language,
+published figure was found either by reading the original code closely
+enough to re-implement it independently, or by trying to reproduce that
+figure and discovering the two implementations disagreed. The most
+consequential of them -- the one-timestep-short evolution window and the
+star-formation-history unit mismatch -- are exactly the kind of silent,
+no-exception, no-warning failures that a single-language,
 single-implementation test suite built from inside the same codebase is
 structurally poorly positioned to catch, because the tests and the code
 share the same blind spot. A from-scratch reimplementation in a
@@ -445,11 +461,13 @@ headline results figure across the three papers STEEL underlies. The
 port agrees with a corrected Python implementation to better than
 $0.5\%$ on every integrated quantity compared in deterministic mode, runs
 $4.5\times$ faster on the published parameter grid, and its construction
-surfaced a defect that silently zeroed the pair-fraction output --
-Paper~3's central observable -- in every configuration that paper
-actually uses. We make the port, the corrected Python branch, and the
-full defect catalogue available at
-\url{https://github.com/PipGrylls/STEEL}.
+surfaced defects -- most consequentially a one-timestep-short satellite
+evolution window and a unit mismatch in the star-formation-history
+accumulator -- that shift the shape of the merger accretion history and
+pair-fraction outputs Papers 2 and 3 build their headline results on by
+tens of per cent, though the integrated stellar mass function moves by
+under one. We make the port, the corrected Python branch, and the full
+defect catalogue available at \url{https://github.com/PipGrylls/STEEL}.
 
 \section*{Data Availability}
 The Rust port, the corrected Python branch, the validation harness, and
@@ -459,11 +477,16 @@ used.
 
 \bibliographystyle{mnras}
 \begin{thebibliography}{}
+\bibitem[Boylan-Kolchin et al.(2008)]{BoylanKolchin2008} Boylan-Kolchin M., Ma C.~P., Quataert E., 2008, MNRAS, 383, 93
 \bibitem[Despali et al.(2016)]{Despali2016} Despali G., Giocoli C., Angulo R.~E., Tormen G., Sheth R.~K., Moscardini L., Baso G., 2016, MNRAS, 456, 2486
+\bibitem[Eisenstein \& Hu(1998)]{EisensteinHu1998} Eisenstein D.~J., Hu W., 1998, ApJ, 496, 605
 \bibitem[Grylls et al.(2019)]{Grylls2019a} Grylls P.~J., Shankar F., Zanisi L., Bernardi M., 2019, MNRAS, 483, 2506
 \bibitem[Grylls et al.(2020a)]{Grylls2020} Grylls P.~J., Shankar F., Leja J., Menci N., Moster B., Behroozi P., Zanisi L., 2020, MNRAS, 491, 634
 \bibitem[Grylls et al.(2020b)]{Grylls2020b} Grylls P.~J., Shankar F., Conselice C., 2020, arXiv:2001.06017
+\bibitem[Jiang \& van den Bosch(2016)]{JiangVandenBosch2016} Jiang F., van den Bosch F.~C., 2016, MNRAS, 458, 2848
+\bibitem[McCavana et al.(2012)]{McCavana2012} McCavana M., Micic M., Lewis G.~F., Sinha M., Sharma S., Holley-Bockelmann K., 2012, MNRAS, 424, 361
 \bibitem[Mundy et al.(2017)]{Mundy2017} Mundy C.~J., Conselice C.~J., Duncan K.~J., Almaini O., H\"{a}u{\ss}ler B., Hartley W.~G., 2017, MNRAS, 470, 3507
+\bibitem[van den Bosch et al.(2014)]{vandenBosch2014} van den Bosch F.~C., Jiang F., Campbell D., Watson D., Padmanabhan N., 2014, MNRAS, 445, 1713
 \end{thebibliography}
 
 \bsp
