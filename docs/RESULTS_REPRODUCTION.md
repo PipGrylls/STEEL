@@ -29,7 +29,7 @@ Four classes, assigned per figure below:
 |---|---|---|---|
 | 1 | Method diagram | diagram | skip |
 | 2 | Method diagram | diagram | skip |
-| 3 | SMHM relation (PyMorph/cmodel/M13) + central SMF vs Illustris | fn + data | pending |
+| 3 | SMHM relation (PyMorph/cmodel/M13) + central SMF vs Illustris | fn + data | **left panel done** (`SMHM_Relation.png`, M13/Illustris omitted) |
 | 4 | Merger rate per Gyr at fixed halo mass vs Fakhouri+2010 | run + data | pending |
 | 5 | Satellite number density vs parent halo mass, multi-z, vs SDSS/Illustris | run + data | pending |
 | 6 | Mass tracks (PyMorph): accretion vs SFR mass budget | run | pending |
@@ -45,8 +45,8 @@ Four classes, assigned per figure below:
 | 1 | Method diagram | diagram | skip |
 | 2 | USHMF vs USSHMF (3 f_tdyn), one parent halo mass | fn | pending |
 | 3 | Total USHMF vs total USSHMF (3 f_tdyn) | fn | pending |
-| 4 | SMHM (G18) vs B18/S17/M13 + central SMF vs SDSS | fn + data | pending |
-| 5 | % satellites by accretion redshift | run | pending |
+| 4 | SMHM (G18) vs B18/S17/M13 + central SMF vs SDSS | fn + data | **left panel done** (`SMHM_Relation.png`, using G19 not G18; B18/S17/M13 omitted) |
+| 5 | % satellites by accretion redshift | run | **done** (`Paper2_Fig5_AccretionRedshift.png`) |
 | 6 | Quenching delay time-scale (Wetzel+F16) | fn | **done** (`Paper2_Fig6_Quenching.png`) |
 | 7 | Dynamical-friction merging time-scale | fn | **done** (`Paper2_Fig7_MergerTimescale.png`) |
 | 8 | SSMF, f_tdyn=1.0 frozen/evolving, vs SDSS | run + data | pending |
@@ -65,9 +65,9 @@ Four classes, assigned per figure below:
 | 1 | Method diagram | diagram | skip |
 | 2 | Method diagram | diagram | skip |
 | 3 | Discussion of high-mass-slope evolution (text figure, no new run) | fn | pending |
-| 4 | SMHM (Illustris/PyMorph) + pair fraction vs Illustris TNG | fn + run + data | pending |
-| 5 | SMHM (PyMorph/cmodel, 2 z) + pair fraction evolution vs Mundy+2017 | fn + run + data | pending |
-| 6 | SMHM (cmodel, altered slope evolution) + pair fraction vs Mundy+2017 | fn + run + data | pending |
+| 4 | SMHM (Illustris/PyMorph) + pair fraction vs Illustris TNG | fn + run + data | left panel covered by `SMHM_Relation.png` (PyMorph only, no Illustris-tuned variant); pair fraction vs z shown generically in `Paper3_PairFraction_vs_z.png` (not the Illustris-comparison mass cut) |
+| 5 | SMHM (PyMorph/cmodel, 2 z) + pair fraction evolution vs Mundy+2017 | fn + run + data | **left panel done** (`SMHM_Relation.png`, z=0.1/2.0 both shown); pair fraction generic version in `Paper3_PairFraction_vs_z.png` (not mass-cut-matched to Mundy) |
+| 6 | SMHM (cmodel, altered slope evolution) + pair fraction vs Mundy+2017 | fn + run + data | left panel needs non-default `gamma11`/`z_evo` variants (`HMevo` preset) -- not yet done |
 | 7 | Mass tracks (accretion vs SFR), multiple slope-evolution values | run | pending |
 
 ## Notes
