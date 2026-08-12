@@ -23,6 +23,13 @@ Four classes, assigned per figure below:
 * **[diagram]** — a schematic illustration, not a result. Not
   reproduced.
 
+**Running count** (results figures only, diagrams excluded): Paper 1
+4/8 touched (1 fully, 3 partial); Paper 2 7/14 touched (3 fully, 4
+partial); Paper 3 3/5 touched (0 fully, 3 partial). 12 figures under
+`Figures/PortValidation/` so far, all from data already generated —
+the only fresh simulation runs were the published-grid deterministic
+run (§Figure 3) and the frozen-model run (§Fig. 14/2).
+
 ## Paper 1 (thesis Ch. 3 / MNRAS central-galaxy SFR paper)
 
 | Fig | Content | Class | Status |
@@ -31,7 +38,7 @@ Four classes, assigned per figure below:
 | 2 | Method diagram | diagram | skip |
 | 3 | SMHM relation (PyMorph/cmodel/M13) + central SMF vs Illustris | fn + data | **left panel done** (`SMHM_Relation.png`, M13/Illustris omitted) |
 | 4 | Merger rate per Gyr at fixed halo mass vs Fakhouri+2010 | run + data | pending |
-| 5 | Satellite number density vs parent halo mass, multi-z, vs SDSS/Illustris | run + data | pending |
+| 5 | Satellite number density vs parent halo mass, multi-z, vs SDSS/Illustris | run + data | **done** (`Paper1_Fig5_SatelliteDistribution_MultiZ.png`: 6 redshifts, M*>10^10 cut; SDSS/Wang+16/Wen&Han+18/Illustris overlays omitted) |
 | 6 | Mass tracks (PyMorph): accretion vs SFR mass budget | run | **top-panel strand done** (`MassTrack.png`: abundance-matching vs. in-situ-SFR-only, one target mass; accretion-decomposition and middle/bottom ratio panels not built; py-as-is absent, G3) |
 | 7 | SFR-M* relation from central tracks vs SDSS | run + data | pending |
 | 8 | Mass tracks (cmodel) | run | same coverage as Fig. 6 above, but `MassTrack.png` uses G19_SE (PyMorph) not cmodel -- not yet re-run with G19_cMod |
