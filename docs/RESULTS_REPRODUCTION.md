@@ -24,13 +24,17 @@ Four classes, assigned per figure below:
   reproduced.
 
 **Running count** (results figures only, diagrams excluded): Paper 1
-5/8 touched (1 fully, 4 partial); Paper 2 14/14 touched (6 fully, 8
-partial); Paper 3 3/5 touched (0 fully, 3 partial). 24 figures under
-`Figures/PortValidation/` so far -- Paper 2 fully touched. Remaining
-pending: Paper 3 Fig. 3 (a discussion figure, not a new run -- may
-not need a separate reproduction). Fresh simulation runs beyond the
-published-grid deterministic run (§Figure 3) and the frozen-model run
-(§Fig. 14/2): f_tdyn=0.5/2.5 (§Fig. 10/11) and T16 SFR (§Fig. 12/13).
+8/8 touched (3 fully, 4 partial, 1 confirmed-infeasible); Paper 2
+14/14 touched (6 fully, 8 partial); Paper 3 5/5 touched (1 fully, 4
+partial). **Every results-figure row across all three papers has now
+been touched** -- 27/27, with 10 fully done, 16 partial (by design,
+where a published data overlay -- SDSS/Illustris/Mundy et al. -- was
+out of scope from the start per this doc's opening note), and one
+(Paper 1 Fig. 11, `P_Elliptical`) a confirmed dead-code case rather
+than a gap. 25 figures under `Figures/PortValidation/`. Fresh
+simulation runs beyond the published-grid deterministic run (§Figure
+3) and the frozen-model run (§Fig. 14/2): f_tdyn=0.5/2.5 (§Fig.
+10/11) and T16 SFR (§Fig. 12/13).
 
 ## Paper 1 (thesis Ch. 3 / MNRAS central-galaxy SFR paper)
 
@@ -73,7 +77,7 @@ published-grid deterministic run (§Figure 3) and the frozen-model run
 |---|---|---|---|
 | 1 | Method diagram | diagram | skip |
 | 2 | Method diagram | diagram | skip |
-| 3 | Discussion of high-mass-slope evolution (text figure, no new run) | fn | pending |
+| 3 | Discussion of high-mass-slope evolution (text figure, no new run) | fn | **done** (`Paper3_Fig3_PFTSensitivity.png`: 8-panel M/N/beta/gamma sensitivity sweep, `AbnMtch['PFT']` branch, deltas taken from `Functions.py` itself rather than the paper's printed Table 2 -- the code's N z=0.1 delta is +0.004, not the paper's stated +0.04; py-corrected vs rs-steel agreement is exact throughout) |
 | 4 | SMHM (Illustris/PyMorph) + pair fraction vs Illustris TNG | fn + run + data | left panel covered by `SMHM_Relation.png` (PyMorph only, no Illustris-tuned variant); pair fraction vs z shown generically in `Paper3_PairFraction_vs_z.png` (not the Illustris-comparison mass cut) |
 | 5 | SMHM (PyMorph/cmodel, 2 z) + pair fraction evolution vs Mundy+2017 | fn + run + data | **left panel done** (`SMHM_Relation.png`, z=0.1/2.0 both shown); pair fraction generic version in `Paper3_PairFraction_vs_z.png` (not mass-cut-matched to Mundy) |
 | 6 | SMHM (cmodel, altered slope evolution) + pair fraction vs Mundy+2017 | fn + run + data | **left panel done** (`Paper3_Fig6_HMevoSMHM.png`: HMevo preset, gamma11=0.1/0.2/0.5, z=0.1 &amp; 2.0); pair fraction vs Mundy+2017 not built |
