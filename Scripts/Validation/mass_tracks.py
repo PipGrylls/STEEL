@@ -48,16 +48,21 @@ def _import_functions(repo_root):
     return F
 
 
-def _abn_mtch(gamma11=None):
-    """gamma11=None: G19_SE (PyMorph), the default used elsewhere in
-    this session's reproductions. gamma11=<float>: the HMevo preset
-    (Paper 3's high-mass-slope-evolution family, matching
-    MosterFormSmhm::hmevo on the Rust side) -- z=0.1 base parameters
-    M10=11.91, SHMnorm10=0.029, beta10=2.09, gamma10=0.64,
-    M11=0.518, SHMnorm11=-0.018, beta11=-1.031, with gamma11 as given."""
+def _abn_mtch(gamma11=None, preset="g19_se"):
+    """gamma11=None, preset="g19_se": G19_SE (PyMorph), the default
+    used elsewhere in this session's reproductions. preset="g19_cmod":
+    G19_cMod (cmodel/de Vaucouleurs), Paper 2 Fig. 8's variant of
+    Fig. 6. gamma11=<float>: the HMevo preset (Paper 3's
+    high-mass-slope-evolution family, matching MosterFormSmhm::hmevo
+    on the Rust side) -- z=0.1 base parameters M10=11.91,
+    SHMnorm10=0.029, beta10=2.09, gamma10=0.64, M11=0.518,
+    SHMnorm11=-0.018, beta11=-1.031, with gamma11 as given."""
+    is_hmevo = gamma11 is not None
     return {
         "Behroozi13": False, "Behroozi18": False, "B18c": False, "B18t": False,
-        "G18": False, "G18_notSE": False, "G19_SE": gamma11 is None, "G19_cMod": False,
+        "G18": False, "G18_notSE": False,
+        "G19_SE": (not is_hmevo) and preset == "g19_se",
+        "G19_cMod": (not is_hmevo) and preset == "g19_cmod",
         "Lorenzo18": False, "Moster": False, "Moster10": False, "RP17": False,
         "Illustris": False, "z_Evo": True, "Scatter": 0.15,
         "Override_0": False, "Override_z": False,
@@ -69,7 +74,7 @@ def _abn_mtch(gamma11=None):
         "N_PFT1": False, "N_PFT2": False, "N_PFT3": False,
         "b_PFT1": False, "b_PFT2": False, "b_PFT3": False,
         "g_PFT1": False, "g_PFT2": False, "g_PFT3": False, "g_PFT4": False,
-        "HMevo": gamma11 is not None, "HMevo_param": gamma11,
+        "HMevo": is_hmevo, "HMevo_param": gamma11,
     }
 
 
@@ -85,9 +90,9 @@ def _invert_smhm(F, params, target_log_sm, z=0.0):
     return 0.5 * (lo + hi)
 
 
-def dump(repo_root, target_log_sm, out_csv, gamma11=None):
+def dump(repo_root, target_log_sm, out_csv, gamma11=None, preset="g19_se"):
     F = _import_functions(repo_root)
-    params = {"AbnMtch": _abn_mtch(gamma11)}
+    params = {"AbnMtch": _abn_mtch(gamma11, preset)}
 
     log_dm_z01 = _invert_smhm(F, params, target_log_sm)
     z_track, log_mh_track = F.Halogrowth(log_dm_z01)
@@ -194,7 +199,8 @@ def main():
     d = sub.add_parser("dump")
     d.add_argument("--repo-root", required=True)
     d.add_argument("--target", type=float, required=True)
-    d.add_argument("--gamma11", type=float, default=None, help="HMevo preset high-mass-slope-evolution param; omit for G19_SE")
+    d.add_argument("--gamma11", type=float, default=None, help="HMevo preset high-mass-slope-evolution param; omit for G19_SE/G19_cMod")
+    d.add_argument("--preset", default="g19_se", choices=["g19_se", "g19_cmod"], help="SMHM preset when gamma11 is omitted")
     d.add_argument("--out", required=True)
 
     c = sub.add_parser("combine")
@@ -206,7 +212,7 @@ def main():
 
     args = ap.parse_args()
     if args.mode == "dump":
-        dump(args.repo_root, args.target, args.out, gamma11=args.gamma11)
+        dump(args.repo_root, args.target, args.out, gamma11=args.gamma11, preset=args.preset)
     else:
         combine_and_plot(args)
 
