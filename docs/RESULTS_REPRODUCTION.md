@@ -43,7 +43,7 @@ Four classes, assigned per figure below:
 | Fig | Content | Class | Status |
 |---|---|---|---|
 | 1 | Method diagram | diagram | skip |
-| 2 | USHMF vs USSHMF (3 f_tdyn), one parent halo mass | fn | pending |
+| 2 | USHMF vs USSHMF (3 f_tdyn), one parent halo mass | fn | **one line done** (`Paper2_Fig2_USSHMF.png`: USSHMF at f_tdyn=1.0 only, same log Mh,parent=12.80 as the paper; USHMF reference curve and the other 2 f_tdyn values not built; reclassified from [fn] -- it's actually a `run` output, `Surviving_Subhalos_ByParent`) |
 | 3 | Total USHMF vs total USSHMF (3 f_tdyn) | fn | pending |
 | 4 | SMHM (G18) vs B18/S17/M13 + central SMF vs SDSS | fn + data | **left panel done** (`SMHM_Relation.png`, using G19 not G18; B18/S17/M13 omitted) |
 | 5 | % satellites by accretion redshift | run | **done** (`Paper2_Fig5_AccretionRedshift.png`) |
