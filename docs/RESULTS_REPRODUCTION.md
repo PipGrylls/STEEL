@@ -42,8 +42,8 @@ run (§Figure 3) and the frozen-model run (§Fig. 14/2).
 | 6 | Mass tracks (PyMorph): accretion vs SFR mass budget | run | **top-panel strand done** (`MassTrack.png`: abundance-matching vs. in-situ-SFR-only, one target mass; accretion-decomposition and middle/bottom ratio panels not built; py-as-is absent, G3) |
 | 7 | SFR-M* relation from central tracks vs SDSS | run + data | pending |
 | 8 | Mass tracks (cmodel) | run | same coverage as Fig. 6 above, but `MassTrack.png` uses G19_SE (PyMorph) not cmodel -- not yet re-run with G19_cMod |
-| 9 | sSFR of satellites/centrals vs SDSS, 3 mass bins | run + data | pending |
-| 11 | Elliptical fraction vs stellar mass, 3 redshifts, vs SDSS | run + data | pending |
+| 9 | sSFR of satellites/centrals vs SDSS, 3 mass bins | run + data | **satellite side done** (`Paper1_Fig9_sSFR.png`, 3 mass bins; central-galaxy post-processed line and SDSS overlay not built; sparse-bin noise is small-number statistics, not a port defect -- same caveat as Fig. 3's p90 column) |
+| 11 | Elliptical fraction vs stellar mass, 3 redshifts, vs SDSS | run + data | **infeasible from STEEL.py itself** -- `P_Elliptical = np.full((a,b), 0.)` (`STEEL.py:288`) is the *only* occurrence of `P_Elliptical` in the file: allocated, never written, never saved. Confirmed by grep, not inferred. `steel-io`'s own doc comment already flags this as dead code it deliberately doesn't reproduce. Whatever generated the published figure isn't in `OneRealization`. |
 
 ## Paper 2 (main satellite SMF paper)
 
