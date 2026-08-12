@@ -1,0 +1,24 @@
+# p1-sf-ce -- CE SFR, star formation only, no stripping (SF-only line
+# for Paper 1 Figs 14/15's frozen/SF/SF+strip comparison).
+# Published as: [1.0, False, True, True, 'CE', 'G18']
+
+[merger_time]
+dynamical_time_factor = 1.0
+redshift_correction = false
+
+[smhm]
+model = "moster_form"
+preset = "g18"
+z_evo = true
+
+[sfr]
+model = "tomczak_form"
+preset = "ce"
+
+[run]
+log_m_min = 11.0
+log_m_max = 16.6
+log_m_bin = 0.1
+star_formation = true
+pre_processing = false
+stellar_stripping = false
