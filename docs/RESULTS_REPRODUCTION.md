@@ -75,7 +75,7 @@ run (§Figure 3) and the frozen-model run (§Fig. 14/2).
 | 4 | SMHM (Illustris/PyMorph) + pair fraction vs Illustris TNG | fn + run + data | left panel covered by `SMHM_Relation.png` (PyMorph only, no Illustris-tuned variant); pair fraction vs z shown generically in `Paper3_PairFraction_vs_z.png` (not the Illustris-comparison mass cut) |
 | 5 | SMHM (PyMorph/cmodel, 2 z) + pair fraction evolution vs Mundy+2017 | fn + run + data | **left panel done** (`SMHM_Relation.png`, z=0.1/2.0 both shown); pair fraction generic version in `Paper3_PairFraction_vs_z.png` (not mass-cut-matched to Mundy) |
 | 6 | SMHM (cmodel, altered slope evolution) + pair fraction vs Mundy+2017 | fn + run + data | left panel needs non-default `gamma11`/`z_evo` variants (`HMevo` preset) -- not yet done |
-| 7 | Mass tracks (accretion vs SFR), multiple slope-evolution values | run | same top-panel-strand coverage as Paper 1 Fig. 6 (`MassTrack.png`); the slope-evolution (`gamma11`) sweep across multiple `HMevo` values is not built |
+| 7 | Mass tracks (accretion vs SFR), multiple slope-evolution values | run | **AM-track slope sweep done** (`Paper3_Fig7_SlopeEvolutionSweep.png`: G19_SE + HMevo gamma11=0.1/0.2/0.5, abundance-matching strand only; accretion/SFR decomposition and ratio panels not built) |
 
 ## Notes
 
