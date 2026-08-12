@@ -330,7 +330,19 @@ class PairFractionData:
             for j, Cent_Mass in enumerate(self.AvaHaloMass[i, M_Cut_bin:M_Cut_bin_upper]):
                 Sat_Mass_Cut_bin = np.digitize(SM_Arr[M_Cut_bin + j]+Mass_Ratio, self.Surviving_Sat_SMF_MassRange)
                 if UpperLimit:
-                    Sat_Mass_Cut_bin_upper = np.digitize(CND_Mass_Upper, SM_Arr)
+                    # PORT-FIX H1: this was `np.digitize(CND_Mass_Upper, SM_Arr)`
+                    # -- the number-density-matched *central*-mass cut
+                    # computed for M_Cut_bin_upper above, on the central
+                    # mass axis, applied here to the satellite mass axis.
+                    # Every other major-merger mass-ratio cut in this file
+                    # (e.g. Maj_Merge_Bin below) uses the same idiom as
+                    # Sat_Mass_Cut_bin two lines up: digitize a central
+                    # mass plus a log mass-ratio offset against
+                    # Surviving_Sat_SMF_MassRange. The lower cut here is
+                    # mass ratio Mass_Ratio (1:4); the upper cut for a
+                    # 1:4-1:1 pair-fraction window is mass ratio 1, i.e.
+                    # the central's own mass with no offset.
+                    Sat_Mass_Cut_bin_upper = np.digitize(SM_Arr[M_Cut_bin + j], self.Surviving_Sat_SMF_MassRange)
                 else:
                     Sat_Mass_Cut_bin_upper = -1
                 Total_Pair += np.sum(self.Pair_Frac[i, M_Cut_bin+j, Sat_Mass_Cut_bin:Sat_Mass_Cut_bin_upper])*self.SM_Bin*HMF_fun(self.AvaHaloMass[i,M_Cut_bin +j], self.z[i])*h_3*self.AvaHaloMassBins[i,M_Cut_bin +j]

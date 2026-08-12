@@ -547,12 +547,12 @@ Each call site below was checked against the live script, because a
 defect in a method nobody calls with `if True:` around it did not
 change a published figure and a defect in one that is did.
 
-### H1. `Return_PF_Plot`'s upper mass-ratio cut digitizes against the wrong axis — **live, feeds a Paper 3 figure**
+### H1. `Return_PF_Plot`'s upper mass-ratio cut digitized against the wrong axis — **live, feeds a Paper 3 figure — fixed**
 
 * **Where:** `Scripts/CentralPostprocessing.py::Return_PF_Plot:313-314`.
 * **What:** with `UpperLimit=True` (the default, and the value every
   call site in the script passes explicitly), the satellite-side upper
-  cut is
+  cut was
 
   ```python
   Sat_Mass_Cut_bin_upper = np.digitize(CND_Mass_Upper, SM_Arr)
@@ -567,36 +567,55 @@ change a published figure and a defect in one that is did.
   (`self.Surviving_Sat_SMF_MassRange`, 40 elements) — the same axis
   `Sat_Mass_Cut_bin` (the lower bound, three lines above) is correctly
   digitized against. Measured directly against a real run: at
-  `i=5, Parent_Cut=11`, the lower bound comes out as bin 15 of 40 (via
-  the correct axis); the upper bound as written comes out as bin 29,
-  because it was digitized against a 57-element track covering a
-  similar-looking but different mass range. Neither array is out of
-  bounds, so nothing raises — the sum is just taken over the wrong
-  slice of the satellite mass function, silently.
-* **Size:** unmeasured for the actual published figure (fixing it
-  changes `Figures/Paper3/PairFractionData.png`'s content, which is
-  outside what this port should alter without a decision from whoever
-  owns that figure — see below).
+  `i=0, Parent_Cut=11`, the lower bound comes out as bin 15-17 of 40
+  (via the correct axis); the upper bound as written came out as bin
+  29-57, fixed at 29 across every `j` in the first host-mass window and
+  pinned to the axis length (57) at higher `i`, because it was
+  digitized against a 57-element track covering a similar-looking but
+  different mass range and does not vary with the satellite it is
+  supposedly bounding. Neither array is out of bounds, so nothing
+  raises — the sum was just taken over the wrong slice of the satellite
+  mass function, silently.
 * **Bites:** `Return_PF_Plot(..., UpperLimit=True)`. Traced against
   `Scripts/CentralPostprocessing.py`'s `__main__` block: 5 of 7 call
   sites sit under `if False:`; the other two (lines 1503, 1515) sit
   under the `if True:` at line 1476, whose block ends by saving
   `Figures/Paper3/PairFractionData.{png,pdf}` — the pair-fraction vs.
-  observational-data comparison. **This is not a hypothetical
-  defect in unreachable code; it is presently live.**
-* **Not fixed here.** The obviously-wrong part (recomputing
-  `M_Cut_bin_upper` verbatim) is unambiguous, but what
-  `Sat_Mass_Cut_bin_upper` *should* be is not: `UpperLimit`'s intent
-  looks like it was to cap the pair mass ratio from above symmetrically
-  with `Sat_Mass_Cut_bin`'s lower cap, in which case the fix needs a
-  second mass-ratio parameter that does not currently exist anywhere in
-  the function signature — or `UpperLimit` may only ever have been
-  meant to bound the *central* mass range (`M_Cut_bin`/`M_Cut_bin_upper`,
-  which it does correctly), in which case
-  `Sat_Mass_Cut_bin_upper` should simply be `-1` unconditionally,
-  matching the `else` branch already present, and this whole `if`
-  should not exist. Either reading changes `PairFractionData.png`.
-  Flagged for a decision rather than guessed at.
+  observational-data comparison. **Not a hypothetical defect in
+  unreachable code; it was live.**
+* **Fixed by:** every other major-merger mass-ratio cut in this file
+  (`Maj_Merge_Bin`, 13 call sites from line 397 on, and
+  `Sat_Mass_Cut_bin` three lines above the bug itself) uses the same
+  idiom: digitize a *central* stellar mass plus a log mass-ratio offset
+  against `self.Surviving_Sat_SMF_MassRange`, the satellite-mass axis.
+  `Sat_Mass_Cut_bin`'s lower bound is exactly that, with offset
+  `Mass_Ratio = log10(1/4)`. A 1:4–1:1 pair-fraction window's upper
+  bound is the same idiom with offset zero — mass ratio 1, the
+  central's own mass, no second parameter needed:
+
+  ```python
+  Sat_Mass_Cut_bin_upper = np.digitize(SM_Arr[M_Cut_bin + j], self.Surviving_Sat_SMF_MassRange)
+  ```
+
+  This resolves the ambiguity the two readings below couldn't: it
+  needs no new parameter, matches the codebase's own established
+  pattern for this exact kind of cut, and — checked directly — the
+  resulting bin always sits `Mass_Ratio`'s width (log10(4) ≈ 0.6 dex,
+  6 bins at 0.1 dex spacing) above the lower bound, for every `(i,j)`
+  checked, which the buggy version never does.
+* **Size:** measured on the published-grid `('1.0', True, True, True,
+  'G19_DPL', 'G19_SE')` run, `Parent_Cut=11`, comparing
+  `Return_PF_Plot`'s output before and after
+  (`Scripts/Validation/verify_h1_fix.py`). Every one of the 2,688
+  `(i,j)` cells checked gets a different bin index (buggy range
+  [29,57] vs. fixed range [21,26] against the same 40-bin axis).
+  In the integrated `PairFracTot` output itself the effect is
+  mass-function-weighted and much smaller at low redshift — median
+  0.09%, because most of the pair-fraction signal already sits just
+  above the lower cut and the buggy slice's extra bins hold little
+  mass — but grows with redshift as the satellite mass function
+  narrows relative to the cut: p90 5.7%, max 33% (`z≈4.9`,
+  0.0280 → 0.0187).
 
 ### H2. `Return_Gas_Hard_Threshold_Plot` drops the lenticular fraction to zero the first time the gas threshold isn't met
 
