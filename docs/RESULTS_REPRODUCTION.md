@@ -24,12 +24,13 @@ Four classes, assigned per figure below:
   reproduced.
 
 **Running count** (results figures only, diagrams excluded): Paper 1
-4/8 touched (1 fully, 3 partial); Paper 2 13/14 touched (5 fully, 8
-partial); Paper 3 3/5 touched (0 fully, 3 partial). 22 figures under
-`Figures/PortValidation/` so far. Remaining pending: Paper 1 Fig. 7;
-Paper 2 Fig. 8; Paper 3 Fig. 3. Fresh simulation runs beyond the
-published-grid deterministic run (§Figure 3) and the frozen-model run
-(§Fig. 14/2): f_tdyn=0.5/2.5 (§Fig. 10/11) and T16 SFR (§Fig. 12/13).
+4/8 touched (1 fully, 3 partial); Paper 2 14/14 touched (6 fully, 8
+partial); Paper 3 3/5 touched (0 fully, 3 partial). 23 figures under
+`Figures/PortValidation/` so far -- Paper 2 fully touched. Remaining
+pending: Paper 1 Fig. 7; Paper 3 Fig. 3. Fresh simulation runs beyond
+the published-grid deterministic run (§Figure 3) and the frozen-model
+run (§Fig. 14/2): f_tdyn=0.5/2.5 (§Fig. 10/11) and T16 SFR (§Fig.
+12/13).
 
 ## Paper 1 (thesis Ch. 3 / MNRAS central-galaxy SFR paper)
 
@@ -57,7 +58,7 @@ published-grid deterministic run (§Figure 3) and the frozen-model run
 | 5 | % satellites by accretion redshift | run | **done** (`Paper2_Fig5_AccretionRedshift.png`) |
 | 6 | Quenching delay time-scale (Wetzel+F16) | fn | **done** (`Paper2_Fig6_Quenching.png`) |
 | 7 | Dynamical-friction merging time-scale | fn | **done** (`Paper2_Fig7_MergerTimescale.png`) |
-| 8 | SSMF, f_tdyn=1.0 frozen/evolving, vs SDSS | run + data | pending |
+| 8 | SSMF, f_tdyn=1.0 frozen/evolving, vs SDSS | run + data | **done** (`Paper2_Fig8_FrozenVsEvolving.png`: frozen [no SF/stripping] vs evolving [SF+stripping] at f_tdyn=1.0, reusing the same runs as Fig. 14's first two lines; SFR model is G19_DPL not CE since SF=False makes the frozen line's SFR-model choice inert and CE has no run built; SDSS overlay omitted) |
 | 9 | Satellite distributions by parent halo mass, vs SDSS | run + data | **one line done** (`Paper2_Fig9_SatelliteDistribution.png`: f_tdyn=1.0 evolving, M*>10^10 cut only; SDSS band and other 3 lines/columns omitted) |
 | 10 | SSMF, f_tdyn=0.5/1.0/2.5, vs SDSS | run + data | **done** (`Paper2_Fig10_TdynSweep.png`: all 3 f_tdyn values, each py-corrected vs rs-steel; SDSS overlay omitted) |
 | 11 | Satellite distributions, f_tdyn=0.5/1.0/2.5, vs SDSS | run + data | **done** (`Paper2_Fig11_TdynSweep.png`: all 3 f_tdyn values, M*>10^10 cut, each py-corrected vs rs-steel; SDSS overlay omitted) |
