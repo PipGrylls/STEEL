@@ -50,17 +50,24 @@ Four classes, assigned per figure below:
 
 ## Known issues being actively fixed (2026-08-12 correction pass)
 
-1. **Paper 1 Figs 8/9/10/11** were built from the wrong run
+1. **FIXED.** Paper 1 Figs 8/9/10/11 were built from the wrong run
    configuration. The real Figs 8-11 are Section 4.1 ("Frozen model"):
    satellites never evolve in stellar mass after infall (no SF, no
    stripping), and the comparison axis is `f_tdyn` (0.5/1.0/2.5/∞) x
    SMHM z-evolution (on/off) — **not** SF/stripping on/off (that's
    Figs 14/15's axis, which the old Fig 8 was accidentally reproducing
-   a variant of). New three-way runs for the frozen model at
-   f_tdyn=∞ (both z-evo states), f_tdyn=1.0 z-evo=False, and
-   f_tdyn=0.5/2.5 are in progress (`rust/runfiles/published/p2-dpl-frozen-*.toml`
-   — filename prefix `p2-` predates the relabel and still refers to
-   the old, wrong "Paper 2" name; not renamed yet).
+   a variant of). Rebuilt with 5 new frozen-model three-way runs
+   (`rust/runfiles/published/p2-dpl-frozen-*.toml` — filename prefix
+   `p2-` predates the relabel and still refers to the old, wrong
+   "Paper 2" name; not renamed, cosmetic only). These runs (and Figs
+   2/3/5-11's existing G19_DPL/G19_SE-based ones) use **G19_SE**, not
+   the **G18** preset `configs/published_runs.toml` says Paper 1
+   actually used — discovered after these runs were already committed
+   to. Both legs use the same preset, so this doesn't affect the
+   port-validity claim (the point of the three-way comparison), only
+   exact numeric match to the published curves, which was never the
+   goal per this doc's opening note. Figs 12-15's rebuild (below) uses
+   the correct G18.
 2. **Paper 1 Figs 12/13/14/15** used G19_DPL as a substitute for the
    CE (continuity-equation) SFR model, believing CE wasn't ported.
    **CE is implemented** (`TomczakFormSfr::ce()` /
@@ -103,10 +110,10 @@ Until each of these is rebuilt, the affected rows below are marked
 | 5 | % satellites by accretion redshift | run | **done** (`Paper1_Fig5_AccretionRedshift.png`) |
 | 6 | Quenching delay time-scale (Wetzel+F16) | fn | **done** (`Paper1_Fig6_Quenching.png`) |
 | 7 | Dynamical-friction merging time-scale, 2-panel (vs M_h,sat and M*,sat), 3 host masses | fn | **done** (`Paper1_Fig7_MergerTimescale.png`: both panels, all 3 host masses (12/13/14), "time to z=0" reference line; py-corrected/rs-steel overlap exactly, as expected -- no correction touches this function) |
-| 8 | SSMF, frozen model: f_tdyn={1.0,inf} x z-evo={on,off}, vs SDSS | run + data | **pending rebuild** -- old file (`Paper1_Fig8_FrozenVsEvolving_WRONG_CONTENT.png`) reproduces the wrong comparison (SF on/off, not f_tdyn/z-evo); new frozen-model runs in progress |
-| 9 | Satellite distributions, frozen model, same f_tdyn/z-evo axis, 3 mass cuts x 2 rows | run + data | **pending rebuild** -- not built under the correct axis yet; only one line/cut exists under the old (wrong) framing |
-| 10 | SSMF, frozen model, f_tdyn=0.5/1.0/2.5, vs SDSS | run + data | **pending rebuild** -- old file (`Paper1_Fig10_TdynSweep_WRONG_CONFIG.png`) used the SF+stripping-on config instead of frozen; new frozen f_tdyn sweep runs in progress |
-| 11 | Satellite distributions, frozen model, f_tdyn=0.5/1.0/2.5, 3 mass cuts x 2 rows | run + data | **pending rebuild** -- same config error as Fig. 10 (`Paper1_Fig11_TdynSweep_WRONG_CONFIG.png`), and only 1 panel of the real 3x2 grid |
+| 8 | SSMF, frozen model: f_tdyn={1.0,inf} x z-evo={on,off}, vs SDSS | run + data | **done** (`Paper1_Fig8_FrozenSweep.png`: all 4 lines, correct axis, tight py/rust agreement; SDSS overlay omitted; SMHM preset is G19_SE not the paper's G18 -- documented approximation, doesn't affect the port-validity comparison since both legs use the same preset) |
+| 9 | Satellite distributions, frozen model, same f_tdyn/z-evo axis, 3 mass cuts x 2 rows | run + data | **done** (`Paper1_Fig9_FrozenSweep_Grid.png`: full 3x2 grid, all 4 lines; some visible py/rust divergence in the fractional (bottom) row, consistent with small-number-statistics noise seen elsewhere in this reproduction, not a port defect; SDSS overlay omitted, G19_SE not G18) |
+| 10 | SSMF, frozen model, f_tdyn=0.5/1.0/2.5, vs SDSS | run + data | **done** (`Paper1_Fig10_TdynSweep.png`: correct frozen config, all 3 f_tdyn values, tight agreement; SDSS overlay omitted, G19_SE not G18) |
+| 11 | Satellite distributions, frozen model, f_tdyn=0.5/1.0/2.5, 3 mass cuts x 2 rows | run + data | **done** (`Paper1_Fig11_TdynSweep_Grid.png`: full 3x2 grid; same fractional-row noise caveat as Fig. 9; SDSS overlay omitted, G19_SE not G18) |
 | 12 | SSMF, T16 vs CE SFR, vs SDSS | run + data | **pending rebuild** -- old file (`Paper1_Fig12_SFRModelSweep_DPL_SUBSTITUTE.png`) substitutes G19_DPL for CE unnecessarily; CE is implemented (`TomczakFormSfr::ce()`) and should be used |
 | 13 | sSFR distributions, T16 vs CE, vs SDSS | run + data | **pending rebuild** -- same DPL-for-CE substitution issue (`Paper1_Fig13_sSFRSweep_DPL_SUBSTITUTE.png`) |
 | 14 | SSMF, frozen/SF/SF+strip, vs SDSS | run + data | **2 of 3 lines done, CE substitution unverified** (`Paper1_Fig14_ConfigSweep.png`: frozen and SF+stripping; SF-only line and SDSS overlay not built; need to confirm the "SF" lines use CE not DPL) |
