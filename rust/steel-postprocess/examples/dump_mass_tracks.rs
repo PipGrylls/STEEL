@@ -46,16 +46,21 @@ fn main() {
     let mut args = std::env::args().skip(1);
     let target_log_sm: f64 = args
         .next()
-        .expect("usage: dump_mass_tracks <target_log10_Mstar_at_z0> [gamma11]")
+        .expect("usage: dump_mass_tracks <target_log10_Mstar_at_z0> [gamma11|cmod]")
         .parse()
         .unwrap();
-    // Optional second arg: HMevo preset's high-mass-slope-evolution
-    // parameter (Paper 3's family). Omit for G19_SE (PyMorph).
-    let gamma11: Option<f64> = args.next().map(|s| s.parse().unwrap());
+    // Optional second arg: either the HMevo preset's high-mass-slope-
+    // evolution parameter (Paper 3's family), or the literal "cmod"
+    // for the G19_cMod (de Vaucouleurs) preset used by Paper 2 Fig. 8.
+    // Omit both for G19_SE (PyMorph), Paper 2 Fig. 6's preset.
+    let second_arg = args.next();
+    let is_cmod = second_arg.as_deref() == Some("cmod");
+    let gamma11: Option<f64> = if is_cmod { None } else { second_arg.map(|s| s.parse().unwrap()) };
 
     let cosmo = Planck15::new();
     let smhm = match gamma11 {
         Some(g) => MosterFormSmhm::hmevo(g, true),
+        None if is_cmod => MosterFormSmhm::g19_c_mod(true),
         None => MosterFormSmhm::g19_se(true),
     };
     let growth = VandenBosch14::new(&cosmo);
