@@ -60,7 +60,7 @@ run (§Figure 3) and the frozen-model run (§Fig. 14/2).
 | 9 | Satellite distributions by parent halo mass, vs SDSS | run + data | **one line done** (`Paper2_Fig9_SatelliteDistribution.png`: f_tdyn=1.0 evolving, M*>10^10 cut only; SDSS band and other 3 lines/columns omitted) |
 | 10 | SSMF, f_tdyn=0.5/1.0/2.5, vs SDSS | run + data | pending |
 | 11 | Satellite distributions, f_tdyn=0.5/1.0/2.5, vs SDSS | run + data | pending |
-| 12 | SSMF, Tomczak vs continuity SFR, vs SDSS | run + data | pending |
+| 12 | SSMF, Tomczak vs continuity SFR, vs SDSS | run + data | **T16 vs G19_DPL done** (`Paper2_Fig12_SFRModelSweep.png`; the paper's second line is CE, not G19_DPL -- no CE run built -- and SDSS overlay omitted) |
 | 13 | sSFR distributions, T16 vs CE, vs SDSS | run + data | pending |
 | 14 | SSMF, frozen/SF/SF+strip, vs SDSS | run + data | **2 of 3 lines done** (`Paper2_Fig14_ConfigSweep.png`: frozen and SF+stripping, each py-corrected vs rs-steel; SF-only line and SDSS overlay not built) |
 | 15 | Satellite distributions, frozen/SF/SF+strip, vs SDSS | run + data | **2 of 3 lines done** (`Paper2_Fig15_ConfigSweep.png`: frozen and SF+stripping, M*>10^10 cut, top row only; SF-only line, bottom fractional row, and SDSS overlay not built) |
