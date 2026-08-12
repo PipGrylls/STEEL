@@ -58,7 +58,10 @@ plot against.
 
 **Every integrated quantity agrees to better than 0.5%.** The p90 column
 is carried by the sparse high-mass tail, where a bin holds at most one
-satellite in either run.
+satellite in either run. See
+`Figures/PortValidation/Paper2_Fig3_SatelliteSMF.png` for this row as
+a picture instead of a table (both differential and reverse-cumulative
+views), reproduced with `Scripts/Validation/results_figure3.py`.
 
 ### Reduced grid
 
@@ -206,4 +209,9 @@ files.
   py-corrected/rs-steel agreement above is unaffected (both sides of
   §1 already carry the fix, applied identically) but the *magnitudes*
   in both tables should be re-measured against a run built after A8
-  before being treated as final.
+  before being treated as final. **Partially done:** a fresh
+  deterministic published-grid run built after both A8 and H1 gives
+  `Figure3_AnalyticalModel_SMF` median 0.93%, p90 23.9%, integral ratio
+  0.9977 — indistinguishable from the row above, so A8 does not appear
+  to move this particular output's agreement. The other eight rows in
+  the table have not been individually re-checked.
