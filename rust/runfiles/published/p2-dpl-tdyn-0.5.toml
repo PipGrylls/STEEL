@@ -1,0 +1,24 @@
+# p2-dpl-tdyn-0.5 -- generated from configs/published_runs.toml.
+# Do not edit by hand; edit the table and re-run
+# Scripts/Validation/make_runfiles.py.
+# Published as: ['0.5', True, True, True, 'G19_DPL', 'G19_SE']
+
+[merger_time]
+dynamical_time_factor = 0.5
+redshift_correction = false
+
+[smhm]
+model = "moster_form"
+preset = "g19_se"
+z_evo = true
+
+[sfr]
+model = "double_power_law"
+
+[run]
+log_m_min = 11.0
+log_m_max = 16.6
+log_m_bin = 0.1
+star_formation = true
+pre_processing = false
+stellar_stripping = true
