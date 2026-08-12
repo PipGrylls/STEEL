@@ -1,4 +1,5 @@
-"""Reproduce Paper 1 Fig. 7's content: the star-forming main-sequence
+"""Reproduce Paper 2 (arXiv 1910.08417, MNRAS 491) Fig. 7/10's content:
+the star-forming main-sequence
 SFR-M* relation at several redshifts, built from the same central mass
 tracks mass_tracks.py computes (one track per target z=0 stellar mass,
 in-situ-only SFR history, G19_DPL). Each track's in-situ mass at a
@@ -58,6 +59,7 @@ def main():
     ap.add_argument("--rust-glob", required=True)
     ap.add_argument("--redshifts", type=float, nargs="+", default=[0.0, 1.0, 2.0])
     ap.add_argument("--out", required=True)
+    ap.add_argument("--title", default="Paper 2 Fig. 7 style -- SFR-M* main sequence from central tracks (G19_DPL)")
     args = ap.parse_args()
 
     import matplotlib
@@ -95,7 +97,7 @@ def main():
     ax.set_xlabel(r"$\log_{10} M_*\ [\mathrm{M}_\odot]$")
     ax.set_ylabel(r"$\log_{10}\mathrm{SFR}\ [\mathrm{M}_\odot\,\mathrm{yr}^{-1}]$")
     ax.legend(loc="upper left", frameon=False, fontsize=9, title="solid=py-corrected\ndashed=rs-steel")
-    ax.set_title("Paper 1 Fig. 7 style -- SFR-M* main sequence from central tracks (G19_DPL)", fontsize=10)
+    ax.set_title(args.title, fontsize=10)
     fig.tight_layout()
     fig.savefig(args.out, dpi=200)
     plt.close(fig)
