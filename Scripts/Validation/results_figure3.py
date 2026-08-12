@@ -1,4 +1,4 @@
-"""Reproduce Paper 2 Figure 3 (the local, z=0.1 satellite stellar mass
+"""Reproduce Paper 1 Figure 3 (the local, z=0.1 satellite stellar mass
 function) for the three-way port validation: py-corrected vs rs-steel,
 deterministic mode, published grid -- the strong numerical-fidelity
 claim from docs/VALIDATION.md Sec. 1, turned into a picture instead of
@@ -21,7 +21,7 @@ Usage (from repo root):
     python Scripts/Validation/results_figure3.py \
         --py-corrected /path/to/py-corrected-1 \
         --rs-steel /path/to/rs-steel-1 \
-        --out Figures/PortValidation/Paper2_Fig3_SatelliteSMF.png
+        --out Figures/PortValidation/Paper1_Fig3_SatelliteSMF.png
 """
 import argparse
 import os
@@ -81,7 +81,7 @@ def main():
     ax_cum.set_title("reverse-cumulative", fontsize=10)
 
     fig.suptitle(
-        "Paper 2 Fig. 3 -- local (z=0.1) satellite SMF (G19), deterministic, published grid",
+        "Paper 1 Fig. 3 -- local (z=0.1) satellite SMF (G19), deterministic, published grid",
         fontsize=10.5,
     )
     fig.tight_layout()
