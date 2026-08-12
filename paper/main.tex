@@ -266,13 +266,24 @@ branch (\texttt{PipGrylls}, \S\ref{sec:method}) those papers were
 actually run from. These are the most consequential defects in the
 list.
 
-\textbf{A quenching time-scale clamped to a single value.} The
-Fillingham et al. (2016) host-halo-mass dependence of the rapid
-quenching time-scale is clamped to zero for every host below a galaxy
-cluster ($M_h < 10^{15}\,M_\odot$), i.e.\ for most satellites in most
-runs. This was found while reproducing Paper~1's quenching-time-scale
-figure during the validation exercise underlying this letter, not by
-code inspection.
+\textbf{A quenching time-scale clamped to a single value -- and, unusually,
+one we can date.} The Fillingham et al. (2016) host-halo-mass
+dependence of the rapid quenching time-scale is clamped to zero for
+every host below a galaxy cluster ($M_h < 10^{15}\,M_\odot$), i.e.\ for
+most satellites in most runs. This was found while reproducing
+Paper~1's own quenching-time-scale figure, not by code inspection --
+and the clamped code cannot reproduce that figure: Paper~1 plots three
+visibly distinct cutoffs for three example host masses, which the
+floor collapses to one. Paper~1 was submitted seven months before this
+repository's first commit, so its actual submission-time code cannot
+be checked directly the way every other defect in this letter can; the
+figure test is the evidence available for it, and it argues the defect
+was \emph{not} live when Paper~1's own figure was made. The same clamp
+is, however, confirmed present unchanged in the commit the repository's
+author tagged as the code used for Paper~2's first submission, and it
+remains through the last pre-Paper-3 commit on the papers' branch --
+so it reads as a regression introduced between Papers 1 and 2, live for
+Papers 2 and 3 but not for the paper whose own figure exposed it.
 
 \textbf{A wrong power spectrum in the accretion history.} The halo
 mass-accretion-history calculation is handed a Harrison--Zel'dovich
@@ -283,7 +294,12 @@ $0.069$~dex.
 \textbf{A post-processing defect that fed directly into a published pair-fraction figure.} Independently of the simulation code,
 \texttt{Return\_PF\_Plot} in the post-processing script digitizes an
 upper mass-ratio cut against the wrong array, silently admitting pairs
-above the intended selection.
+above the intended selection. The commit that added this exact code
+is self-labelled as being for Paper~3's pair-fraction figure, and it
+is unchanged in every commit up to the papers' branch's last touch of
+the file before that paper's submission -- there is no point in this
+file's history, on any branch, where it reads correctly before Paper~3
+went out.
 
 One entry in the full list is worth flagging for what it is not: an
 earlier development line of \texttt{STEEL.py} (the repository's
