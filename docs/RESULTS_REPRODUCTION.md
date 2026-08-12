@@ -50,7 +50,7 @@ Four classes, assigned per figure below:
 | 6 | Quenching delay time-scale (Wetzel+F16) | fn | **done** (`Paper2_Fig6_Quenching.png`) |
 | 7 | Dynamical-friction merging time-scale | fn | **done** (`Paper2_Fig7_MergerTimescale.png`) |
 | 8 | SSMF, f_tdyn=1.0 frozen/evolving, vs SDSS | run + data | pending |
-| 9 | Satellite distributions by parent halo mass, vs SDSS | run + data | pending |
+| 9 | Satellite distributions by parent halo mass, vs SDSS | run + data | **one line done** (`Paper2_Fig9_SatelliteDistribution.png`: f_tdyn=1.0 evolving, M*>10^10 cut only; SDSS band and other 3 lines/columns omitted) |
 | 10 | SSMF, f_tdyn=0.5/1.0/2.5, vs SDSS | run + data | pending |
 | 11 | Satellite distributions, f_tdyn=0.5/1.0/2.5, vs SDSS | run + data | pending |
 | 12 | SSMF, Tomczak vs continuity SFR, vs SDSS | run + data | pending |
@@ -80,3 +80,14 @@ Four classes, assigned per figure below:
 * Where py-as-is cannot participate on equal footing (no deterministic
   mode, A7), it is omitted from that panel rather than mixed in on a
   different basis — same rule as Figures 3/6/7.
+* `Figures/PortValidation/Satellite_SMHM_Relation.png` (mean satellite
+  log M* per subhalo-mass bin at z~0.1) doesn't map to one numbered
+  figure in any of the three papers; it's the same `Sat_SMHM`
+  accumulator several of the run-level outputs above use, shown on its
+  own as it's the most direct single-panel check of the satellite-side
+  SMHM.
+* Figures 3, 5, 9, and the satellite-SMHM and pair-fraction plots all
+  come from **one** deterministic published-grid run
+  (`Scripts/Validation/results_figure3.py` /
+  `results_from_run.py`, `('1.0', True, True, True, 'G19_DPL',
+  'G19_SE')`) — no additional simulation cost per figure.

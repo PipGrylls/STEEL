@@ -117,6 +117,62 @@ def plot_pair_fraction(py_corrected, rs_steel, scratch_root, outdir):
     print("wrote:", out)
 
 
+def plot_satellite_distribution(py_corrected, rs_steel, outdir, sm_cut=10.0):
+    """Paper 2 Fig. 9's top-row content: satellite number density above
+    a stellar-mass cut, as a function of parent halo mass, at z~0.1.
+    One config (f_tdyn=1.0, evolving SMHM) and one mass cut, not the
+    published figure's full 3-4-line, multi-column panel."""
+    fig, ax = plt.subplots(figsize=(6.0, 5.0))
+    for name, run_dir in [("py-corrected", py_corrected), ("rs-steel", rs_steel)]:
+        host_mass = np.load(os.path.join(run_dir, "Figure10_AvaHaloMass.npy"))[0]
+        smf = np.load(os.path.join(run_dir, "Figure10_AnalyticalModel_SMF.npy"))
+        sat_mass = np.load(os.path.join(run_dir, "Figure10_Surviving_Sat_SMF_MassRange.npy"))
+        cut_bin = np.searchsorted(sat_mass, sm_cut)
+        n_above = np.nansum(smf[:, cut_bin:], axis=1)
+        mask = n_above > 0
+        ax.plot(host_mass[mask], np.log10(n_above[mask]), **LEG_STYLE[name])
+    ax.set_xlabel(r"$\log_{10} M_{h,\mathrm{cent}}\ [\mathrm{M}_\odot]$")
+    ax.set_ylabel(r"$\log_{10} N(>10^{%.0f}\,\mathrm{M}_\odot)\ [\mathrm{Mpc}^{-3}]$" % sm_cut)
+    ax.legend(loc="upper right", frameon=False, fontsize=9)
+    ax.set_title(
+        "Paper 2 Fig. 9 style -- satellites per parent halo (G19, one mass cut)",
+        fontsize=10,
+    )
+    fig.tight_layout()
+    out = os.path.join(outdir, "Paper2_Fig9_SatelliteDistribution.png")
+    fig.savefig(out, dpi=200)
+    plt.close(fig)
+    print("wrote:", out)
+
+
+def plot_satellite_smhm(py_corrected, rs_steel, outdir):
+    """The satellite-galaxy SMHM relation at z~0.1: mean log M* per
+    subhalo-mass bin, from the Sat_SMHM accumulator (a full
+    stellar-mass distribution per subhalo bin, collapsed to its
+    weighted mean here for a single comparable curve)."""
+    fig, ax = plt.subplots(figsize=(6.0, 5.0))
+    for name, run_dir in [("py-corrected", py_corrected), ("rs-steel", rs_steel)]:
+        sub_mass = np.load(os.path.join(run_dir, "Sat_SMHM_SatHaloMass.npy"))
+        sat_mass = np.load(os.path.join(run_dir, "Sat_SMHM_Surviving_Sat_SMF_MassRange.npy"))
+        smhm = np.load(os.path.join(run_dir, "Sat_SMHM_Sat_SMHM.npy"))[0]  # z~0.1 slice
+        weight = np.nansum(smhm, axis=1)
+        mean_sm = np.divide(
+            np.nansum(smhm * sat_mass[None, :], axis=1), weight,
+            out=np.full(weight.shape, np.nan), where=weight > 0,
+        )
+        mask = np.isfinite(mean_sm)
+        ax.plot(sub_mass[mask], mean_sm[mask], **LEG_STYLE[name])
+    ax.set_xlabel(r"$\log_{10} M_{h,\mathrm{sat}}\ [\mathrm{M}_\odot]$")
+    ax.set_ylabel(r"$\langle \log_{10} M_* \rangle\ [\mathrm{M}_\odot]$")
+    ax.legend(loc="upper left", frameon=False, fontsize=9)
+    ax.set_title("Satellite-galaxy SMHM relation (G19), z~0.1", fontsize=10)
+    fig.tight_layout()
+    out = os.path.join(outdir, "Satellite_SMHM_Relation.png")
+    fig.savefig(out, dpi=200)
+    plt.close(fig)
+    print("wrote:", out)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--py-corrected", required=True)
@@ -130,6 +186,8 @@ def main():
 
     plot_accretion_redshift(args.py_corrected, args.rs_steel, args.outdir)
     plot_pair_fraction(args.py_corrected, args.rs_steel, args.scratch, args.outdir)
+    plot_satellite_distribution(args.py_corrected, args.rs_steel, args.outdir)
+    plot_satellite_smhm(args.py_corrected, args.rs_steel, args.outdir)
 
 
 if __name__ == "__main__":
