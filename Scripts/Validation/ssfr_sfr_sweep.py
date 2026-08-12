@@ -1,4 +1,4 @@
-"""Reproduce Paper 2 Fig. 13's content: satellite sSFR distributions
+"""Reproduce Paper 1 Fig. 13's content: satellite sSFR distributions
 in 3 stellar-mass bins, overlaid across SFR models (one colour per
 model, solid/dashed for py-corrected/rs-steel), from the same
 Satellite_sSFR histogram ssfr_plot.py uses. The paper's second model
@@ -53,7 +53,7 @@ def main():
 
     axes[0].set_ylabel(r"$N\ [\mathrm{Mpc}^{-3}\,\mathrm{h}^3]$")
     axes[0].legend(loc="upper left", frameon=False, fontsize=8.5, title="solid=py-corrected\ndashed=rs-steel")
-    fig.suptitle("Paper 2 Fig. 13 style -- satellite sSFR, SFR-model sweep (G19)", fontsize=10.5)
+    fig.suptitle("Paper 1 Fig. 13 style -- satellite sSFR, SFR-model sweep (G18)", fontsize=10.5)
     fig.tight_layout()
     fig.savefig(args.out, dpi=200)
     print("wrote:", args.out)
