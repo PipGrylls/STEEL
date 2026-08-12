@@ -68,12 +68,13 @@ Four classes, assigned per figure below:
    exact numeric match to the published curves, which was never the
    goal per this doc's opening note. Figs 12-15's rebuild (below) uses
    the correct G18.
-2. **Paper 1 Figs 12/13/14/15** used G19_DPL as a substitute for the
-   CE (continuity-equation) SFR model, believing CE wasn't ported.
-   **CE is implemented** (`TomczakFormSfr::ce()` /
+2. **FIXED.** Paper 1 Figs 12/13/14/15 used G19_DPL as a substitute
+   for the CE (continuity-equation) SFR model, believing CE wasn't
+   ported. **CE is implemented** (`TomczakFormSfr::ce()` /
    `rust/steel-io/src/runfile.rs` `preset = "ce"`) — this was an
-   error, not a limitation, and these figures need rebuilding with the
-   real CE model.
+   error, not a limitation. Rebuilt with 4 new G18/CE/T16 runs
+   (`p1-sf-strip-t16.toml`, `p1-sf-strip-ce.toml`, `p1-sf-ce.toml`,
+   `p1-tdyn-1.0.toml`), matching the correct preset this time.
 3. **Paper 3 Fig. 3** only reproduced the figure's outer/context
    panels (the input SMHM relation under each of the 13 PFT
    perturbations). The actual scientific result plotted in the
@@ -114,10 +115,10 @@ Until each of these is rebuilt, the affected rows below are marked
 | 9 | Satellite distributions, frozen model, same f_tdyn/z-evo axis, 3 mass cuts x 2 rows | run + data | **done** (`Paper1_Fig9_FrozenSweep_Grid.png`: full 3x2 grid, all 4 lines; some visible py/rust divergence in the fractional (bottom) row, consistent with small-number-statistics noise seen elsewhere in this reproduction, not a port defect; SDSS overlay omitted, G19_SE not G18) |
 | 10 | SSMF, frozen model, f_tdyn=0.5/1.0/2.5, vs SDSS | run + data | **done** (`Paper1_Fig10_TdynSweep.png`: correct frozen config, all 3 f_tdyn values, tight agreement; SDSS overlay omitted, G19_SE not G18) |
 | 11 | Satellite distributions, frozen model, f_tdyn=0.5/1.0/2.5, 3 mass cuts x 2 rows | run + data | **done** (`Paper1_Fig11_TdynSweep_Grid.png`: full 3x2 grid; same fractional-row noise caveat as Fig. 9; SDSS overlay omitted, G19_SE not G18) |
-| 12 | SSMF, T16 vs CE SFR, vs SDSS | run + data | **pending rebuild** -- old file (`Paper1_Fig12_SFRModelSweep_DPL_SUBSTITUTE.png`) substitutes G19_DPL for CE unnecessarily; CE is implemented (`TomczakFormSfr::ce()`) and should be used |
-| 13 | sSFR distributions, T16 vs CE, vs SDSS | run + data | **pending rebuild** -- same DPL-for-CE substitution issue (`Paper1_Fig13_sSFRSweep_DPL_SUBSTITUTE.png`) |
-| 14 | SSMF, frozen/SF/SF+strip, vs SDSS | run + data | **2 of 3 lines done, CE substitution unverified** (`Paper1_Fig14_ConfigSweep.png`: frozen and SF+stripping; SF-only line and SDSS overlay not built; need to confirm the "SF" lines use CE not DPL) |
-| 15 | Satellite distributions, frozen/SF/SF+strip, vs SDSS | run + data | **2 of 3 lines done, same caveats as Fig. 14** (`Paper1_Fig15_ConfigSweep.png`) |
+| 12 | SSMF, T16 vs CE SFR, vs SDSS | run + data | **done** (`Paper1_Fig12_SFRModelSweep.png`: real CE (`TomczakFormSfr::ce()`) vs T16, G18 preset, tight py/rust agreement; SDSS overlay omitted) |
+| 13 | sSFR distributions, T16 vs CE, vs SDSS | run + data | **done** (`Paper1_Fig13_sSFRSweep.png`: real CE vs T16, G18; same sparse-bin small-number-statistics caveat as elsewhere; SDSS overlay omitted) |
+| 14 | SSMF, frozen/SF/SF+strip, vs SDSS | run + data | **done** (`Paper1_Fig14_ConfigSweep.png`: all 3 lines -- frozen, CE SF-only, CE SF+stripping -- G18 preset, tight agreement; SDSS overlay omitted) |
+| 15 | Satellite distributions, frozen/SF/SF+strip, vs SDSS | run + data | **done** (`Paper1_Fig15_ConfigSweep_Grid.png`: all 3 lines, full 3x2 grid, G18/CE; SDSS overlay omitted) |
 
 ## Paper 2 (galaxy growth / SFR / ellipticals paper, arXiv 1910.08417, MNRAS 491, "STEELIIIa")
 
