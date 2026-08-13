@@ -58,8 +58,8 @@ def main():
     ylabel = r"$\log_{10} N(>M_*)\ [\mathrm{Mpc}^{-3}]$" if args.cumulative else r"$\log_{10}\phi\ [\mathrm{Mpc}^{-3}\,\mathrm{dex}^{-1}]$"
     ax.set_ylabel(ylabel)
     ax.legend(loc="upper right", frameon=False, fontsize=9, title="solid=py-corrected, dashed=rs-steel")
-    ax.set_title(args.title, fontsize=10)
-    fig.tight_layout()
+    fig.suptitle(args.title, fontsize=10, wrap=True)
+    fig.tight_layout(rect=[0, 0, 1, 0.93])
     fig.savefig(args.out, dpi=200)
     plt.close(fig)
     print("wrote:", args.out)

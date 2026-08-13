@@ -59,9 +59,11 @@ plot against.
 **Every integrated quantity agrees to better than 0.5%.** The p90 column
 is carried by the sparse high-mass tail, where a bin holds at most one
 satellite in either run. See
-`Figures/PortValidation/Paper2_Fig3_SatelliteSMF.png` for this row as
+`Figures/PortValidation/Paper1_SatelliteSMF.png` for this row as
 a picture instead of a table (both differential and reverse-cumulative
-views), reproduced with `Scripts/Validation/results_figure3.py`.
+views), reproduced with `Scripts/Validation/results_figure3.py`. Not
+tied to a specific published figure number -- see that script's
+docstring.
 
 ### Reduced grid
 

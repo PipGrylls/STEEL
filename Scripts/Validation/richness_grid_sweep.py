@@ -61,7 +61,8 @@ def main():
         axes[1, col].set_xlabel(r"$\log_{10} M_{h,\mathrm{cent}}\ [\mathrm{M}_\odot]$")
     axes[0, 0].set_ylabel(r"$\log_{10}\phi\ [\mathrm{Mpc}^{-3}]$")
     axes[1, 0].set_ylabel("Fraction")
-    axes[0, 0].legend(loc="upper right", frameon=False, fontsize=8, title="solid=py-corrected, dashed=rs-steel")
+    axes[0, 0].legend(loc="upper right", frameon=True, framealpha=0.9, edgecolor="none",
+                       fontsize=8, title="solid=py-corrected, dashed=rs-steel")
     fig.suptitle(args.title, fontsize=11)
     fig.tight_layout(rect=[0, 0, 1, 0.95])
     fig.savefig(args.out, dpi=200)

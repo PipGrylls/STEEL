@@ -54,6 +54,18 @@ branch does not" is itself a finding about the repository:
 * **F4** (`@jit` that could never compile) is already removed on
   `PipGrylls`.
 
+**A limitation this audit cannot fix:** Paper 1 (MNRAS 483, submitted
+2018-07-27) predates this repository, whose earliest commit is
+2019-02-19 — nearly seven months later. Every "confirmed live at
+commit X" claim in this file for Paper 1 specifically rests on the
+falsifiability check (does the defect stop the code reproducing the
+published figure?) rather than a direct `git show` of Paper 1's actual
+submission-time state, because that state was never committed anywhere
+in this history. Papers 2 (`bfdb4d8`, 2019-05-02, author-tagged as the
+1st-submission commit) and 3 (commits through 2019-11-07 on
+`PipGrylls`, corroborated by `haofu`/`Paper2`-branch commits from
+2020-01-17) do not have this gap.
+
 ---
 
 ## A. Wrong physics
@@ -230,11 +242,17 @@ branch does not" is itself a finding about the repository:
 
 * **Where:** `Functions/Functions.py::StarFormation:432-437` (both
   `master` and `PipGrylls` — confirmed present verbatim at
-  `origin/PipGrylls:Functions/Functions.py:329-334`, the branch
-  actually submitted for Paper 2); mirrored in
+  `origin/PipGrylls:Functions/Functions.py:329-334`, and byte-for-byte
+  identical at `bfdb4d8:Functions/Functions.py:343-348`, the commit
+  the author tagged *"This is the version of the code used for the 1st
+  submission of Paper2 on 02/05/19"*); mirrored in
   `rust/steel-plugins/src/quenching.rs::Wetzel13::timescales`.
-* **What:** found while reproducing Paper 2 Figure 6, not by code
-  review. The code computed
+* **What:** found while reproducing **Paper 1** Figure 6, not by code
+  review (corrected from an earlier "Paper 2" mislabel in this entry —
+  checked directly against `MNRAS 483, 2506` p.2517: the host-dependent
+  Fillingham cutoff is eq. (8), `log(Mcutoff) = 9 - (15 - log
+  Mh,host)/5`, and Fig. 6's caption reads "for three example host
+  masses log10 Mh,cent = 10, 12.5, 15"). The code computed
 
   ```python
   Host_Dep = (AvaHaloMass[0] - 15)/5
@@ -243,24 +261,38 @@ branch does not" is itself a finding about the repository:
   Tau_d[SM_Sat < 9+Host_Dep] = 2.0
   ```
 
-  Paper 2 eq. (8) is `log(Mcutoff) = 9 - (15 - log Mh,host)/5`, i.e.
-  `Mcutoff = 9 + Host_Dep` with `Host_Dep = (Mh,host-15)/5` and *no*
-  floor. For any host below `log Mh = 15` (every host in any realistic
-  run — the published grids top out at 16.6, but typical group/cluster
-  hosts sit at 11-14), `Host_Dep` is negative and the floor silently
-  pins it to 0, so the cutoff mass is the same 9.0 regardless of host
-  mass. The paper's own Figure 6 plots three *visibly distinct* cutoffs
-  (log M* ≈ 8.0, 8.5, 9.0) for its three example host masses
-  (log Mh,cent = 10, 12.5, 15) — confirmed against the published PDF
-  page image, not just the equation. As committed, the code cannot
-  reproduce its own figure: the host-mass dependence the whole section
-  is about is inert for two of the three example hosts, and for every
-  host mass typically explored in this model.
+  i.e. `Mcutoff = 9 + Host_Dep` with `Host_Dep = (Mh,host-15)/5` and
+  *no* floor in the paper's own equation. For any host below `log Mh =
+  15` (every host in any realistic run — the published grids top out
+  at 16.6, but typical group/cluster hosts sit at 11-14), `Host_Dep` is
+  negative and the floor silently pins it to 0, so the cutoff mass is
+  the same 9.0 regardless of host mass. The paper's own Figure 6 plots
+  three *visibly distinct* cutoffs (log M* ≈ 8.0, 8.5, 9.0) for its
+  three example host masses — confirmed against the published PDF page
+  image, not just the equation. As committed, the code cannot reproduce
+  its own figure: the host-mass dependence the whole section is about
+  is inert for two of the three example hosts, and for every host mass
+  typically explored in this model.
+* **A likely regression, not live at Paper 1's own submission.** Paper
+  1 was submitted 2018 July 27 (received 2018 Nov 27, accepted 2018 Nov
+  28) — this repository's earliest commit is 2019-02-19, nearly seven
+  months later, so Paper 1's actual submission-time code cannot be
+  checked by `git show` the way every other defect in this file can.
+  What *can* be checked is the falsifiability test: does the clamped
+  code reproduce Paper 1's own published figure? It does not — see
+  above. Independently, the same clamp is confirmed present, unchanged,
+  in the exact commit tagged as Paper 2's 1st-submission code
+  (`bfdb4d8`, 2019-05-02) and is still present at `origin/PipGrylls`'s
+  last commit before Paper 3 (2019-11-07). Put together: the defect is
+  solidly live for **Papers 2 and 3**, and was most likely introduced
+  sometime between Paper 1's July 2018 submission and Paper 2's May
+  2019 one — a regression in a period this repository's history does
+  not cover, not a defect present when Paper 1's Fig. 6 was drawn.
 * **Size:** at `log Mh,cent = 10`, the buggy code keeps a satellite
   quenching-delayed at 2.0 Gyr up to `log M* = 9.0`; the fixed code
   hands it off to the smooth W13 curve (~3.49 Gyr) a full 1.0 dex
   earlier, at `log M* = 8.0`. See
-  `Figures/PortValidation/Paper2_Fig6_Quenching.png`.
+  `Figures/PortValidation/Paper1_Fig6_Quenching.png`.
 * **Fixed by:** removing the clamp (`Host_Dep = (AvaHaloMass[0]-15)/5`,
   used directly), matching eq. (8) exactly — and the same in the Rust.
   `rust/steel-plugins/src/quenching.rs`'s
@@ -272,7 +304,10 @@ branch does not" is itself a finding about the repository:
   fix). It touches every satellite below the cutoff mass in every host
   less massive than `1e15 Msun`, i.e. most satellites in most runs, so
   the deterministic/stochastic tables in `docs/VALIDATION.md` should be
-  re-measured before being treated as final.
+  re-measured before being treated as final. This affects Papers 2 and
+  3's simulated outputs (both post-date the likely regression); it does
+  not affect Paper 1's own published Fig. 6, which the buggy code
+  cannot even reproduce.
 
 ---
 
@@ -631,6 +666,18 @@ change a published figure and a defect in one that is did.
   `Figures/Paper3/PairFractionData.{png,pdf}` — the pair-fraction vs.
   observational-data comparison. **Not a hypothetical defect in
   unreachable code; it was live.**
+* **Confirmed directly against the branch's own history**, independent
+  of the reachability trace above: `bc1b0ead` (2019-05-23, *"changed
+  some plotting routines to make a pairfraction data and satellite
+  accretion plot for paper 3"*) is the commit that introduced this
+  exact code (`M_Cut_bin_upper = np.digitize(CND_Mass_Upper, SM_Arr)`),
+  and it is still present, unchanged, at `ef8229ee` (2019-11-07,
+  *"thesis plots"*) — the last commit to touch this file on
+  `origin/PipGrylls` before Paper 3's Jan 2020 submission. Also present
+  at the same lines in the intervening `haofu`/`Paper2`-branch commits
+  from 2020-01-17, three days before the arXiv submission. There is no
+  commit anywhere in this file's history, on any branch, that fixes it
+  before Paper 3 went out.
 * **Fixed by:** every other major-merger mass-ratio cut in this file
   (`Maj_Merge_Bin`, 13 call sites from line 397 on, and
   `Sat_Mass_Cut_bin` three lines above the bug itself) uses the same

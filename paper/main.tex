@@ -266,13 +266,24 @@ branch (\texttt{PipGrylls}, \S\ref{sec:method}) those papers were
 actually run from. These are the most consequential defects in the
 list.
 
-\textbf{A quenching time-scale clamped to a single value.} The
-Fillingham et al. (2016) host-halo-mass dependence of the rapid
-quenching time-scale is clamped to zero for every host below a galaxy
-cluster ($M_h < 10^{15}\,M_\odot$), i.e.\ for most satellites in most
-runs. This was found while reproducing Paper~1's quenching-time-scale
-figure during the validation exercise underlying this letter, not by
-code inspection.
+\textbf{A quenching time-scale clamped to a single value -- and, unusually,
+one we can date.} The Fillingham et al. (2016) host-halo-mass
+dependence of the rapid quenching time-scale is clamped to zero for
+every host below a galaxy cluster ($M_h < 10^{15}\,M_\odot$), i.e.\ for
+most satellites in most runs. This was found while reproducing
+Paper~1's own quenching-time-scale figure, not by code inspection --
+and the clamped code cannot reproduce that figure: Paper~1 plots three
+visibly distinct cutoffs for three example host masses, which the
+floor collapses to one. Paper~1 was submitted seven months before this
+repository's first commit, so its actual submission-time code cannot
+be checked directly the way every other defect in this letter can; the
+figure test is the evidence available for it, and it argues the defect
+was \emph{not} live when Paper~1's own figure was made. The same clamp
+is, however, confirmed present unchanged in the commit the repository's
+author tagged as the code used for Paper~2's first submission, and it
+remains through the last pre-Paper-3 commit on the papers' branch --
+so it reads as a regression introduced between Papers 1 and 2, live for
+Papers 2 and 3 but not for the paper whose own figure exposed it.
 
 \textbf{A wrong power spectrum in the accretion history.} The halo
 mass-accretion-history calculation is handed a Harrison--Zel'dovich
@@ -283,7 +294,12 @@ $0.069$~dex.
 \textbf{A post-processing defect that fed directly into a published pair-fraction figure.} Independently of the simulation code,
 \texttt{Return\_PF\_Plot} in the post-processing script digitizes an
 upper mass-ratio cut against the wrong array, silently admitting pairs
-above the intended selection.
+above the intended selection. The commit that added this exact code
+is self-labelled as being for Paper~3's pair-fraction figure, and it
+is unchanged in every commit up to the papers' branch's last touch of
+the file before that paper's submission -- there is no point in this
+file's history, on any branch, where it reads correctly before Paper~3
+went out.
 
 One entry in the full list is worth flagging for what it is not: an
 earlier development line of \texttt{STEEL.py} (the repository's
@@ -353,12 +369,17 @@ of \S\ref{sec:method}; the full per-figure account, including which are
 exact reproductions, which are partial (typically because one line of a
 multi-line comparison needs a configuration not otherwise used
 elsewhere), and which omit only the external data overlay, is
-maintained online. Figure~\ref{fig:smf} reproduces Paper~1's headline
-local satellite stellar mass function, differential and cumulative.
-Figure~\ref{fig:frozen} reproduces the frozen-model $f_{\rm tdyn}$ and
-SMHM-evolution sensitivity sweep (Paper~1 Fig.~8) and its associated
-satellite-distribution grid (Fig.~9), both a four-way, two implementation
-comparison. Figure~\ref{fig:tracks} reproduces the full three-row central
+maintained online. Figure~\ref{fig:smf} shows the local satellite
+stellar mass function underlying every headline result in Paper~1,
+differential and cumulative; it is not keyed to a single published
+figure number, since Paper~1's own Figure~3 is unrelated content (an
+unevolved subhalo mass function example) and the paper's actual
+SMF-vs-data comparisons are split across Figs.~8, 10, 12 and~14 for
+different model configurations. Figure~\ref{fig:frozen} reproduces the
+first of those, the frozen-model $f_{\rm tdyn}$ and SMHM-evolution
+sensitivity sweep (Paper~1 Fig.~8), and Figure~\ref{fig:frozengrid} its
+associated satellite-distribution grid (Fig.~9), both a four-way,
+two-implementation comparison. Figure~\ref{fig:tracks} reproduces the full three-row central
 mass-track decomposition (accretion / star formation / total, their
 fractional and instantaneous-rate contributions) for both the PyMorph and
 cmodel stellar-mass calibrations (Paper~2 Figs.~6 and~8); the cmodel
@@ -368,14 +389,20 @@ history internally inconsistent, requiring negative accretion at some
 redshifts to balance the stellar mass budget -- both implementations
 agree even through this pathological regime. Figure~\ref{fig:pairfrac}
 reproduces Paper~3's central result, the sensitivity of the galaxy pair
-fraction to each Moster-form SMHM coefficient in turn.
+fraction to each Moster-form SMHM coefficient in turn. Figure~\ref{fig:morph}
+reproduces Paper~2's morphology result, the elliptical fraction vs.\
+stellar mass at three redshifts, from the major-merger history of the
+central mass tracks; the paper does not give the exact
+count-to-fraction conversion it used, so this panel states the one we
+adopted rather than presenting it as an exact reproduction.
 
 \begin{figure}
 \centering
-\includegraphics[width=\columnwidth]{figures/Paper1_Fig3_SatelliteSMF.png}
+\includegraphics[width=\columnwidth]{figures/Paper1_SatelliteSMF.png}
 \caption{Local ($z\sim0.1$) satellite stellar mass function, deterministic
 mode, published grid: differential (left) and reverse-cumulative (right).
-Solid: \texttt{py-corrected}. Dashed: \texttt{rs-steel}.}
+Solid: \texttt{py-corrected}. Dashed: \texttt{rs-steel}. Not keyed to a
+specific numbered figure in Paper~1 -- see the main text.}
 \label{fig:smf}
 \end{figure}
 
@@ -387,6 +414,17 @@ $f_{\rm tdyn}\times$SMHM-evolution sweep that Paper~1 \S4.1 actually
 uses (not a stellar-population comparison, which is a different figure
 in the same paper). Four lines, two implementations.}
 \label{fig:frozen}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=\columnwidth]{figures/Paper1_Fig9_FrozenSweep_Grid.png}
+\caption{Satellite number density (top row) and fractional distribution
+(bottom row, eq.~16 of Paper~1) vs.\ parent halo mass under the same
+frozen-model $f_{\rm tdyn}\times$SMHM-evolution sweep as
+Fig.~\ref{fig:frozen} (Paper~1 Fig.~9), for three increasing satellite
+stellar-mass cuts (columns). Four lines, two implementations.}
+\label{fig:frozengrid}
 \end{figure}
 
 \begin{figure}
@@ -409,13 +447,27 @@ for this calibration.}
 \includegraphics[width=\columnwidth]{figures/Paper3_Fig3_PairFractionSensitivity.png}
 \caption{Galaxy pair fraction vs.\ redshift under thirteen
 single-coefficient perturbations of the Moster-form SMHM relation
-(four panels: normalisation, knee mass, low- and high-mass slope), each
+(four panels, left to right: knee mass, normalisation, low- and
+high-mass slope, matching Paper~3's own Table~2), each
 against a PyMorph reference. Solid: \texttt{py-corrected}. Dashed:
 \texttt{rs-steel}. The high-mass slope ($\gamma$) and knee-mass ($M$)
 panels show the strongest sensitivity, consistent with the published
 paper's central claim that the high-mass end of the SMHM relation is the
 dominant systematic in pair-fraction inference.}
 \label{fig:pairfrac}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=\columnwidth]{figures/Paper2_Fig11_EllipticalFraction.png}
+\caption{Elliptical fraction vs.\ stellar mass at three redshifts,
+derived from each central mass track's major-merger ($\mu>0.25$)
+accretion history via $f_{\rm elliptical}=1-\exp(-N_{\rm major})$.
+Solid: \texttt{py-corrected}. Dashed: \texttt{rs-steel}. Qualitatively
+correct shape and redshift ordering; the exact turnover mass is not
+verified against the published curve, since the paper does not state
+its count-to-fraction conversion.}
+\label{fig:morph}
 \end{figure}
 
 \section{Discussion}
