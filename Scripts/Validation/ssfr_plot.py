@@ -102,7 +102,7 @@ def main():
             ax.set_xlim(-13, -9)
 
     axes[0].set_ylabel(r"$N\ [\mathrm{Mpc}^{-3}\,\mathrm{h}^3]$")
-    axes[0].legend(loc="upper left", frameon=False, fontsize=8.5)
+    axes[0].legend(loc="upper right", frameon=True, framealpha=0.9, edgecolor="none", fontsize=8.5)
     n_seeds = len(args.py_corrected)
     fig.suptitle(
         f"Paper 2 Fig. 9 style -- satellite sSFR distribution (G19), "
