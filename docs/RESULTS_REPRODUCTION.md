@@ -107,6 +107,7 @@ Until each of these is rebuilt, the affected rows below are marked
 | 1 | Method diagram (statistical DM backbone steps) | diagram | skip |
 | 2 | USHMF vs USSHMF (3 f_tdyn), one parent halo mass | run | **one line done** (`Paper1_Fig2_USSHMF.png`: USSHMF at f_tdyn=1.0 only, log Mh,parent=12.80, matches the paper's actual value; USHMF reference curve and other 2 f_tdyn values not built) |
 | 3 | Total USHMF vs total USSHMF (3 f_tdyn) | run | **one line done** (`Paper1_Fig3_TotalUSSHMF.png`: total USSHMF at f_tdyn=1.0 only; USHMF reference curve and other 2 f_tdyn values not built) |
+| -- | *(not a numbered figure)* Local satellite SMF, deterministic, no data overlay -- the headline three-way agreement picture, common to Figs. 8/10/12/14 below | run | **done** (`Paper1_SatelliteSMF.png`, `results_figure3.py`; previously misfiled as "`Paper1_Fig3_SatelliteSMF.png`" -- Fig. 3 is the USHMF/USSHMF row above, not an SMF at all; renamed 2026-08-13 after the letter was found citing the wrong figure number) |
 | 4 | SMHM (G18) vs B18/S17/M13 + central SMF vs SDSS | fn + data | **left panel approximate** (`SMHM_Relation.png` uses G19_SE, not the G18 preset this figure actually uses -- same functional form, different coefficients; B18/S17/M13 and right-panel central SMF omitted) |
 | 5 | % satellites by accretion redshift | run | **done** (`Paper1_Fig5_AccretionRedshift.png`) |
 | 6 | Quenching delay time-scale (Wetzel+F16) | fn | **done** (`Paper1_Fig6_Quenching.png`) |

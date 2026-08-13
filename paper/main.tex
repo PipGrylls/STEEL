@@ -369,12 +369,17 @@ of \S\ref{sec:method}; the full per-figure account, including which are
 exact reproductions, which are partial (typically because one line of a
 multi-line comparison needs a configuration not otherwise used
 elsewhere), and which omit only the external data overlay, is
-maintained online. Figure~\ref{fig:smf} reproduces Paper~1's headline
-local satellite stellar mass function, differential and cumulative.
-Figure~\ref{fig:frozen} reproduces the frozen-model $f_{\rm tdyn}$ and
-SMHM-evolution sensitivity sweep (Paper~1 Fig.~8) and its associated
-satellite-distribution grid (Fig.~9), both a four-way, two implementation
-comparison. Figure~\ref{fig:tracks} reproduces the full three-row central
+maintained online. Figure~\ref{fig:smf} shows the local satellite
+stellar mass function underlying every headline result in Paper~1,
+differential and cumulative; it is not keyed to a single published
+figure number, since Paper~1's own Figure~3 is unrelated content (an
+unevolved subhalo mass function example) and the paper's actual
+SMF-vs-data comparisons are split across Figs.~8, 10, 12 and~14 for
+different model configurations. Figure~\ref{fig:frozen} reproduces the
+first of those, the frozen-model $f_{\rm tdyn}$ and SMHM-evolution
+sensitivity sweep (Paper~1 Fig.~8), and Figure~\ref{fig:frozengrid} its
+associated satellite-distribution grid (Fig.~9), both a four-way,
+two-implementation comparison. Figure~\ref{fig:tracks} reproduces the full three-row central
 mass-track decomposition (accretion / star formation / total, their
 fractional and instantaneous-rate contributions) for both the PyMorph and
 cmodel stellar-mass calibrations (Paper~2 Figs.~6 and~8); the cmodel
@@ -393,10 +398,11 @@ adopted rather than presenting it as an exact reproduction.
 
 \begin{figure}
 \centering
-\includegraphics[width=\columnwidth]{figures/Paper1_Fig3_SatelliteSMF.png}
+\includegraphics[width=\columnwidth]{figures/Paper1_SatelliteSMF.png}
 \caption{Local ($z\sim0.1$) satellite stellar mass function, deterministic
 mode, published grid: differential (left) and reverse-cumulative (right).
-Solid: \texttt{py-corrected}. Dashed: \texttt{rs-steel}.}
+Solid: \texttt{py-corrected}. Dashed: \texttt{rs-steel}. Not keyed to a
+specific numbered figure in Paper~1 -- see the main text.}
 \label{fig:smf}
 \end{figure}
 
@@ -408,6 +414,17 @@ $f_{\rm tdyn}\times$SMHM-evolution sweep that Paper~1 \S4.1 actually
 uses (not a stellar-population comparison, which is a different figure
 in the same paper). Four lines, two implementations.}
 \label{fig:frozen}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=\columnwidth]{figures/Paper1_Fig9_FrozenSweep_Grid.png}
+\caption{Satellite number density (top row) and fractional distribution
+(bottom row, eq.~16 of Paper~1) vs.\ parent halo mass under the same
+frozen-model $f_{\rm tdyn}\times$SMHM-evolution sweep as
+Fig.~\ref{fig:frozen} (Paper~1 Fig.~9), for three increasing satellite
+stellar-mass cuts (columns). Four lines, two implementations.}
+\label{fig:frozengrid}
 \end{figure}
 
 \begin{figure}
@@ -430,7 +447,8 @@ for this calibration.}
 \includegraphics[width=\columnwidth]{figures/Paper3_Fig3_PairFractionSensitivity.png}
 \caption{Galaxy pair fraction vs.\ redshift under thirteen
 single-coefficient perturbations of the Moster-form SMHM relation
-(four panels: normalisation, knee mass, low- and high-mass slope), each
+(four panels, left to right: knee mass, normalisation, low- and
+high-mass slope, matching Paper~3's own Table~2), each
 against a PyMorph reference. Solid: \texttt{py-corrected}. Dashed:
 \texttt{rs-steel}. The high-mass slope ($\gamma$) and knee-mass ($M$)
 panels show the strongest sensitivity, consistent with the published

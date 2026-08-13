@@ -1,8 +1,20 @@
-"""Reproduce Paper 1 Figure 3 (the local, z=0.1 satellite stellar mass
-function) for the three-way port validation: py-corrected vs rs-steel,
-deterministic mode, published grid -- the strong numerical-fidelity
-claim from docs/VALIDATION.md Sec. 1, turned into a picture instead of
-a table.
+"""Reproduce the local (z=0.1) satellite stellar mass function --
+py-corrected vs rs-steel, deterministic mode, published grid -- the
+strong numerical-fidelity claim from docs/VALIDATION.md Sec. 1, turned
+into a picture instead of a table.
+
+NOT tied to any single published figure number, despite the module
+name. Paper 1's own Figure 3 is unrelated content (an example of the
+total USHMF/USSHMF for three f_tdyn factors -- see
+Paper1_Fig3_TotalUSSHMF.png for that). This module predates the
+Paper 1/2 relabelling documented at the top of
+docs/RESULTS_REPRODUCTION.md and was never re-checked against the
+correct paper's actual figure numbering afterwards -- there isn't one:
+Paper 1's SMF-vs-data comparisons are split across Figs. 8, 10, 12 and
+14 for different model configurations (reproduced separately by
+results_config_sweep.py and friends). This script instead reproduces
+the underlying quantity common to all of them, without a data overlay
+or a specific config, as the headline three-way agreement picture.
 
 py-as-is has no deterministic mode (GetGasMass scatters
 unconditionally -- PORT-FIX A7), so it cannot appear on this panel on
@@ -21,7 +33,7 @@ Usage (from repo root):
     python Scripts/Validation/results_figure3.py \
         --py-corrected /path/to/py-corrected-1 \
         --rs-steel /path/to/rs-steel-1 \
-        --out Figures/PortValidation/Paper1_Fig3_SatelliteSMF.png
+        --out Figures/PortValidation/Paper1_SatelliteSMF.png
 """
 import argparse
 import os
@@ -47,7 +59,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--py-corrected", required=True)
     ap.add_argument("--rs-steel", required=True)
-    ap.add_argument("--out", default="Figures/PortValidation/Paper2_Fig3_SatelliteSMF.png")
+    ap.add_argument("--out", default="Figures/PortValidation/Paper1_SatelliteSMF.png")
     args = ap.parse_args()
 
     mass_c, smf_c = load_smf(args.py_corrected)
@@ -81,7 +93,7 @@ def main():
     ax_cum.set_title("reverse-cumulative", fontsize=10)
 
     fig.suptitle(
-        "Paper 1 Fig. 3 -- local (z=0.1) satellite SMF (G19), deterministic, published grid",
+        "Local (z=0.1) satellite stellar mass function (G19), deterministic, published grid",
         fontsize=10.5,
     )
     fig.tight_layout()
