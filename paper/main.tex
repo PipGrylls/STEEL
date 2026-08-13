@@ -384,7 +384,12 @@ history internally inconsistent, requiring negative accretion at some
 redshifts to balance the stellar mass budget -- both implementations
 agree even through this pathological regime. Figure~\ref{fig:pairfrac}
 reproduces Paper~3's central result, the sensitivity of the galaxy pair
-fraction to each Moster-form SMHM coefficient in turn.
+fraction to each Moster-form SMHM coefficient in turn. Figure~\ref{fig:morph}
+reproduces Paper~2's morphology result, the elliptical fraction vs.\
+stellar mass at three redshifts, from the major-merger history of the
+central mass tracks; the paper does not give the exact
+count-to-fraction conversion it used, so this panel states the one we
+adopted rather than presenting it as an exact reproduction.
 
 \begin{figure}
 \centering
@@ -432,6 +437,19 @@ panels show the strongest sensitivity, consistent with the published
 paper's central claim that the high-mass end of the SMHM relation is the
 dominant systematic in pair-fraction inference.}
 \label{fig:pairfrac}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=\columnwidth]{figures/Paper2_Fig11_EllipticalFraction.png}
+\caption{Elliptical fraction vs.\ stellar mass at three redshifts,
+derived from each central mass track's major-merger ($\mu>0.25$)
+accretion history via $f_{\rm elliptical}=1-\exp(-N_{\rm major})$.
+Solid: \texttt{py-corrected}. Dashed: \texttt{rs-steel}. Qualitatively
+correct shape and redshift ordering; the exact turnover mass is not
+verified against the published curve, since the paper does not state
+its count-to-fraction conversion.}
+\label{fig:morph}
 \end{figure}
 
 \section{Discussion}

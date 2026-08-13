@@ -104,7 +104,7 @@ def main():
         ax.set_title(panel, fontsize=11)
         ax.set_xlabel("redshift")
         ax.set_xlim(0, 3.5)
-        ax.legend(loc="upper right", frameon=False, fontsize=7.5)
+        ax.legend(loc="upper right", frameon=True, framealpha=0.9, edgecolor="none", fontsize=7.5)
 
     axes[0].set_ylabel("pair fraction")
     fig.suptitle(
