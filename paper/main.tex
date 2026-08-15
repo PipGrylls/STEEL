@@ -144,20 +144,50 @@ repository as published, is what we call \texttt{py-as-is} throughout.
 \section{Motivation}
 \label{sec:mot}
 
-Why revist this work now?
-Simply this is an AI driven port so the time investment is minimal. 
-The intended utility of STEEL was to be 
-able to test the internal self consistency of evolved SMHM relationships.
-The blocker to this was the time investment to code the various models and itegrate them.
-with generative AI introducing new models is as easy as giving the AI the context of this model 
-and the paper which describes the physics.
-The structure introduced in this code supports a dependancy injection pattern, modules need only satisfy a given 
-interface.
-The key model outputs reflect the original three papers; are correct predictions of satellite numbers made (or pair fraction), 
-do central galaxies accrete a physically consistent amont of mass, and is the implied star formation rate consistent with observation.
-All other outputs are reproduced, addional results are encouraged.
-However, we focus on those that show model self consistency for a given cosmology as cmparing to observalbles brins in the assumptions implicit to the opsetvations.
+Why revisit a model whose only implementation no longer runs
+(\S\ref{sec:repro})? Two things make this a good moment to. The first is
+practical: this port was written with substantial large-language-model
+assistance, at a fraction of the engineering time a from-scratch
+reimplementation would otherwise take. The second is what that lower
+cost unlocks. STEEL's stated purpose was never only to reproduce the
+three published papers -- it was meant as a testbed for the internal
+self-consistency of evolved stellar-mass--halo-mass (SMHM) relations, in
+which a new SMHM model, quenching prescription, or stripping law could
+be dropped in and checked against the same statistical accretion-history
+machinery. What blocked that use case was never the physics but the
+integration cost: coding a new prescription and wiring it into the
+surrounding pipeline without silently breaking something else was
+expensive enough that STEEL produced three papers and stopped, rather
+than becoming the general-purpose testbed it was designed to be.
 
+The dependency-injection structure described in \S\ref{sec:port} is
+what turns a lower integration cost into a testbed rather than just a
+faster one-off port: every physical process is a Rust trait, so a new
+model has to satisfy that trait's interface and nothing else -- it
+cannot reach into or silently depend on the rest of the pipeline.
+Paired with a large language model, adding one is now close to
+mechanical: point it at the paper describing the physics and the trait
+it must implement, and the integration risk that used to dominate the
+cost collapses to reviewing the diff. That combination, not raw porting
+speed, is this letter's actual claim: it makes STEEL's original purpose
+cheap enough to be worth having again.
+
+That purpose sets what we mean by \emph{correct} in \S\ref{sec:results}.
+Three self-consistency checks matter more than the rest: whether the
+ported machinery predicts the same satellite counts and pair fractions
+as the original papers \citep{Grylls2019a,Grylls2020b}, whether central
+galaxies accrete a physically plausible amount of mass, and whether the
+star formation rate implied by the model is internally consistent with
+the accretion history that drives it \citep{Grylls2020}. Every other
+output the model produces is reproduced and reported in
+\S\ref{sec:results}, and we encourage using the framework to generate
+results beyond these three, but we deliberately do not treat agreement
+with observational data as the bar for correctness here: comparing to
+an observable imports every assumption implicit in how that observable
+was measured or derived, while comparing the model to itself, across
+two independent implementations at fixed cosmology, does not. That
+narrower claim -- self-consistency, not agreement with data -- is the
+one a testbed like this can actually make.
 
 
 \section{Architecture}
