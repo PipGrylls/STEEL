@@ -30,7 +30,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--py-dat", required=True)
     ap.add_argument("--rs-dir", required=True)
-    ap.add_argument("--out", default="Figures/PortValidation/Paper2_Fig3_TotalUSSHMF.png")
+    ap.add_argument("--out", default="Figures/PortValidation/Paper1_Fig3_TotalUSSHMF.png")
     args = ap.parse_args()
 
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
@@ -50,7 +50,7 @@ def main():
     ax.set_xlabel(r"$\log_{10} M_{h,\mathrm{sat}}\ [\mathrm{M}_\odot]$")
     ax.set_ylabel(r"$\log_{10}$ total USSHMF $[\mathrm{Mpc}^{-3}\,\mathrm{dex}^{-1}]$")
     ax.legend(loc="upper right", frameon=False, fontsize=9)
-    ax.set_title(r"Paper 2 Fig. 3 style -- total surviving SHMF, $f_{t\mathrm{dyn}}=1.0$, z=0.1 (G19)", fontsize=10)
+    ax.set_title(r"Paper 1 Fig. 3 style -- total surviving SHMF, $f_{t\mathrm{dyn}}=1.0$, z=0.1 (G19)", fontsize=10)
     fig.tight_layout()
     fig.savefig(args.out, dpi=200)
     plt.close(fig)

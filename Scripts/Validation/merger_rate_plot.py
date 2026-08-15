@@ -47,7 +47,7 @@ def main():
     ap.add_argument("--py-corrected", required=True)
     ap.add_argument("--rs-steel", required=True)
     ap.add_argument("--targets", type=float, nargs="+", default=[11.0, 12.0, 13.0, 14.0])
-    ap.add_argument("--out", default="Figures/PortValidation/Paper1_Fig4_MergerRate.png")
+    ap.add_argument("--out", default="Figures/PortValidation/Paper2_Fig4_MergerRate.png")
     args = ap.parse_args()
 
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
@@ -76,7 +76,7 @@ def main():
     ax.set_ylabel(r"merger rate $[\mathrm{Gyr}^{-1}]$ per halo (all mass ratios)")
     ax.set_yscale("log")
     ax.legend(loc="upper left", frameon=False, fontsize=9, title="solid=py-corrected, dashed=rs-steel")
-    ax.set_title("Paper 1 Fig. 4 style -- merger rate vs. redshift, fixed halo mass (G19)", fontsize=10)
+    ax.set_title("Paper 2 Fig. 4 style -- merger rate vs. redshift, fixed halo mass (G19)", fontsize=10)
     fig.tight_layout()
     fig.savefig(args.out, dpi=200)
     plt.close(fig)

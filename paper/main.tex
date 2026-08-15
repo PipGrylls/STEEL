@@ -145,50 +145,49 @@ repository as published, is what we call \texttt{py-as-is} throughout.
 \section{Motivation}
 \label{sec:mot}
 
-Why revisit a model whose only implementation no longer runs
-(\S\ref{sec:repro})? Two things make this a good moment to. The first is
-practical: this port was written with substantial large-language-model
-assistance, at a fraction of the engineering time a from-scratch
-reimplementation would otherwise take. The second is what that lower
-cost unlocks. STEEL's stated purpose was never only to reproduce the
-three published papers -- it was meant as a testbed for the internal
-self-consistency of evolved stellar-mass--halo-mass (SMHM) relations, in
-which a new SMHM model, quenching prescription, or stripping law could
-be dropped in and checked against the same statistical accretion-history
-machinery. What blocked that use case was never the physics but the
-integration cost: coding a new prescription and wiring it into the
-surrounding pipeline without silently breaking something else was
-expensive enough that STEEL produced three papers and stopped, rather
-than becoming the general-purpose testbed it was designed to be.
+This port was written with substantial large-language-model assistance,
+at a fraction of the engineering time a from-scratch reimplementation
+would otherwise take. That cost reduction is the reason to revisit a
+model whose only implementation no longer runs (\S\ref{sec:repro}).
+STEEL's stated purpose was never only to reproduce the three published
+papers: it was designed as a testbed for the internal self-consistency
+of evolved stellar-mass--halo-mass (SMHM) relations, in which a new
+SMHM model, quenching prescription, or stripping law can be substituted
+and checked against the same statistical accretion-history machinery.
+The barrier to that use was not the physics but the integration cost:
+coding a new prescription and wiring it into the surrounding pipeline
+without silently breaking another component was expensive enough that
+STEEL produced three papers and stopped, short of the general-purpose
+testbed it was designed to be.
 
-The dependency-injection structure described in \S\ref{sec:port} is
-what turns a lower integration cost into a testbed rather than just a
-faster one-off port: every physical process is a Rust trait, so a new
-model has to satisfy that trait's interface and nothing else -- it
-cannot reach into or silently depend on the rest of the pipeline.
-Paired with a large language model, adding one is now close to
-mechanical: point it at the paper describing the physics and the trait
-it must implement, and the integration risk that used to dominate the
-cost collapses to reviewing the diff. That combination, not raw porting
-speed, is this letter's actual claim: it makes STEEL's original purpose
-cheap enough to be worth having again.
+The dependency-injection structure described in \S\ref{sec:port}
+converts a lower integration cost into a usable testbed rather than
+only a faster port. Every physical process is a Rust trait, so a new
+model must satisfy that trait's interface and nothing else: it cannot
+reach into or depend silently on the rest of the pipeline. Combined
+with large-language-model assistance, adding a new model requires
+pointing it at the paper describing the physics and the trait it must
+implement; the integration risk that previously dominated the cost is
+reduced to reviewing the resulting diff. This combination, not porting
+speed on its own, is the basis for this letter: it restores STEEL's
+original purpose at an integration cost low enough to make that purpose
+usable again.
 
-That purpose sets what we mean by \emph{correct} in \S\ref{sec:results}.
-Three self-consistency checks matter more than the rest: whether the
-ported machinery predicts the same satellite counts and pair fractions
-as the original papers \citep{Grylls2019a,Grylls2020b}, whether central
-galaxies accrete a physically plausible amount of mass, and whether the
-star formation rate implied by the model is internally consistent with
-the accretion history that drives it \citep{Grylls2020}. Every other
-output the model produces is reproduced and reported in
-\S\ref{sec:results}, and we encourage using the framework to generate
-results beyond these three, but we deliberately do not treat agreement
-with observational data as the bar for correctness here: comparing to
-an observable imports every assumption implicit in how that observable
-was measured or derived, while comparing the model to itself, across
-two independent implementations at fixed cosmology, does not. That
-narrower claim -- self-consistency, not agreement with data -- is the
-one a testbed like this can actually make.
+This purpose defines \emph{correct} for \S\ref{sec:results}. Three
+self-consistency checks take priority: whether the ported machinery
+predicts the same satellite counts and pair fractions as the original
+papers \citep{Grylls2019a,Grylls2020b}, whether central galaxies accrete
+a physically plausible amount of mass, and whether the star formation
+rate implied by the model is internally consistent with the accretion
+history that drives it \citep{Grylls2020}. Every other output the model
+produces is reproduced and reported in \S\ref{sec:results}; the
+framework supports generating results beyond these three. Agreement
+with observational data is not treated as the bar for correctness here:
+comparing to an observable imports every assumption implicit in how
+that observable was measured or derived, whereas comparing the model to
+itself, across two independent implementations at fixed cosmology, does
+not. The narrower claim -- self-consistency, not agreement with data --
+is what a testbed of this kind can establish.
 
 
 \section{Architecture}
@@ -424,9 +423,9 @@ the ones that answer \S\ref{sec:mot}'s three self-consistency checks:
 satellite counts and pair fraction (Figs.~\ref{fig:smf},
 \ref{fig:pairfrac}), central accretion (Fig.~\ref{fig:tracks}), and
 star-formation self-consistency (Fig.~\ref{fig:ssfr}). Every other
-reproduced figure -- Paper~1's own frozen-model comparison (its Figs.~8
-and~9) and Paper~2's morphology result -- is additional to those three
-checks and is given in Appendix~\ref{sec:appendix} instead. Figure~\ref{fig:smf} shows the local satellite
+reproduced figure is additional to those three checks and is given in
+Appendices~\ref{sec:appendixP1}--\ref{sec:appendixP3} instead, one
+section per paper, in that paper's own figure numbering. Figure~\ref{fig:smf} shows the local satellite
 stellar mass function underlying every headline result in Paper~1,
 differential and cumulative; it is not keyed to a single published
 figure number, since Paper~1's own Figure~3 is unrelated content (an
@@ -434,7 +433,7 @@ unevolved subhalo mass function example) and the paper's actual
 SMF-vs-data comparisons are split across Figs.~8, 10, 12 and~14 for
 different model configurations -- the first of those, the frozen-model
 $f_{\rm tdyn}$ and SMHM-evolution sensitivity sweep, is
-Figure~\ref{fig:frozen} in the appendix. Figure~\ref{fig:tracks} reproduces the full three-row central
+Figure~\ref{fig:frozen} in Appendix~\ref{sec:appendixP1}. Figure~\ref{fig:tracks} reproduces the full three-row central
 mass-track decomposition (accretion / star formation / total, their
 fractional and instantaneous-rate contributions) for both the PyMorph and
 cmodel stellar-mass calibrations (Paper~2 Figs.~6 and~8); the cmodel
@@ -583,25 +582,82 @@ used.
 
 \appendix
 
-\section{Additional reproduced figures}
-\label{sec:appendix}
+\section{Paper 1 -- additional figures}
+\label{sec:appendixP1}
 
-These reproduce further individual published figures beyond the three
-self-consistency checks of \S\ref{sec:mot}: Paper~1's own frozen-model
-comparison (its Figs.~8 and~9, Figures~\ref{fig:frozen}
-and~\ref{fig:frozengrid} here) and Paper~2's morphology result
-(Figure~\ref{fig:morph}). See \S\ref{sec:figures} and the online
-per-figure account for the complete reproduced set, including the
-figures omitted here entirely because they add only an external data
-overlay.
+Beyond Figure~\ref{fig:smf}, every remaining reproduced figure from
+Paper~1 (arXiv 1812.00015, MNRAS 483), in the paper's own numbering.
+Partial entries are marked as such; the online per-figure account gives
+the exact caveat for each.
+
+\begin{figure}
+\centering
+\includegraphics[width=\columnwidth]{figures/Paper1_Fig2_USSHMF.png}
+\caption{Unevolved subhalo mass function vs.\ unevolved surviving
+subhalo mass function (Paper~1 Fig.~2), $f_{\rm tdyn}=1.0$, one parent
+halo mass ($\log M_{h,\rm parent}=12.80$). Partial: the paper's other
+two $f_{\rm tdyn}$ values and the USHMF reference curve are not built.}
+\label{fig:p1fig2}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=\columnwidth]{figures/Paper1_Fig3_TotalUSSHMF.png}
+\caption{Total unevolved subhalo mass function vs.\ total unevolved
+surviving subhalo mass function (Paper~1 Fig.~3), $f_{\rm tdyn}=1.0$.
+Partial, the same caveat as Figure~\ref{fig:p1fig2}: the other two
+$f_{\rm tdyn}$ values and the USHMF reference curve are not built.}
+\label{fig:p1fig3}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=\columnwidth]{figures/SMHM_Relation.png}
+\caption{Stellar-mass--halo-mass relation (Paper~1 Fig.~4 left panel;
+G19\_SE preset, a stand-in for the G18 coefficients Fig.~4 actually
+uses -- same functional form, different calibration). This panel also
+stands in for Paper~2 Fig.~3's PyMorph panel and Paper~3
+Figs.~4--6's left panels. The B18/S17/M13 comparison curves and every
+version's central-SMF-vs-data half are omitted.}
+\label{fig:smhm}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=\columnwidth]{figures/Paper1_Fig5_AccretionRedshift.png}
+\caption{Fraction of surviving satellites by accretion redshift
+(Paper~1 Fig.~5).}
+\label{fig:p1fig5}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=\columnwidth]{figures/Paper1_Fig6_Quenching.png}
+\caption{Quenching delay time-scale, Wetzel et al. (2013) form
+(Paper~1 Fig.~6). A standalone model function -- no simulation run
+needed, so \texttt{py-corrected} and \texttt{rs-steel} agree to
+floating-point precision.}
+\label{fig:p1fig6}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=\columnwidth]{figures/Paper1_Fig7_MergerTimescale.png}
+\caption{Dynamical-friction merger time-scale vs.\ subhalo mass (left)
+and satellite stellar mass (right), three host halo masses ($\log
+M_h=12,13,14$; dashed line: time to $z=0$) (Paper~1 Fig.~7).
+\texttt{py-corrected} and \texttt{rs-steel} overlap exactly -- no
+defect fix in \S\ref{sec:bugs} touches this function.}
+\label{fig:p1fig7}
+\end{figure}
 
 \begin{figure}
 \centering
 \includegraphics[width=\columnwidth]{figures/Paper1_Fig8_FrozenSweep.png}
 \caption{Frozen-model satellite stellar mass function under the
 $f_{\rm tdyn}\times$SMHM-evolution sweep that Paper~1 \S4.1 actually
-uses (not a stellar-population comparison, which is a different figure
-in the same paper). Four lines, two implementations.}
+uses (Paper~1 Fig.~8; not a stellar-population comparison, which is a
+different figure in the same paper). Four lines, two implementations.}
 \label{fig:frozen}
 \end{figure}
 
@@ -610,10 +666,121 @@ in the same paper). Four lines, two implementations.}
 \includegraphics[width=\columnwidth]{figures/Paper1_Fig9_FrozenSweep_Grid.png}
 \caption{Satellite number density (top row) and fractional distribution
 (bottom row, eq.~16 of Paper~1) vs.\ parent halo mass under the same
-frozen-model $f_{\rm tdyn}\times$SMHM-evolution sweep as
-Fig.~\ref{fig:frozen} (Paper~1 Fig.~9), for three increasing satellite
-stellar-mass cuts (columns). Four lines, two implementations.}
+frozen-model sweep as Figure~\ref{fig:frozen} (Paper~1 Fig.~9), three
+increasing satellite stellar-mass cuts (columns). Four lines, two
+implementations.}
 \label{fig:frozengrid}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=\columnwidth]{figures/Paper1_Fig10_TdynSweep.png}
+\caption{Frozen-model satellite stellar mass function under
+$f_{\rm tdyn}=0.5,1.0,2.5$ (Paper~1 Fig.~10).}
+\label{fig:p1fig10}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=\columnwidth]{figures/Paper1_Fig11_TdynSweep_Grid.png}
+\caption{Satellite number density and fractional distribution vs.\
+parent halo mass under the same $f_{\rm tdyn}$ sweep as
+Figure~\ref{fig:p1fig10}, three satellite stellar-mass cuts (Paper~1
+Fig.~11).}
+\label{fig:p1fig11}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=\columnwidth]{figures/Paper1_Fig12_SFRModelSweep.png}
+\caption{Satellite stellar mass function under the T16 vs.\
+continuity-equation (CE) star-formation models, G18 preset (Paper~1
+Fig.~12).}
+\label{fig:p1fig12}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=\columnwidth]{figures/Paper1_Fig13_sSFRSweep.png}
+\caption{Satellite sSFR distribution under the same T16-vs-CE sweep as
+Figure~\ref{fig:p1fig12} (Paper~1 Fig.~13), stochastic mode, 8-seed
+ensemble -- the same fix, and the same thin-highest-mass-column
+caveat, as Figure~\ref{fig:ssfr}.}
+\label{fig:p1fig13}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=\columnwidth]{figures/Paper1_Fig14_ConfigSweep.png}
+\caption{Satellite stellar mass function under frozen /
+star-formation-only / star-formation-plus-stripping configurations,
+G18/CE (Paper~1 Fig.~14).}
+\label{fig:p1fig14}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=\columnwidth]{figures/Paper1_Fig15_ConfigSweep_Grid.png}
+\caption{Satellite number density and fractional distribution under
+the same frozen/SF/SF+stripping sweep as Figure~\ref{fig:p1fig14}
+(Paper~1 Fig.~15).}
+\label{fig:p1fig15}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=\columnwidth]{figures/Satellite_SMHM_Relation.png}
+\caption{Mean satellite stellar mass per subhalo-mass bin at
+$z\sim0.1$ (\texttt{Sat\_SMHM}). Not tied to a single numbered figure
+in any of the three papers -- the most direct single-panel check of
+the satellite-side stellar-mass--halo-mass relation the run-level
+figures above depend on.}
+\label{fig:satsmhm}
+\end{figure}
+
+\section{Paper 2 -- additional figures}
+\label{sec:appendixP2}
+
+Every remaining reproduced figure from Paper~2 (arXiv 1910.08417,
+MNRAS 491), beyond Figures~\ref{fig:tracks} and~\ref{fig:ssfr}.
+
+\begin{figure}
+\centering
+\includegraphics[width=\columnwidth]{figures/Paper2_Fig4_MergerRate.png}
+\caption{Merger rate per Gyr at four fixed halo masses (Paper~2
+Fig.~4). Partial: all mass ratios shown rather than the paper's
+major-merger-only ($>0.3$) cut; the Fakhouri et al. (2010) comparison
+band is omitted.}
+\label{fig:p2fig4}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=\columnwidth]{figures/Paper2_Fig5_SatelliteDistribution_MultiZ.png}
+\caption{Satellite number density vs.\ parent halo mass, six
+redshifts, $M_*>10^{10}\,M_\odot$ cut (Paper~2 Fig.~5).
+SDSS/Illustris/Wang et al. (2016)/Wen \& Han (2018) comparison data
+omitted.}
+\label{fig:p2fig5}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=\columnwidth]{figures/Paper2_Fig7_SFR_Mstar.png}
+\caption{SFR--$M_*$ relation from three central mass tracks at
+$z=0,1,2$ (Paper~2 Fig.~7). A simplified stand-in, not the published
+figure's structure: no double-power-law fit curves, no extracted data
+points, no population-track overlay.}
+\label{fig:p2fig7}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=\columnwidth]{figures/Paper2_Fig10_SFR_Mstar_z.png}
+\caption{SFR--$M_*$ relation at $z=0.5,1,2$, the same five central
+tracks as Figure~\ref{fig:p2fig7} (Paper~2 Fig.~10). Leja et al.
+(2019) comparison data omitted.}
+\label{fig:p2fig10}
 \end{figure}
 
 \begin{figure}
@@ -621,12 +788,58 @@ stellar-mass cuts (columns). Four lines, two implementations.}
 \includegraphics[width=\columnwidth]{figures/Paper2_Fig11_EllipticalFraction.png}
 \caption{Elliptical fraction vs.\ stellar mass at three redshifts,
 derived from each central mass track's major-merger ($\mu>0.25$)
-accretion history via $f_{\rm elliptical}=1-\exp(-N_{\rm major})$.
-Solid: \texttt{py-corrected}. Dashed: \texttt{rs-steel}. Qualitatively
-correct shape and redshift ordering; the exact turnover mass is not
-verified against the published curve, since the paper does not state
-its count-to-fraction conversion.}
+accretion history via $f_{\rm elliptical}=1-\exp(-N_{\rm major})$
+(Paper~2 Fig.~11). Qualitatively correct shape and redshift ordering;
+the exact turnover mass is not verified against the published curve,
+since the paper does not state its count-to-fraction conversion.}
 \label{fig:morph}
+\end{figure}
+
+\section{Paper 3 -- additional figures}
+\label{sec:appendixP3}
+
+Every remaining reproduced figure from Paper~3 (arXiv 2001.06017),
+beyond Figure~\ref{fig:pairfrac}.
+
+\begin{figure}
+\centering
+\includegraphics[width=\columnwidth]{figures/Paper3_Fig3_PFTSensitivity.png}
+\caption{Input stellar-mass--halo-mass curves under each of the
+thirteen single-coefficient perturbations that drive
+Figure~\ref{fig:pairfrac}'s pair-fraction result, matching Paper~3's
+Table~2 -- the context panels of Paper~3 Fig.~3, whose actual result
+is already shown in the main text.}
+\label{fig:p3fig3ctx}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=\columnwidth]{figures/Paper3_Fig6_HMevoSMHM.png}
+\caption{Stellar-mass--halo-mass relation under the HMevo preset's
+slope-evolution parameter $\gamma_{11}=0.1,0.2,0.5$, at $z=0.1$ and
+$z=2.0$ (Paper~3 Fig.~6 left panel). Partial: the corresponding
+pair-fraction-vs.-Mundy et al. (2017) panel is not built.}
+\label{fig:p3fig6}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=\columnwidth]{figures/Paper3_Fig7_SlopeEvolutionSweep.png}
+\caption{Abundance-matching mass-track strand under the same
+$\gamma_{11}$ sweep as Figure~\ref{fig:p3fig6} (Paper~3 Fig.~7).
+Partial: the accretion/SFR decomposition and rate-ratio panels are not
+built.}
+\label{fig:p3fig7}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=\columnwidth]{figures/Paper3_PairFraction_vs_z.png}
+\caption{Galaxy pair fraction vs.\ redshift, generic PyMorph
+configuration (Paper~3 Figs.~4--5 pair-fraction panel) -- not
+mass-cut-matched to the Illustris (Fig.~4) or Mundy et al. (2017,
+Figs.~5--6) comparisons those figures actually use.}
+\label{fig:p3pfz}
 \end{figure}
 
 \bsp

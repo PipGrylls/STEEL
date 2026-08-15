@@ -38,7 +38,7 @@ def main():
     ap.add_argument("--py-avahalomass", required=True)
     ap.add_argument("--rs-dir", required=True)
     ap.add_argument("--target-log-mh", type=float, default=12.80)
-    ap.add_argument("--out", default="Figures/PortValidation/Paper2_Fig2_USSHMF.png")
+    ap.add_argument("--out", default="Figures/PortValidation/Paper1_Fig2_USSHMF.png")
     args = ap.parse_args()
 
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
@@ -61,7 +61,7 @@ def main():
     ax.set_ylabel(r"$\log_{10}$ USSHMF $[\mathrm{Mpc}^{-3}\,\mathrm{dex}^{-1}]$")
     ax.legend(loc="upper right", frameon=False, fontsize=9)
     ax.set_title(
-        rf"Paper 2 Fig. 2 style -- surviving SHMF, $\log M_{{h,\mathrm{{cent}}}}={avh[0][host_bin]:.2f}$, "
+        rf"Paper 1 Fig. 2 style -- surviving SHMF, $\log M_{{h,\mathrm{{cent}}}}={avh[0][host_bin]:.2f}$, "
         r"$f_{t\mathrm{dyn}}=1.0$ (G19)",
         fontsize=9.5,
     )

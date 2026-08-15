@@ -27,7 +27,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--py-corrected", required=True)
     ap.add_argument("--rs-steel", required=True)
-    ap.add_argument("--out", default="Figures/PortValidation/Paper1_Fig5_SatelliteDistribution_MultiZ.png")
+    ap.add_argument("--out", default="Figures/PortValidation/Paper2_Fig5_SatelliteDistribution_MultiZ.png")
     ap.add_argument("--sm-cut", type=float, default=10.0)
     args = ap.parse_args()
 
@@ -56,7 +56,7 @@ def main():
     ax.set_xlabel(r"$\log_{10} M_{h,\mathrm{cent}}\ [\mathrm{M}_\odot]$")
     ax.set_ylabel(r"$\log_{10} N(>10^{%.0f}\,\mathrm{M}_\odot)\ [\mathrm{Mpc}^{-3}]$" % args.sm_cut)
     ax.legend(loc="upper right", frameon=False, fontsize=8, ncol=2, title="solid=py-corrected, dashed=rs-steel")
-    ax.set_title("Paper 1 Fig. 5 style -- satellites per parent halo, multi-z (G19)", fontsize=10)
+    ax.set_title("Paper 2 Fig. 5 style -- satellites per parent halo, multi-z (G19)", fontsize=10)
     fig.tight_layout()
     fig.savefig(args.out, dpi=200)
     plt.close(fig)

@@ -103,7 +103,7 @@ def combine_and_plot(args):
     axes[0].set_ylabel(r"$\log_{10} M_*\ [\mathrm{M}_\odot]$")
     axes[0].legend(loc="upper left", frameon=False, fontsize=9)
     fig.text(0.5, 0.02, "solid: z=0.1   dashed: z=2.0", ha="center", fontsize=9, color="0.4")
-    fig.suptitle("Paper 1 Fig. 3 / Paper 2 Fig. 4 / Paper 3 Figs. 4-6 -- SMHM relation", fontsize=10.5)
+    fig.suptitle("Paper 1 Fig. 4 / Paper 2 Fig. 3 / Paper 3 Figs. 4-6 -- SMHM relation", fontsize=10.5)
     fig.tight_layout(rect=(0, 0.04, 1, 1))
     out = os.path.join(args.outdir, "SMHM_Relation.png")
     fig.savefig(out, dpi=200)

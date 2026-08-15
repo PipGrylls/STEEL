@@ -61,7 +61,7 @@ def plot_accretion_redshift(py_corrected, rs_steel, outdir):
     ax.set_xlim(0, 3)
     ax.set_ylim(0, 1.02)
     ax.legend(loc="lower right", frameon=False, fontsize=9)
-    ax.set_title("Paper 2 Fig. 5 -- accretion-redshift distribution (G19)", fontsize=10)
+    ax.set_title("Paper 1 Fig. 5 -- accretion-redshift distribution (G19)", fontsize=10)
     fig.text(0.15, 0.8, f"f(z<0.5) = {f05:.2f}\nf(z<0.1) = {f01:.2f}", fontsize=9, color="0.35")
     fig.tight_layout()
     out = os.path.join(outdir, "Paper2_Fig5_AccretionRedshift.png")
