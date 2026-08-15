@@ -418,7 +418,13 @@ of \S\ref{sec:method}; the full per-figure account, including which are
 exact reproductions, which are partial (typically because one line of a
 multi-line comparison needs a configuration not otherwise used
 elsewhere), and which omit only the external data overlay, is
-maintained online. Figure~\ref{fig:smf} shows the local satellite
+maintained online. Figures~\ref{fig:smf}--\ref{fig:pairfrac} are the
+ones that answer \S\ref{sec:mot}'s three self-consistency checks:
+satellite counts and pair fraction
+(Figs.~\ref{fig:smf}--\ref{fig:frozengrid}, \ref{fig:pairfrac}), central
+accretion (Fig.~\ref{fig:tracks}), and star-formation self-consistency
+(Fig.~\ref{fig:ssfr}); Figure~\ref{fig:morph} is the one additional
+result we show beyond those three. Figure~\ref{fig:smf} shows the local satellite
 stellar mass function underlying every headline result in Paper~1,
 differential and cumulative; it is not keyed to a single published
 figure number, since Paper~1's own Figure~3 is unrelated content (an
@@ -436,7 +442,15 @@ panel additionally reproduces the paper's own qualitative finding that
 this calibration's flatter high-mass SMHM slope makes the implied growth
 history internally inconsistent, requiring negative accretion at some
 redshifts to balance the stellar mass budget -- both implementations
-agree even through this pathological regime. Figure~\ref{fig:pairfrac}
+agree even through this pathological regime. Figure~\ref{fig:ssfr}
+reproduces Paper~2's other headline result, the satellite specific
+star-formation rate distribution in three stellar-mass ranges (Fig.~9);
+unlike every other figure in this section it is a Monte Carlo shape
+rather than an integrated quantity, so it is the one that actually
+requires stochastic mode -- in deterministic mode every satellite in a
+given mass/host bin follows an identical trajectory and the whole
+population collapses onto the model's gas-depletion sSFR floor instead
+of the published bimodal shape. Figure~\ref{fig:pairfrac}
 reproduces Paper~3's central result, the sensitivity of the galaxy pair
 fraction to each Moster-form SMHM coefficient in turn. Figure~\ref{fig:morph}
 reproduces Paper~2's morphology result, the elliptical fraction vs.\
@@ -489,6 +503,22 @@ cmodel panel's $M_*=10^{11}\,M_\odot$ column shows the growth history
 becoming internally non-physical, as the published paper itself reports
 for this calibration.}
 \label{fig:tracks}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics[width=\columnwidth]{figures/Paper2_Fig9_sSFR.png}
+\caption{Satellite specific star-formation rate distribution in
+Paper~2's three stellar-mass ranges ($10<\log M_{*,\rm sat}<10.5$,
+$10.5$--$11.3$, $11.3$--$12.5$), stochastic mode, 8-seed ensemble mean
+(Paper~2 Fig.~9, satellite side only -- the published figure's
+central-galaxy overlay needs the dynamical-quenching post-processing
+this comparison does not run). Solid: \texttt{py-corrected}. Dashed:
+\texttt{rs-steel}. The quenched and star-forming peaks only separate
+with scatter enabled; the highest-mass panel is thin because an
+eight-seed ensemble is only tractable on a coarser grid than the full
+published one (\S\ref{sec:method}).}
+\label{fig:ssfr}
 \end{figure}
 
 \begin{figure}
