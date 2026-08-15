@@ -141,6 +141,25 @@ still provide the removed APIs, one modern) and patched around each of
 these individually to obtain a runnable baseline; that baseline, not the
 repository as published, is what we call \texttt{py-as-is} throughout.
 
+\section{Motivation}
+\label{sec:mot}
+
+Why revist this work now?
+Simply this is an AI driven port so the time investment is minimal. 
+The intended utility of STEEL was to be 
+able to test the internal self consistency of evolved SMHM relationships.
+The blocker to this was the time investment to code the various models and itegrate them.
+with generative AI introducing new models is as easy as giving the AI the context of this model 
+and the paper which describes the physics.
+The structure introduced in this code supports a dependancy injection pattern, modules need only satisfy a given 
+interface.
+The key model outputs reflect the original three papers; are correct predictions of satellite numbers made (or pair fraction), 
+do central galaxies accrete a physically consistent amont of mass, and is the implied star formation rate consistent with observation.
+All other outputs are reproduced, addional results are encouraged.
+However, we focus on those that show model self consistency for a given cosmology as cmparing to observalbles brins in the assumptions implicit to the opsetvations.
+
+
+
 \section{Architecture}
 \label{sec:port}
 
