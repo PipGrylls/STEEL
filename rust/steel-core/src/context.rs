@@ -465,6 +465,30 @@ impl Simulation {
         let n_sat = arange_len(sat_min, sat_max, config.log_m_bin);
         let sat_mass: Vec<f64> = (0..n_sat).map(|k| sat_min + k as f64 * config.log_m_bin).collect();
 
+        // Satellite own-tracks. At infall the object *was* a central, so
+        // its pre-infall history is `growth_history(m_infall, z_infall)`
+        // — the same average-MAH approximation already used for hosts,
+        // applied to subhalos. Spec §5.
+        //
+        // One `growth_history` call per (redshift step, subhalo bin),
+        // vs. one per host bin for the host tracks above: `n_z * n_sat`
+        // calls against `n_host`. On the reduced-grid runfile (n_sat=5)
+        // this is ~190*5 calls and adds well under a second. On the
+        // full default grid (n_sat=65, log_m_max=16.6) it is ~190*65 =
+        // 12,350 calls, and — because `find_psi`'s root-find also gets
+        // costlier at the high-mass end of the grid — measured startup
+        // grows by roughly 85s (see task-4-report.md's timing section).
+        // Computed once, never in the hot loop, but real on wall clock.
+        let mut satellite_tracks: Vec<Vec<GrowthTrack>> = Vec::with_capacity(n_z);
+        for &z_i in &z {
+            let mut row = Vec::with_capacity(n_sat);
+            for k in 0..n_sat {
+                let log_m_sub = sat_mass[k] - log_h;
+                row.push(self.halo_growth.growth_history(log_m_sub, z_i));
+            }
+            satellite_tracks.push(row);
+        }
+
         // Unevolved SHMF accreted between consecutive redshift steps
         // (`SHMFs_Entering`), shape (n_z-1, n_host, n_sat).
         let n_z_pairs = n_z.saturating_sub(1);
@@ -644,13 +668,8 @@ impl Simulation {
 
                     // ---- abundance matching at infall ----
                     let sm_infall_dm = sat_mass[k] - log_h;
-                    // TASK-4 will replace `own_track` with the
-                    // satellite's own pre-infall central track. Until
-                    // then this is the host track, which the three
-                    // memoryless SMHM plugins ignore, so behaviour is
-                    // unchanged.
                     let ctx = AccretionContext::satellite(
-                        &host_track_for_bin[j],
+                        &satellite_tracks[i][k],
                         &host_track_for_bin[j],
                         z[i],
                         self.context.cosmology.as_ref(),
