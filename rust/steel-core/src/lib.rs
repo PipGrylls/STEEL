@@ -8,6 +8,7 @@
 //! chosen implementation of each into a [`context::Simulation`] from a
 //! TOML runfile.
 
+pub mod accretion;
 pub mod baryonic;
 pub mod context;
 pub mod cosmology;
@@ -22,6 +23,7 @@ pub mod shmf;
 pub mod smhm;
 pub mod stripping;
 
+pub use accretion::AccretionContext;
 pub use baryonic::{BaryonicPipeline, EvolutionHistory, SatelliteState, Timeline};
 pub use context::{ModelContext, OutputSelection, RunConfig, RunOutput, Simulation};
 pub use cosmology::{Cosmology, MassDefinition};

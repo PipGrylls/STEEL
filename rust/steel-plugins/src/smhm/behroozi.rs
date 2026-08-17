@@ -3,10 +3,13 @@
 //! presets (`super::moster`), these really are two distinct functional
 //! forms sharing a family name, so they're two enum variants of one
 //! equation each, not eight presets of one shared equation.
+//!
+//! Memoryless in the accretion history: `_ctx` is ignored by design, not omission.
 
 use rand::RngCore;
 use rand_distr::{Distribution, Normal};
 
+use steel_core::accretion::AccretionContext;
 use steel_core::smhm::SmhmModel;
 
 /// Behroozi+2018-style coefficients: `e`, `M`, `alpha` each have 4
@@ -158,7 +161,13 @@ impl BehrooziFormSmhm {
 }
 
 impl SmhmModel for BehrooziFormSmhm {
-    fn stellar_mass(&self, log_dm: f64, z: f64, rng: Option<&mut dyn RngCore>) -> f64 {
+    fn stellar_mass(
+        &self,
+        log_dm: f64,
+        z: f64,
+        _ctx: &AccretionContext<'_>,
+        rng: Option<&mut dyn RngCore>,
+    ) -> f64 {
         let log_sm = self.stellar_mass_noiseless(log_dm, z);
         // `scatter` is a public field, so a non-positive or non-finite
         // value is reachable — treat it as "no scatter" rather than
@@ -176,31 +185,39 @@ impl SmhmModel for BehrooziFormSmhm {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::flat_ctx;
+    use steel_core::cosmology::MassDefinition;
 
     #[test]
     fn b18c_is_monotonically_increasing_with_halo_mass() {
+        let (track, cosmo) = flat_ctx();
+        let ctx = AccretionContext::central(&track, &cosmo, MassDefinition::Vir);
         let model = BehrooziFormSmhm::behroozi18c();
-        let sm1 = model.stellar_mass(11.0, 0.1, None);
-        let sm2 = model.stellar_mass(12.0, 0.1, None);
-        let sm3 = model.stellar_mass(13.0, 0.1, None);
+        let sm1 = model.stellar_mass(11.0, 0.1, &ctx, None);
+        let sm2 = model.stellar_mass(12.0, 0.1, &ctx, None);
+        let sm3 = model.stellar_mass(13.0, 0.1, &ctx, None);
         assert!(sm1 < sm2 && sm2 < sm3, "{sm1} {sm2} {sm3}");
     }
 
     #[test]
     fn b13_is_monotonically_increasing_with_halo_mass() {
+        let (track, cosmo) = flat_ctx();
+        let ctx = AccretionContext::central(&track, &cosmo, MassDefinition::Vir);
         let model = BehrooziFormSmhm::behroozi13();
-        let sm1 = model.stellar_mass(11.0, 0.1, None);
-        let sm2 = model.stellar_mass(12.0, 0.1, None);
-        let sm3 = model.stellar_mass(13.0, 0.1, None);
+        let sm1 = model.stellar_mass(11.0, 0.1, &ctx, None);
+        let sm2 = model.stellar_mass(12.0, 0.1, &ctx, None);
+        let sm3 = model.stellar_mass(13.0, 0.1, &ctx, None);
         assert!(sm1 < sm2 && sm2 < sm3, "{sm1} {sm2} {sm3}");
     }
 
     #[test]
     fn lorenzo18_is_monotonically_increasing_with_halo_mass() {
+        let (track, cosmo) = flat_ctx();
+        let ctx = AccretionContext::central(&track, &cosmo, MassDefinition::Vir);
         let model = BehrooziFormSmhm::lorenzo18();
-        let sm1 = model.stellar_mass(11.0, 0.1, None);
-        let sm2 = model.stellar_mass(12.0, 0.1, None);
-        let sm3 = model.stellar_mass(13.0, 0.1, None);
+        let sm1 = model.stellar_mass(11.0, 0.1, &ctx, None);
+        let sm2 = model.stellar_mass(12.0, 0.1, &ctx, None);
+        let sm3 = model.stellar_mass(13.0, 0.1, &ctx, None);
         assert!(sm1 < sm2 && sm2 < sm3, "{sm1} {sm2} {sm3}");
     }
 
@@ -209,10 +226,12 @@ mod tests {
         // Both families are fits to similar central-galaxy SMHM data,
         // so at a ~Milky-Way-mass halo they should agree to within a
         // dex or so even though the functional forms differ.
+        let (track, cosmo) = flat_ctx();
+        let ctx = AccretionContext::central(&track, &cosmo, MassDefinition::Vir);
         let b18 = BehrooziFormSmhm::behroozi18c();
         let b13 = BehrooziFormSmhm::behroozi13();
-        let sm_b18 = b18.stellar_mass(12.0, 0.1, None);
-        let sm_b13 = b13.stellar_mass(12.0, 0.1, None);
+        let sm_b18 = b18.stellar_mass(12.0, 0.1, &ctx, None);
+        let sm_b13 = b13.stellar_mass(12.0, 0.1, &ctx, None);
         assert!((sm_b18 - sm_b13).abs() < 1.0, "b18={sm_b18} b13={sm_b13}");
     }
 
@@ -221,12 +240,14 @@ mod tests {
         use rand::rngs::StdRng;
         use rand::SeedableRng;
 
-        let noiseless = BehrooziFormSmhm::behroozi18c().stellar_mass(12.0, 0.1, None);
+        let (track, cosmo) = flat_ctx();
+        let ctx = AccretionContext::central(&track, &cosmo, MassDefinition::Vir);
+        let noiseless = BehrooziFormSmhm::behroozi18c().stellar_mass(12.0, 0.1, &ctx, None);
         for bad in [0.0, -0.5, f64::NAN] {
             let mut model = BehrooziFormSmhm::behroozi18c();
             model.scatter = bad;
             let mut rng = StdRng::seed_from_u64(1);
-            let got = model.stellar_mass(12.0, 0.1, Some(&mut rng));
+            let got = model.stellar_mass(12.0, 0.1, &ctx, Some(&mut rng));
             assert!((got - noiseless).abs() < 1e-12, "scatter={bad} should give the noiseless value");
         }
     }

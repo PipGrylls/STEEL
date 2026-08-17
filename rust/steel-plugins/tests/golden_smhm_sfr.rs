@@ -4,18 +4,30 @@
 
 use rand::rngs::StdRng;
 use rand::SeedableRng;
+use steel_core::accretion::AccretionContext;
+use steel_core::cosmology::MassDefinition;
+use steel_core::halo_growth::GrowthTrack;
 use steel_core::{SfrModel, SmhmModel};
-use steel_plugins::{MosterFormSmhm, RodriguezPuebla17, TomczakFormSfr};
+use steel_plugins::{MosterFormSmhm, Planck15, RodriguezPuebla17, TomczakFormSfr};
 
 const LOG_DM: [f64; 5] = [10.0, 11.0, 12.0, 13.0, 14.0];
 const Z: [f64; 4] = [0.1, 0.5, 1.0, 3.0];
 const LOG_SM: [f64; 4] = [9.0, 10.0, 10.7, 11.5];
+
+/// Single-point track: these are memoryless relations, so the context
+/// content is irrelevant — only that one can be built.
+fn flat_ctx<'a>(t: &'a GrowthTrack, c: &'a dyn steel_core::Cosmology) -> AccretionContext<'a> {
+    AccretionContext::central(t, c, MassDefinition::Vir)
+}
 
 /// Prints the current values as Rust literals. Run with
 /// `--ignored --nocapture` to regenerate the tables below.
 #[test]
 #[ignore]
 fn print_golden_values() {
+    let cosmo = Planck15::new();
+    let track = GrowthTrack { z: vec![0.0], log_mass: vec![12.0] };
+    let ctx = flat_ctx(&track, &cosmo);
     let smhm: Vec<(&str, Box<dyn SmhmModel>)> = vec![
         ("g19_se", Box::new(MosterFormSmhm::g19_se(true))),
         ("moster13", Box::new(MosterFormSmhm::moster13(true))),
@@ -24,7 +36,7 @@ fn print_golden_values() {
     for (name, m) in &smhm {
         for &dm in &LOG_DM {
             for &z in &Z {
-                println!("{name} {dm} {z} {:.17e}", m.stellar_mass(dm, z, None));
+                println!("{name} {dm} {z} {:.17e}", m.stellar_mass(dm, z, &ctx, None));
             }
         }
     }
@@ -35,7 +47,7 @@ fn print_golden_values() {
     for (name, s) in &sfr {
         for &sm in &LOG_SM {
             for &z in &Z {
-                println!("{name} {sm} {z} {:.17e}", s.log_sfr(sm, z));
+                println!("{name} {sm} {z} {:.17e}", s.log_sfr(sm, z, &ctx));
             }
         }
     }
@@ -161,27 +173,36 @@ fn sfr_by_name(name: &str) -> Box<dyn SfrModel> {
 
 #[test]
 fn existing_smhm_plugins_are_bit_identical_to_golden() {
+    let cosmo = Planck15::new();
+    let track = GrowthTrack { z: vec![0.0], log_mass: vec![12.0] };
+    let ctx = flat_ctx(&track, &cosmo);
     for &(name, dm, z, expected) in EXPECTED_SMHM {
-        let got = smhm_by_name(name).stellar_mass(dm, z, None);
+        let got = smhm_by_name(name).stellar_mass(dm, z, &ctx, None);
         assert_eq!(got.to_bits(), expected.to_bits(), "{name} at dm={dm} z={z}: {got} != {expected}");
     }
 }
 
 #[test]
 fn existing_sfr_plugins_are_bit_identical_to_golden() {
+    let cosmo = Planck15::new();
+    let track = GrowthTrack { z: vec![0.0], log_mass: vec![12.0] };
+    let ctx = flat_ctx(&track, &cosmo);
     for &(name, sm, z, expected) in EXPECTED_SFR {
-        let got = sfr_by_name(name).log_sfr(sm, z);
+        let got = sfr_by_name(name).log_sfr(sm, z, &ctx);
         assert_eq!(got.to_bits(), expected.to_bits(), "{name} at sm={sm} z={z}: {got} != {expected}");
     }
 }
 
 #[test]
 fn seeded_scatter_is_reproducible() {
+    let cosmo = Planck15::new();
+    let track = GrowthTrack { z: vec![0.0], log_mass: vec![12.0] };
+    let ctx = flat_ctx(&track, &cosmo);
     let m = MosterFormSmhm::g19_se(true);
     let mut a = StdRng::seed_from_u64(20260817);
     let mut b = StdRng::seed_from_u64(20260817);
     assert_eq!(
-        m.stellar_mass(12.0, 0.1, Some(&mut a)).to_bits(),
-        m.stellar_mass(12.0, 0.1, Some(&mut b)).to_bits()
+        m.stellar_mass(12.0, 0.1, &ctx, Some(&mut a)).to_bits(),
+        m.stellar_mass(12.0, 0.1, &ctx, Some(&mut b)).to_bits()
     );
 }

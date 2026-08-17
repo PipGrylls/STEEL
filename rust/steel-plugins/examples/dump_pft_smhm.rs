@@ -6,8 +6,11 @@
 //! z-evolution-altered}". See Scripts/Validation/pft_smhm_sensitivity.py
 //! for the Python side and the exact deltas (Table 2 of arXiv:2001.06017).
 
+use steel_core::accretion::AccretionContext;
+use steel_core::cosmology::MassDefinition;
+use steel_core::halo_growth::GrowthTrack;
 use steel_core::smhm::SmhmModel;
-use steel_plugins::MosterFormSmhm;
+use steel_plugins::{MosterFormSmhm, Planck15};
 
 fn base() -> MosterFormSmhm {
     MosterFormSmhm::g19_se(true)
@@ -23,6 +26,12 @@ fn main() {
         }
         v
     };
+
+    // Every Moster-form variant swept here is memoryless and ignores
+    // `ctx`; a single flat point satisfies the trait's context argument.
+    let cosmo = Planck15::new();
+    let flat_track = GrowthTrack { z: vec![0.0], log_mass: vec![12.0] };
+    let ctx = AccretionContext::central(&flat_track, &cosmo, MassDefinition::Vir);
 
     println!("panel,variant,z,log_dm,log_sm");
 
@@ -48,7 +57,7 @@ fn main() {
         for (variant, smhm) in variants {
             for &z in &[0.1, 2.0] {
                 for &dm in &log_dm {
-                    println!("{panel},{variant},{z},{dm:.3},{:.6}", smhm.stellar_mass(dm, z, None));
+                    println!("{panel},{variant},{z},{dm:.3},{:.6}", smhm.stellar_mass(dm, z, &ctx, None));
                 }
             }
         }

@@ -15,6 +15,8 @@ pub mod sfr;
 pub mod shmf;
 pub mod smhm;
 pub mod stripping;
+#[cfg(test)]
+mod test_support;
 pub mod variance;
 
 pub use cosmology::Planck15;

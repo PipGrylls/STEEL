@@ -58,9 +58,10 @@ use ndarray::{Array2, Array3};
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 
+use crate::accretion::AccretionContext;
 use crate::baryonic::{BaryonicPipeline, SatelliteState, Timeline};
 use crate::cosmology::{Cosmology, MassDefinition};
-use crate::halo_growth::HaloGrowthModel;
+use crate::halo_growth::{GrowthTrack, HaloGrowthModel};
 use crate::hmf::HaloMassFunctionModel;
 use crate::merger_time::MergerTimescaleModel;
 use crate::numerics::{arange_len, digitize};
@@ -425,11 +426,17 @@ impl Simulation {
         let raw_z = self.halo_growth.redshift_grid(0.0);
         let n_z_raw = raw_z.len();
         let mut raw_host_mass = vec![vec![0.0_f64; n_host]; n_z_raw]; // [i][j]
+        // Each host bin's own growth track, indexed by host bin `j`,
+        // retained (not just its `log_mass` copied into `raw_host_mass`)
+        // so `AccretionContext::satellite` below can borrow it.
+        let mut host_track_for_bin: Vec<GrowthTrack> = Vec::with_capacity(n_host);
         for (j, &log_m0) in host_mass_z0.iter().enumerate() {
             let track = self.halo_growth.growth_history(log_m0, 0.0);
             for (i, row) in raw_host_mass.iter_mut().enumerate().take(n_z_raw) {
                 row[j] = track.log_mass[i];
             }
+            debug_assert_eq!(j, host_track_for_bin.len());
+            host_track_for_bin.push(track);
         }
 
         // Trim to the reference epoch, matching `Get_HM_History`'s
@@ -637,11 +644,23 @@ impl Simulation {
 
                     // ---- abundance matching at infall ----
                     let sm_infall_dm = sat_mass[k] - log_h;
+                    // TASK-4 will replace `own_track` with the
+                    // satellite's own pre-infall central track. Until
+                    // then this is the host track, which the three
+                    // memoryless SMHM plugins ignore, so behaviour is
+                    // unchanged.
+                    let ctx = AccretionContext::satellite(
+                        &host_track_for_bin[j],
+                        &host_track_for_bin[j],
+                        z[i],
+                        self.context.cosmology.as_ref(),
+                        MassDefinition::Vir,
+                    );
                     for slot in sm_infall.iter_mut() {
                         let draw = if config.scatter {
-                            self.smhm.stellar_mass(sm_infall_dm, z[i], Some(&mut rng))
+                            self.smhm.stellar_mass(sm_infall_dm, z[i], &ctx, Some(&mut rng))
                         } else {
-                            self.smhm.stellar_mass(sm_infall_dm, z[i], None)
+                            self.smhm.stellar_mass(sm_infall_dm, z[i], &ctx, None)
                         };
                         *slot = draw;
                     }
@@ -704,6 +723,7 @@ impl Simulation {
                                 &timeline,
                                 config.stellar_stripping,
                                 config.scatter,
+                                &ctx,
                                 &mut rng,
                             );
                             ssfr_final[r] = *history.log_ssfr.last().unwrap();

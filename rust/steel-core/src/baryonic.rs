@@ -14,6 +14,7 @@
 use rand::RngCore;
 use rand_distr::{Distribution, Normal};
 
+use crate::accretion::AccretionContext;
 use crate::gas::GasMassModel;
 use crate::quenching::QuenchingModel;
 use crate::sfr::SfrModel;
@@ -162,12 +163,14 @@ impl BaryonicPipeline {
     /// Python call sites never override it) — exposed here mainly so a
     /// noiseless, exactly-reproducible trajectory is available for
     /// testing/validation against the Python.
+    #[allow(clippy::too_many_arguments)]
     pub fn evolve(
         &self,
         galaxy: &SatelliteState,
         timeline: &Timeline,
         apply_stripping: bool,
         scatter_on: bool,
+        ctx: &AccretionContext<'_>,
         rng: &mut dyn RngCore,
     ) -> EvolutionHistory {
         let n = timeline.t.len();
@@ -194,7 +197,7 @@ impl BaryonicPipeline {
 
         // Gas ceiling, set once at infall from the noiseless infall SFR
         // and the satellite's own (subhalo) mass at infall.
-        let sfr_at_infall = self.sfr.log_sfr(galaxy.log_sm_infall, galaxy.z_infall);
+        let sfr_at_infall = self.sfr.log_sfr(galaxy.log_sm_infall, galaxy.z_infall, ctx);
         let max_gas = self.gas.gas_mass(
             sfr_at_infall,
             galaxy.log_sat_mass_infall,
@@ -246,7 +249,7 @@ impl BaryonicPipeline {
                 Self::apply_sfr_caps(faded, log_sm[i], log_sm[0], strip_factor[i], apply_stripping, max_gas, true)
             } else {
                 // Star-forming main sequence.
-                let sf = 10f64.powf(self.sfr.log_sfr(log_sm[i], timeline.z[i]));
+                let sf = 10f64.powf(self.sfr.log_sfr(log_sm[i], timeline.z[i], ctx));
                 let sf = Self::apply_sfr_caps(sf, log_sm[i], log_sm[0], strip_factor[i], apply_stripping, max_gas, false);
                 sfr_at_quench_onset = sf;
                 sf

@@ -4,10 +4,13 @@
 //! (`Moster13`, `Moster10`, `G18`, `G18_notSE`, `G19_SE`, `G19_cMod`,
 //! `Illustris`, `Override`) that only differ in their eight
 //! coefficients, not their functional form.
+//!
+//! Memoryless in the accretion history: `_ctx` is ignored by design, not omission.
 
 use rand::RngCore;
 use rand_distr::{Distribution, Normal};
 
+use steel_core::accretion::AccretionContext;
 use steel_core::smhm::SmhmModel;
 
 /// Which redshift-evolution parametrization applies. The Python's three
@@ -249,7 +252,13 @@ impl MosterFormSmhm {
 }
 
 impl SmhmModel for MosterFormSmhm {
-    fn stellar_mass(&self, log_dm: f64, z: f64, rng: Option<&mut dyn RngCore>) -> f64 {
+    fn stellar_mass(
+        &self,
+        log_dm: f64,
+        z: f64,
+        _ctx: &AccretionContext<'_>,
+        rng: Option<&mut dyn RngCore>,
+    ) -> f64 {
         let zp = self.z_parameter(z);
         let m = self.m10 + self.m11 * zp;
         let n = self.shmnorm10 + self.shmnorm11 * zp;
@@ -279,13 +288,17 @@ mod tests {
     use super::*;
     use rand::rngs::StdRng;
     use rand::SeedableRng;
+    use crate::test_support::flat_ctx;
+    use steel_core::cosmology::MassDefinition;
 
     #[test]
     fn g19_se_is_monotonically_increasing_with_halo_mass() {
+        let (track, cosmo) = flat_ctx();
+        let ctx = AccretionContext::central(&track, &cosmo, MassDefinition::Vir);
         let model = MosterFormSmhm::g19_se(true);
-        let sm1 = model.stellar_mass(11.0, 0.1, None);
-        let sm2 = model.stellar_mass(12.0, 0.1, None);
-        let sm3 = model.stellar_mass(13.0, 0.1, None);
+        let sm1 = model.stellar_mass(11.0, 0.1, &ctx, None);
+        let sm2 = model.stellar_mass(12.0, 0.1, &ctx, None);
+        let sm3 = model.stellar_mass(13.0, 0.1, &ctx, None);
         assert!(sm1 < sm2 && sm2 < sm3, "{sm1} {sm2} {sm3}");
     }
 
@@ -293,29 +306,35 @@ mod tests {
     fn g19_se_peaks_near_the_expected_knee() {
         // Sanity check against the thesis's Ch.2 SMHM discussion: the
         // knee of the SMHM relation sits close to M10=11.925 for G19_SE.
+        let (track, cosmo) = flat_ctx();
+        let ctx = AccretionContext::central(&track, &cosmo, MassDefinition::Vir);
         let model = MosterFormSmhm::g19_se(true);
-        let sm_at_knee = model.stellar_mass(12.0, 0.1, None);
+        let sm_at_knee = model.stellar_mass(12.0, 0.1, &ctx, None);
         assert!((10.5..11.5).contains(&sm_at_knee), "SM(M=12) = {sm_at_knee}");
     }
 
     #[test]
     fn fixed_z_evo_ignores_redshift() {
+        let (track, cosmo) = flat_ctx();
+        let ctx = AccretionContext::central(&track, &cosmo, MassDefinition::Vir);
         let model = MosterFormSmhm::g19_se(false);
-        let sm_z0 = model.stellar_mass(12.0, 0.0, None);
-        let sm_z2 = model.stellar_mass(12.0, 2.0, None);
+        let sm_z0 = model.stellar_mass(12.0, 0.0, &ctx, None);
+        let sm_z2 = model.stellar_mass(12.0, 2.0, &ctx, None);
         assert!((sm_z0 - sm_z2).abs() < 1e-12);
     }
 
     #[test]
     fn scatter_changes_the_result_deterministically_given_a_seed() {
+        let (track, cosmo) = flat_ctx();
+        let ctx = AccretionContext::central(&track, &cosmo, MassDefinition::Vir);
         let model = MosterFormSmhm::g19_se(true);
         let mut rng1 = StdRng::seed_from_u64(42);
         let mut rng2 = StdRng::seed_from_u64(42);
-        let sm1 = model.stellar_mass(12.0, 0.1, Some(&mut rng1));
-        let sm2 = model.stellar_mass(12.0, 0.1, Some(&mut rng2));
+        let sm1 = model.stellar_mass(12.0, 0.1, &ctx, Some(&mut rng1));
+        let sm2 = model.stellar_mass(12.0, 0.1, &ctx, Some(&mut rng2));
         assert_eq!(sm1, sm2, "same seed should give same scatter draw");
 
-        let noiseless = model.stellar_mass(12.0, 0.1, None);
+        let noiseless = model.stellar_mass(12.0, 0.1, &ctx, None);
         assert!((sm1 - noiseless).abs() > 1e-6, "scatter should perturb the result");
     }
 
@@ -324,12 +343,14 @@ mod tests {
         // `scatter` is public and `override_*` takes it from the caller,
         // so these values are reachable; `Normal::new` would panic on
         // each of them.
-        let noiseless = MosterFormSmhm::g19_se(true).stellar_mass(12.0, 0.1, None);
+        let (track, cosmo) = flat_ctx();
+        let ctx = AccretionContext::central(&track, &cosmo, MassDefinition::Vir);
+        let noiseless = MosterFormSmhm::g19_se(true).stellar_mass(12.0, 0.1, &ctx, None);
         for bad in [0.0, -0.5, f64::NAN] {
             let mut model = MosterFormSmhm::g19_se(true);
             model.scatter = bad;
             let mut rng = StdRng::seed_from_u64(1);
-            let got = model.stellar_mass(12.0, 0.1, Some(&mut rng));
+            let got = model.stellar_mass(12.0, 0.1, &ctx, Some(&mut rng));
             assert!((got - noiseless).abs() < 1e-12, "scatter={bad} should give the noiseless value");
         }
     }
