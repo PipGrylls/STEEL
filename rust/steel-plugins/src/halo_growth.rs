@@ -192,4 +192,71 @@ mod tests {
         let frac_large = large.log_mass[z_bin] - 14.0;
         assert!(frac_large < frac_small, "frac_large={frac_large} frac_small={frac_small}");
     }
+
+    #[test]
+    fn growth_history_starts_at_m0_for_nonzero_z0() {
+        let cosmo = Planck15::new();
+        let model = VandenBosch14::new(&cosmo);
+        for z0 in [0.5, 1.0, 2.0, 4.0] {
+            let track = model.growth_history(12.0, z0);
+            assert!(
+                (track.log_mass[0] - 12.0).abs() < 1e-3,
+                "z0={z0}: log_mass[0] = {}",
+                track.log_mass[0]
+            );
+        }
+    }
+
+    #[test]
+    fn growth_history_grid_begins_at_z0() {
+        let cosmo = Planck15::new();
+        let model = VandenBosch14::new(&cosmo);
+        for z0 in [0.5, 1.0, 2.0, 4.0] {
+            let track = model.growth_history(12.0, z0);
+            assert_eq!(track.z.len(), N_Z, "z0={z0}");
+            assert!((track.z[0] - z0).abs() < 1e-3, "z0={z0}: z[0] = {}", track.z[0]);
+            assert!(track.z[N_Z - 1] > z0, "z0={z0}: grid must extend into the past");
+        }
+    }
+
+    #[test]
+    fn growth_history_is_monotonic_for_nonzero_z0() {
+        let cosmo = Planck15::new();
+        let model = VandenBosch14::new(&cosmo);
+        for z0 in [0.5, 1.0, 2.0, 4.0] {
+            let track = model.growth_history(13.0, z0);
+            for w in track.log_mass.windows(2) {
+                assert!(w[1] <= w[0] + 1e-6, "z0={z0}: mass increased into the past: {w:?}");
+            }
+        }
+    }
+
+    /// A halo defined to have a given mass at a higher z0 has less
+    /// absolute cosmic time in which to assemble that mass than the
+    /// same-mass halo observed at z=0, so it must be assembling faster.
+    /// At any earlier redshift shared by both tracks, the higher-z0 halo
+    /// is therefore *more* assembled (more massive), not less. Compares
+    /// the two tracks at the highest redshift common to both.
+    #[test]
+    fn earlier_observed_halos_have_more_assembled_progenitors_at_a_shared_probe_redshift() {
+        let cosmo = Planck15::new();
+        let model = VandenBosch14::new(&cosmo);
+        let at_z0 = model.growth_history(12.0, 0.0);
+        let at_z1 = model.growth_history(12.0, 1.0);
+        let z_probe = 3.0;
+        let m0 = interp_at(&at_z0.z, &at_z0.log_mass, z_probe);
+        let m1 = interp_at(&at_z1.z, &at_z1.log_mass, z_probe);
+        assert!(m1 >= m0 - 1e-6, "m(z0=1)={m1} should not be below m(z0=0)={m0} at z={z_probe}");
+    }
+
+    /// Linear interpolation of `y` at `x_probe`; `xs` must be increasing.
+    fn interp_at(xs: &[f64], ys: &[f64], x_probe: f64) -> f64 {
+        let i = xs.iter().position(|&x| x >= x_probe).unwrap_or(xs.len() - 1).max(1);
+        let (x0, x1) = (xs[i - 1], xs[i]);
+        let (y0, y1) = (ys[i - 1], ys[i]);
+        if (x1 - x0).abs() < f64::EPSILON {
+            return y1;
+        }
+        y0 + (x_probe - x0) / (x1 - x0) * (y1 - y0)
+    }
 }
