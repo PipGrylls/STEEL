@@ -21,6 +21,7 @@ pub mod quenching;
 pub mod sfr;
 pub mod shmf;
 pub mod smhm;
+pub mod stellar_growth;
 pub mod stripping;
 
 pub use accretion::AccretionContext;
@@ -35,4 +36,5 @@ pub use quenching::{QuenchTimescales, QuenchingModel};
 pub use sfr::SfrModel;
 pub use shmf::SubhaloMassFunctionModel;
 pub use smhm::SmhmModel;
+pub use stellar_growth::{integrate_stellar_mass, StellarGrowthModel};
 pub use stripping::{HaloStrippingModel, HaloStrippingTrack, StellarStrippingModel};
