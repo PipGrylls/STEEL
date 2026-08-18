@@ -248,11 +248,17 @@ impl DescribedPlugin for EmergeGrowth {
             mass_definition: MassDefinition::Vir,
             h_convention: HConvention::HFree,
             calibrated_cosmology: Some(CosmologyTag::Planck15),
-            // Supplies M* and its own scatter. The reionization gate is
+            // Deterministic, mean-relation-only: `stellar_growth_rate`
+            // ignores its `rng` argument entirely, and no scatter
+            // coefficient exists anywhere in Task 8's verified
+            // coefficient set to implement one from. Declaring
+            // `Capability::Scatter` here would be false metadata and
+            // would wrongly block a real scatter model from being
+            // composed alongside this one. The reionization gate is
             // early-growth suppression, not satellite quenching, so
-            // Quenching is deliberately absent and STEEL's
+            // Quenching is likewise deliberately absent and STEEL's
             // QuenchingModel stays compatible.
-            provides: &[Capability::StellarMass, Capability::Scatter],
+            provides: &[Capability::StellarMass],
         }
     }
 }
