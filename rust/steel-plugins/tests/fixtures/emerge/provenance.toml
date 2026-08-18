@@ -1,0 +1,180 @@
+# Provenance for the committed EMERGE reference grids.
+# Everything needed to regenerate them from scratch.
+#
+# eps_grid.npy is a direct, literal evaluation of upstream EMERGE's own
+# compiled sfe() function (src/galaxies.c) -- not a reimplementation.
+# See [eps_coefficients] and [method] below.
+#
+# smhm_grid.npy cannot be produced by running upstream's `emerge`
+# executable end-to-end: it is an MPI merger-tree pipeline that requires
+# real N-body halo merger trees as input (see trees/README in the
+# upstream clone), and no such trees ship with the repository or are
+# reachable from this environment. smhm_grid.npy is instead the same
+# real, upstream-sourced sfe() function integrated along a mean halo
+# mass accretion history. Full method and honest caveats in [method]
+# below -- read that section before trusting this fixture for anything
+# beyond what it actually is.
+
+[upstream]
+repo = "https://github.com/bmoster/emerge.git"
+ref = "v1.0.2"
+commit = "2781b54c21a80acf237daf7f2e71ff6254da8c3b"
+build_command = "cp Template-Config.sh Config.sh; comment out HDF5_SUPPORT in Config.sh (no HDF5 install available; unused by this fixture, see [build_notes]); cp Template-TypeOfSystem.sh TypeOfSystem.sh (left with no system selected); make CC=mpicc GSL_INCL=\"-I/opt/homebrew/include\" GSL_LIBS=\"-L/opt/homebrew/lib\" MPICHLIB=\"\""
+run_command = "eps_grid.npy: a driver program (scratchpad-only, not committed) linked against the pinned commit's compiled build/*.o objects (excluding build/main.o) called the real sfe(float hmass, float a) from src/galaxies.c directly, for every (log_mh, z) grid point, with P.{M0,Epsilon0,Beta0,Gamma0,MZ,EpsilonZ,BetaZ}  set from parameterfiles/emerge.param:50-56 and P.GammaZ=0.0 (SFE_GAMMA_ZEVOLV disabled in the build, so upstream never reads Eff_HighMassSlope_Z at all -- see [eps_coefficients]), and All.m_unit=1.0e9 from parameterfiles/emerge.param:45. smhm_grid.npy: f_b * trapezoidal-in-halo-mass integral of the same sfe()-equivalent formula (cross-checked to the literal compiled output to a max relative error of 3.5e-7, i.e. float32-vs-float64 rounding only) along a VandenBosch14 growth track per (log_mh, z0) grid point; see [method]."
+
+[cosmology]
+name = "Planck15"
+h = 0.6774
+omega_m0 = 0.3089
+omega_b0 = 0.0486
+omega_de0 = 0.6911
+
+[eps_coefficients]
+# The EMERGE instantaneous baryon conversion efficiency (src/galaxies.c:602-629,
+# doxygen'd on the sfe() function):
+#   eps(M,z) = 2 eps_N(z) / [ (M/M1(z))^-beta(z) + (M/M1(z))^gamma(z) ]
+#   log10 M1(z)  = M0     + MZ     * z/(z+1)
+#   eps_N(z)     = eps0   + epsZ   * z/(z+1)
+#   beta(z)      = beta0  + betaZ  * z/(z+1)
+#   gamma(z)     = gamma0 + gammaZ * z/(z+1)
+# All values below are read verbatim from parameterfiles/emerge.param
+# (this pinned commit), cross-checked against the parameter-to-struct
+# field mapping in src/setup.c:182-221 and the field names in
+# src/allvars.h:360-376.
+log_m1_0   = 11.34829    # Eff_MassPeak,          parameterfiles/emerge.param:50
+eps_n0     = 0.009010    # Eff_Normalisation,     parameterfiles/emerge.param:51
+beta_0     = 3.094621    # Eff_LowMassSlope,      parameterfiles/emerge.param:52
+gamma_0    = 1.107304    # Eff_HighMassSlope,     parameterfiles/emerge.param:53
+log_m1_z   = 0.654238    # Eff_MassPeak_Z,        parameterfiles/emerge.param:54
+eps_nz     = 0.596666    # Eff_Normalisation_Z,   parameterfiles/emerge.param:55
+beta_z     = -2.019841   # Eff_LowMassSlope_Z,    parameterfiles/emerge.param:56
+gamma_z    = 0.0         # not in the parameter file: SFE_GAMMA_ZEVOLV is
+                          # disabled in the default Template-Config.sh, so
+                          # src/setup.c never reads "Eff_HighMassSlope_Z"
+                          # for this build; gamma has no redshift evolution.
+                          # Not a guessed value -- a documented no-op
+                          # consistent with the build configuration actually
+                          # compiled and run.
+
+[eps_coefficients.alternate_source_not_used]
+# O'Leary, Steinwandel, Moster, Martin & Naab (2023), MNRAS 000, 1-13,
+# arXiv:2301.07122v1, Table 1, "Reference" column (their unaltered
+# EMERGE model). Fetched and cross-read directly from the arXiv PDF
+# (pdftotext -layout) during this task; the numbers below are transcribed
+# from that table, not guessed. Differs from [eps_coefficients] above
+# because the paper's Reference fit used Moster et al. (2018)'s 200 Mpc
+# box (paper section 3.1, "the parameters used were fit using a lower
+# resolution 200 Mpc box"), not the P100 (~68 Mpc) box whose fit ships as
+# this repo's default parameterfiles/emerge.param. Both are real,
+# upstream/paper-sourced EMERGE calibrations; NOT interchangeable digit
+# for digit. This fixture uses the shipped parameter file
+# ([eps_coefficients] above) because it is the one actually exercised by
+# a literal, verified run of the pinned commit's compiled binary.
+log_m1_0 = 11.32     # M0,  +0.03/-0.02
+log_m1_z = 1.45      # Mz,  +0.06/-0.07
+eps_n0   = 0.02      # eps0, +0.01/-0.01
+eps_nz   = 1.70       # epsz, +0.01/-0.02
+beta_0   = 2.98      # beta0, +0.20/-0.22
+beta_z   = -2.68     # betaz, +0.26/-0.22
+gamma_0  = 1.25      # gamma0, +0.01/-0.01
+
+[unrelated_parameters_not_needed_for_this_fixture]
+# The task brief's Step 3 template lists beta_0, beta_z, tau_s, M_q, a_q,
+# R_q as coefficients to source. Having read O'Leary+2023 directly: these
+# six (together, not eps_grid's beta_0/beta_z) are NOT the base
+# double-power-law SFE parameters above. They belong to O'Leary+2023's
+# optional high-z ("reionization") quenching extension -- specifically
+# its "Logistic" model variant (paper section 3, eq. 9; Table 1,
+# "Logistic" column) -- a model feature that does not exist in the base
+# emerge v1.0.2 C code cloned and built for this task (no
+# SFE_GAMMA_ZEVOLV-style compile flag or parameter tag for it anywhere in
+# src/). It is not used, and not needed, to compute eps_grid.npy or
+# smhm_grid.npy, which are the plain baseline efficiency/growth-track
+# quantities. Recorded here only because the provisional
+# design-time-circulated values for these six turned out, on checking
+# against the real paper table, to be exactly correct:
+#   beta_0 = 2.22 (+0.09/-0.05), beta_z = -1.50 (+0.04/-0.11)  [Table 1, Logistic column]
+#   tau_s  = 0.40 (+0.02/-0.01)                                 [Table 1, Logistic column]
+#   M_q    = 9.33 (+0.11/-0.08), a_q = 0.19 (+0.03/-0.03)       [Table 1, Logistic column]
+#   R_q    = 2.56 (+0.38/-0.52)                                 [Table 1, Logistic column]
+verified_but_out_of_scope = true
+
+[grid]
+log_mh_min = 10.0
+log_mh_max = 15.0
+log_mh_step = 0.1
+n_mass = 51
+redshifts = [0.1, 0.5, 1.0, 2.0, 4.0, 6.0]
+dtype = "float64"
+order = "C"
+axes = "[mass, redshift]"
+
+[conventions]
+# What the dumped masses actually are, so Task 9 converts rather than assumes.
+halo_mass_definition = "vir"   # src/galaxies.c:617, sfe()'s own doxygen: "hmass Virial mass of the dark matter halo in code units"
+h_convention = "h_free"        # log_mh grid values are absolute log10(Msun), not log10(Msun/h); matches how [eps_coefficients] were applied (mass_msun = 10^log_mh, no additional h factor)
+imf = "chabrier"                # inferred, not stated in-code: data/smf.dat:2's shipped default calibration data block (Li & White 2009) carries an IMF correction of 0.0 relative to "the (universal) initial mass function" the model is calibrated to (README.md:868-877 documents this convention); Li & White (2009)'s stellar masses are Chabrier-IMF. O'Leary+2023 (arXiv:2301.07122) does not state an IMF anywhere in its text (checked directly, pdftotext search for chabrier/kroupa/salpeter/"initial mass function" returns nothing). Flagged as inferred, not directly asserted by any single source -- see report for full reasoning.
+
+[method]
+# eps_grid.npy: for each of the 51x6 grid points, eps(log_mh, z) was
+# evaluated by literally calling the pinned commit's compiled
+# src/galaxies.c:sfe() (see [upstream].run_command). No merger tree or
+# integration is involved -- eps() is a pure, memoryless function of
+# instantaneous halo mass and redshift, so this required no modelling
+# choice beyond reading [eps_coefficients] correctly. This grid is a
+# direct, unmodified upstream computation.
+#
+# smhm_grid.npy: the design spec (section 3) defines
+#   dm*/dt = eps(Mh,z) . Mdot_b,   Mdot_b = f_b . dMh/dt
+# so M*(Mh0, z0) [[formed, not surviving -- no stellar mass-loss/return
+# fraction applied, matching rust/steel-core/src/stellar_growth.rs's own
+# integrate_stellar_mass documented boundary]] is the time integral of
+# that rate along the halo's growth track. Substituting the chain rule
+# (dM* = eps . f_b . dMh, independent of how dMh/dt is discretized in
+# time) gives the exact reformulation used here:
+#   M*(Mh0,z0) = f_b * integral_track eps(Mh, z(Mh)) dMh
+# evaluated by trapezoidal quadrature in linear halo mass over a
+# 200-point VandenBosch14 (van den Bosch 2014) mean mass accretion
+# history track from deep in the past down to (Mh0, z0).
+# f_b = omega_b0 / omega_m0 = 0.0486 / 0.3089 (Planck15, [cosmology] above).
+#
+# VandenBosch14 is not upstream EMERGE: it is STEEL's own,
+# already-implemented, already-independently-validated growth-track model
+# (rust/steel-plugins/src/halo_growth.rs), a direct port of the real
+# Fortran getPWGH.f binary checked to 0.0021 dex agreement
+# (docs/VALIDATION.md) -- the SAME growth-track convention the design
+# spec (sections 4.1, 5) mandates STEEL use for every rate-based plugin,
+# including the EMERGE port this fixture will validate. Track samples
+# (z, log_mass) and Planck15 cosmic ages were generated by a temporary,
+# uncommitted Rust example built against the already-tested production
+# VandenBosch14/Planck15 code (deleted after use, never part of any
+# commit) rather than hand-porting that root-find/variance/growth-factor
+# machinery to Python, to avoid introducing fresh transcription risk into
+# a fixture whose entire point is to be trustworthy ground truth.
+#
+# WHY THIS IS NOT A FULL UPSTREAM N-BODY RUN, AND WHAT THAT MEANS:
+# upstream EMERGE's own M*(Mh,z) comes from integrating the same rate
+# along REAL, N-body-derived per-halo mass accretion histories read from
+# a merger-tree file (src/read_trees.c). No such tree file is available
+# here (trees/README points at an external download of a ~100 Mpc-box
+# simulation not present in this environment, and is infeasible to
+# source within this task). smhm_grid.npy is therefore best understood
+# as: "the real, upstream-sourced eps() coefficients and formula,
+# integrated along STEEL's own (independently real, independently
+# validated) growth-track convention" -- not "upstream EMERGE's own
+# N-body pipeline output". A Task 9 comparison against smhm_grid.npy
+# is a meaningful, non-circular test of whether the Rust EMERGE plugin
+# gets the eps() formula/coefficients and the StellarGrowthModel/
+# integrate_stellar_mass wiring right; it is a weaker check than
+# eps_grid.npy's direct upstream fidelity, and does not independently
+# verify upstream's own N-body-tree-based numerics. See the Task 8
+# report for the full reasoning and the decision trail.
+sanity_ceiling = "M* formed is checked to not exceed f_b * Mh at every grid point (a hard physical bound independent of eps()'s shape); this held for the full grid with margin."
+
+[files]
+eps_grid = "eps_grid.npy"
+smhm_grid = "smhm_grid.npy"
+
+[generated]
+date = "2026-08-18"
+by = "scripts/fixtures/build_emerge_fixture.sh (upstream clone/build only) plus a scratchpad-only driver program and Python assembly script described in [upstream].run_command and [method]; those one-off tools are not committed, per the task brief"

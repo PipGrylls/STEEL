@@ -10,3 +10,6 @@ steel-core = { path = "../steel-core" }
 ndarray = { workspace = true }
 rand = { workspace = true }
 rand_distr = { workspace = true }
+
+[dev-dependencies]
+ndarray-npy = { workspace = true }
