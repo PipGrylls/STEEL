@@ -127,3 +127,38 @@ fn emerge_integrated_smhm_agrees_with_upstream() {
     // just above the achieved figure.
     assert!(worst < 0.052, "worst integrated M* deviation {worst:.6} dex exceeds 0.052");
 }
+
+const UM_DIR: &str = "tests/fixtures/um_saga";
+
+fn load_um(name: &str) -> Array2<f64> {
+    read_npy(format!("{UM_DIR}/{name}")).unwrap_or_else(|e| panic!("load {name}: {e}"))
+}
+
+#[test]
+fn um_fixtures_have_the_documented_shape() {
+    for name in ["sfr_sf_grid.npy", "quenched_fraction_grid.npy"] {
+        let a = load_um(name);
+        assert_eq!(a.shape(), &[41, 6], "{name} shape");
+        assert!(a.iter().all(|v| v.is_finite()), "{name} has non-finite values");
+    }
+}
+
+#[test]
+fn um_quenched_fraction_is_a_fraction() {
+    let f = load_um("quenched_fraction_grid.npy");
+    assert!(f.iter().all(|&v| (0.0..=1.0).contains(&v)), "f_Q outside [0,1]");
+}
+
+#[test]
+fn um_sfr_rises_with_velocity_at_low_mass() {
+    // Below the pivot, more massive (faster) haloes form more stars.
+    let s = load_um("sfr_sf_grid.npy");
+    assert!(s[[20, 0]] > s[[0, 0]], "SFR should rise with vMpeak at the low end");
+}
+
+#[test]
+fn um_provenance_has_no_unfilled_placeholders() {
+    let text = std::fs::read_to_string(format!("{UM_DIR}/provenance.toml"))
+        .expect("provenance.toml must exist");
+    assert!(!text.contains('<'), "provenance.toml still contains placeholders:\n{text}");
+}
