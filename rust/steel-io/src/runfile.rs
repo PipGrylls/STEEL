@@ -20,6 +20,29 @@ pub struct RunFile {
     pub run: RunSection,
     #[serde(default)]
     pub outputs: OutputsSection,
+    /// Rate-based stellar growth model (EMERGE, UniverseMachine), an
+    /// alternative supplier of `Capability::StellarMass` to `[smhm]`.
+    ///
+    /// `[smhm]` remains a required section: `steel_core::context::Simulation`
+    /// still has a fixed `smhm: Arc<dyn SmhmModel>` field, and wiring a
+    /// `StellarGrowthModel` all the way through the run pipeline (so
+    /// `[smhm]` can be omitted entirely) is not part of this task. What
+    /// *is* enforced today: if a runfile sets both `[smhm]` and
+    /// `[stellar_growth]`, `build_stellar_growth`'s descriptor is added
+    /// to the same `validate_composition` call as `[smhm]`'s, and the
+    /// validator rejects the pair as a duplicate `Capability::StellarMass`
+    /// (`steel_core::compat`) rather than silently letting one shadow
+    /// the other.
+    #[serde(default)]
+    pub stellar_growth: Option<StellarGrowthConfig>,
+}
+
+/// `model`: `"emerge"` (needs `preset`: `o_leary23`). See
+/// `steel_plugins::growth_models`.
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct StellarGrowthConfig {
+    pub model: String,
+    pub preset: String,
 }
 
 /// Which output families to accumulate — the runfile face of
@@ -280,6 +303,49 @@ mod tests {
         assert_eq!(p.m10, 12.0);
         assert_eq!(p.beta11, -0.7);
         assert_eq!(p.scatter, 0.15, "scatter should default to the Python's 0.15");
+    }
+
+    /// `[smhm]`/`[sfr]` are included even though they are logically
+    /// superseded by `[stellar_growth]` here: both fields remain
+    /// required on `RunFile` (see the field doc on `stellar_growth`), so
+    /// a runfile that omits them does not parse at all. This test
+    /// therefore checks what actually matters — that `[stellar_growth]`
+    /// round-trips through `RunFile` correctly — rather than the
+    /// smhm/sfr-free snippet the spec illustrates.
+    #[test]
+    fn parses_stellar_growth_section() {
+        let run: RunFile = toml::from_str(
+            r#"
+            [smhm]
+            model = "moster_form"
+            preset = "g19_se"
+
+            [sfr]
+            model = "double_power_law"
+
+            [stellar_growth]
+            model = "emerge"
+            preset = "o_leary23"
+            "#,
+        )
+        .expect("should parse");
+        let sg = run.stellar_growth.expect("section present");
+        assert_eq!(sg.model, "emerge");
+        assert_eq!(sg.preset, "o_leary23");
+    }
+
+    #[test]
+    fn stellar_growth_section_is_absent_by_default() {
+        let toml = r#"
+            [smhm]
+            model = "moster_form"
+            preset = "g19_se"
+
+            [sfr]
+            model = "double_power_law"
+        "#;
+        let run = RunFile::parse(toml).unwrap();
+        assert!(run.stellar_growth.is_none());
     }
 
     #[test]

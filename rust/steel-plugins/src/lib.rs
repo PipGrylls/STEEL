@@ -6,6 +6,7 @@
 pub mod cosmology;
 pub mod gas;
 pub mod growth;
+pub mod growth_models;
 pub mod halo_growth;
 pub mod harmonise;
 pub mod hmf;
@@ -22,6 +23,7 @@ pub mod variance;
 
 pub use cosmology::Planck15;
 pub use gas::StewartScaling;
+pub use growth_models::EmergeGrowth;
 pub use halo_growth::VandenBosch14;
 pub use harmonise::{ConcentrationMassRelation, DuttonMaccio14, HConvention, Imf};
 pub use hmf::Despali16;

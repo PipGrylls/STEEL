@@ -15,12 +15,13 @@ use anyhow::{anyhow, Result};
 use steel_core::baryonic::BaryonicPipeline;
 use steel_core::compat::{validate_composition, CosmologyTag, DescribedPlugin, PluginDescriptor};
 use steel_core::context::{ModelContext, OutputSelection, RunConfig, Simulation};
+use steel_core::stellar_growth::StellarGrowthModel;
 use steel_core::{QuenchingModel, SfrModel, SmhmModel, StellarStrippingModel};
 use steel_io::runfile::RunFile;
 use steel_plugins::{
-    BehrooziFormSmhm, Cattaneo11, Despali16, DoublePowerLawSfr, Jiang16, McCavanaBK08, MosterFormSmhm,
-    Planck15, RodriguezPuebla17, SchreiberFormSfr, StewartScaling, TomczakFormSfr, VandenBosch14,
-    Wetzel13,
+    BehrooziFormSmhm, Cattaneo11, Despali16, DoublePowerLawSfr, EmergeGrowth, Jiang16, McCavanaBK08,
+    MosterFormSmhm, Planck15, RodriguezPuebla17, SchreiberFormSfr, StewartScaling, TomczakFormSfr,
+    VandenBosch14, Wetzel13,
 };
 
 fn build_smhm(cfg: &steel_io::runfile::SmhmConfig) -> Result<(Box<dyn SmhmModel>, PluginDescriptor)> {
@@ -91,6 +92,23 @@ fn build_smhm(cfg: &steel_io::runfile::SmhmConfig) -> Result<(Box<dyn SmhmModel>
             other => Err(anyhow!("unknown rodriguez_puebla_form preset: {other}")),
         },
         other => Err(anyhow!("unknown smhm model: {other}")),
+    }
+}
+
+/// Builds a rate-based `StellarGrowthModel`, the `[stellar_growth]`
+/// alternative to `[smhm]`. Not yet wired into `Simulation` itself (see
+/// the doc on `RunFile::stellar_growth`); exists today so its descriptor
+/// can be validated against the rest of a runfile's plugin set.
+fn build_stellar_growth(
+    cfg: &steel_io::runfile::StellarGrowthConfig,
+) -> Result<(Box<dyn StellarGrowthModel>, PluginDescriptor)> {
+    match (cfg.model.as_str(), cfg.preset.as_str()) {
+        ("emerge", "o_leary23") => {
+            let m = EmergeGrowth::o_leary23();
+            let descriptor = m.descriptor();
+            Ok((Box::new(m), descriptor))
+        }
+        (model, preset) => Err(anyhow!("unknown stellar_growth model/preset: {model}/{preset}")),
     }
 }
 
@@ -212,7 +230,16 @@ pub fn build_simulation(runfile: &RunFile) -> Result<(Simulation, RunConfig)> {
     let stripping = build_stripping(&runfile.stripping)?;
     let (quenching, quenching_descriptor) = build_quenching();
 
-    let descriptors = vec![smhm_descriptor, sfr_descriptor, quenching_descriptor];
+    let mut descriptors = vec![smhm_descriptor, sfr_descriptor, quenching_descriptor];
+    // `[stellar_growth]` is not yet consumed by `Simulation` (see the
+    // doc on `RunFile::stellar_growth`), but its descriptor still needs
+    // to take part in composition validation: a runfile that sets both
+    // `[smhm]` and `[stellar_growth]` must be rejected as a duplicate
+    // `Capability::StellarMass`, not silently run with `[smhm]` alone.
+    if let Some(cfg) = &runfile.stellar_growth {
+        let (_stellar_growth, stellar_growth_descriptor) = build_stellar_growth(cfg)?;
+        descriptors.push(stellar_growth_descriptor);
+    }
     if let Err(problems) = validate_composition(&descriptors, run_cosmology_tag) {
         let detail = problems.iter().map(|p| format!("  - {p}")).collect::<Vec<_>>().join("\n");
         return Err(anyhow!(
