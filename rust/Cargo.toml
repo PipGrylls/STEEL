@@ -13,7 +13,7 @@ members = [
 version = "0.1.0"
 edition = "2021"
 authors = ["Philip Grylls"]
-license = "MIT"
+license = "AGPL-3.0"
 
 [workspace.dependencies]
 ndarray = "0.16"
