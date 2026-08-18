@@ -13,6 +13,7 @@ use std::sync::Arc;
 use anyhow::{anyhow, Result};
 
 use steel_core::baryonic::BaryonicPipeline;
+use steel_core::compat::{validate_composition, CosmologyTag, DescribedPlugin, PluginDescriptor};
 use steel_core::context::{ModelContext, OutputSelection, RunConfig, Simulation};
 use steel_core::{QuenchingModel, SfrModel, SmhmModel, StellarStrippingModel};
 use steel_io::runfile::RunFile;
@@ -22,7 +23,7 @@ use steel_plugins::{
     Wetzel13,
 };
 
-fn build_smhm(cfg: &steel_io::runfile::SmhmConfig) -> Result<Box<dyn SmhmModel>> {
+fn build_smhm(cfg: &steel_io::runfile::SmhmConfig) -> Result<(Box<dyn SmhmModel>, PluginDescriptor)> {
     match cfg.model.as_str() {
         "moster_form" => {
             let m: MosterFormSmhm = match cfg.preset.as_str() {
@@ -61,7 +62,8 @@ fn build_smhm(cfg: &steel_io::runfile::SmhmConfig) -> Result<Box<dyn SmhmModel>>
                 }
                 other => return Err(anyhow!("unknown moster_form preset: {other}")),
             };
-            Ok(Box::new(m))
+            let descriptor = m.descriptor();
+            Ok((Box::new(m), descriptor))
         }
         "behroozi_form" => {
             let m: BehrooziFormSmhm = match cfg.preset.as_str() {
@@ -74,20 +76,25 @@ fn build_smhm(cfg: &steel_io::runfile::SmhmConfig) -> Result<Box<dyn SmhmModel>>
                 "lorenzo18" => BehrooziFormSmhm::lorenzo18(),
                 other => return Err(anyhow!("unknown behroozi_form preset: {other}")),
             };
-            Ok(Box::new(m))
+            let descriptor = m.descriptor();
+            Ok((Box::new(m), descriptor))
         }
         // A third functional family with exactly one preset — kept as
         // its own `model` rather than folded into either sibling
         // because it shares neither's equation.
         "rodriguez_puebla_form" => match cfg.preset.as_str() {
-            "rp17" => Ok(Box::new(RodriguezPuebla17)),
+            "rp17" => {
+                let m = RodriguezPuebla17;
+                let descriptor = m.descriptor();
+                Ok((Box::new(m), descriptor))
+            }
             other => Err(anyhow!("unknown rodriguez_puebla_form preset: {other}")),
         },
         other => Err(anyhow!("unknown smhm model: {other}")),
     }
 }
 
-fn build_sfr(cfg: &steel_io::runfile::SfrConfig) -> Result<Box<dyn SfrModel>> {
+fn build_sfr(cfg: &steel_io::runfile::SfrConfig) -> Result<(Box<dyn SfrModel>, PluginDescriptor)> {
     match cfg.model.as_str() {
         "tomczak_form" => {
             let preset = cfg.preset.as_deref().ok_or_else(|| anyhow!("tomczak_form requires a preset"))?;
@@ -97,7 +104,8 @@ fn build_sfr(cfg: &steel_io::runfile::SfrConfig) -> Result<Box<dyn SfrModel>> {
                 "illustris" => TomczakFormSfr::illustris(),
                 other => return Err(anyhow!("unknown tomczak_form preset: {other}")),
             };
-            Ok(Box::new(m))
+            let descriptor = m.descriptor();
+            Ok((Box::new(m), descriptor))
         }
         "schreiber_form" => {
             let preset = cfg.preset.as_deref().ok_or_else(|| anyhow!("schreiber_form requires a preset"))?;
@@ -106,13 +114,18 @@ fn build_sfr(cfg: &steel_io::runfile::SfrConfig) -> Result<Box<dyn SfrModel>> {
                 "s16ce" => SchreiberFormSfr::s16ce(),
                 other => return Err(anyhow!("unknown schreiber_form preset: {other}")),
             };
-            Ok(Box::new(m))
+            let descriptor = m.descriptor();
+            Ok((Box::new(m), descriptor))
         }
         // The satellite branch of `Starformation_c`. The central branch
         // (`Starformation_Centrals`) has different coefficients and is
         // reached through `steel_postprocess::CentralEvolution`, not
         // through a runfile, so it has no key here.
-        "double_power_law" => Ok(Box::new(DoublePowerLawSfr::satellite())),
+        "double_power_law" => {
+            let m = DoublePowerLawSfr::satellite();
+            let descriptor = m.descriptor();
+            Ok((Box::new(m), descriptor))
+        }
         other => Err(anyhow!("unknown sfr model: {other}")),
     }
 }
@@ -131,8 +144,10 @@ fn build_stripping(cfg: &steel_io::runfile::StrippingConfig) -> Result<Box<dyn S
     }
 }
 
-fn build_quenching() -> Box<dyn QuenchingModel> {
-    Box::new(Wetzel13::new())
+fn build_quenching() -> (Box<dyn QuenchingModel>, PluginDescriptor) {
+    let m = Wetzel13::new();
+    let descriptor = m.descriptor();
+    (Box::new(m), descriptor)
 }
 
 /// The Python identifier for an SMHM preset — the `AbnMtch` key that
@@ -186,12 +201,25 @@ pub fn sfr_legacy_name(cfg: &steel_io::runfile::SfrConfig) -> &'static str {
 
 pub fn build_simulation(runfile: &RunFile) -> Result<(Simulation, RunConfig)> {
     let cosmology = Planck15::new();
+    // The only cosmology `build_simulation` wires in today; kept as a
+    // local rather than a runfile field until a second cosmology
+    // plugin exists to choose between.
+    let run_cosmology_tag = CosmologyTag::Planck15;
 
-    let smhm = build_smhm(&runfile.smhm)?;
-    let sfr = build_sfr(&runfile.sfr)?;
+    let (smhm, smhm_descriptor) = build_smhm(&runfile.smhm)?;
+    let (sfr, sfr_descriptor) = build_sfr(&runfile.sfr)?;
     let gas = build_gas(&runfile.gas, &cosmology)?;
     let stripping = build_stripping(&runfile.stripping)?;
-    let quenching = build_quenching();
+    let (quenching, quenching_descriptor) = build_quenching();
+
+    let descriptors = vec![smhm_descriptor, sfr_descriptor, quenching_descriptor];
+    if let Err(problems) = validate_composition(&descriptors, run_cosmology_tag) {
+        let detail = problems.iter().map(|p| format!("  - {p}")).collect::<Vec<_>>().join("\n");
+        return Err(anyhow!(
+            "incompatible plugin combination in this runfile:\n{detail}\n\n\
+             See docs/model-assumptions.md for what each plugin assumes."
+        ));
+    }
 
     let halo_growth = Arc::new(VandenBosch14::new(&cosmology));
     let hmf = Arc::new(Despali16::new(&cosmology));

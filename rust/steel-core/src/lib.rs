@@ -10,6 +10,7 @@
 
 pub mod accretion;
 pub mod baryonic;
+pub mod compat;
 pub mod context;
 pub mod cosmology;
 pub mod gas;
@@ -26,6 +27,10 @@ pub mod stripping;
 
 pub use accretion::AccretionContext;
 pub use baryonic::{BaryonicPipeline, EvolutionHistory, SatelliteState, Timeline};
+pub use compat::{
+    validate_composition, Capability, CosmologyTag, DescribedPlugin, HConvention, Imf, Incompatibility,
+    PluginDescriptor,
+};
 pub use context::{ModelContext, OutputSelection, RunConfig, RunOutput, Simulation};
 pub use cosmology::{Cosmology, MassDefinition};
 pub use gas::GasMassModel;

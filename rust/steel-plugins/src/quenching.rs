@@ -3,6 +3,8 @@
 //! the quenching-timescale block in `Functions.py::StarFormation`
 //! (lines 337-361).
 
+use steel_core::compat::{Capability, CosmologyTag, DescribedPlugin, HConvention, Imf, PluginDescriptor};
+use steel_core::cosmology::MassDefinition;
 use steel_core::quenching::{QuenchTimescales, QuenchingModel};
 
 pub struct Wetzel13;
@@ -66,6 +68,23 @@ impl QuenchingModel for Wetzel13 {
         let t_quench = if pre_quenched { t_infall } else { t_infall + tau_delay };
 
         QuenchTimescales { tau_fade, tau_delay, t_quench }
+    }
+}
+
+impl DescribedPlugin for Wetzel13 {
+    fn descriptor(&self) -> PluginDescriptor {
+        PluginDescriptor {
+            id: "wetzel13",
+            // A satellite quenching-timescale model, not a stellar-mass
+            // calibration; it never touches an IMF.
+            imf: Imf::NotApplicable,
+            mass_definition: MassDefinition::Vir,
+            // `timescales` takes `log_host_mass_infall` in STEEL's
+            // internal Msun/h convention, matching the other plugins.
+            h_convention: HConvention::PerH,
+            calibrated_cosmology: Some(CosmologyTag::Planck15),
+            provides: &[Capability::Quenching],
+        }
     }
 }
 

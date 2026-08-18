@@ -33,6 +33,8 @@
 use rand::RngCore;
 
 use steel_core::accretion::AccretionContext;
+use steel_core::compat::{Capability, CosmologyTag, DescribedPlugin, HConvention, Imf, PluginDescriptor};
+use steel_core::cosmology::MassDefinition;
 use steel_core::smhm::SmhmModel;
 
 /// `P(x, y, z) = y z - x z/(1+z)` — the redshift expansion shared by
@@ -104,11 +106,26 @@ impl SmhmModel for RodriguezPuebla17 {
     }
 }
 
+impl DescribedPlugin for RodriguezPuebla17 {
+    fn descriptor(&self) -> PluginDescriptor {
+        PluginDescriptor {
+            id: "rodriguez_puebla_form",
+            imf: Imf::Chabrier,
+            mass_definition: MassDefinition::Vir,
+            h_convention: HConvention::PerH,
+            calibrated_cosmology: Some(CosmologyTag::Planck15),
+            // Returns the mean relation only; no scatter is applied, so
+            // `Scatter` is deliberately omitted, permitting another
+            // scatter source in the composition.
+            provides: &[Capability::StellarMass],
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::test_support::flat_ctx;
-    use steel_core::cosmology::MassDefinition;
 
     #[test]
     fn is_monotonically_increasing_with_halo_mass() {

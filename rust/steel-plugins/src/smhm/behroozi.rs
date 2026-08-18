@@ -10,6 +10,8 @@ use rand::RngCore;
 use rand_distr::{Distribution, Normal};
 
 use steel_core::accretion::AccretionContext;
+use steel_core::compat::{Capability, CosmologyTag, DescribedPlugin, HConvention, Imf, PluginDescriptor};
+use steel_core::cosmology::MassDefinition;
 use steel_core::smhm::SmhmModel;
 
 /// Behroozi+2018-style coefficients: `e`, `M`, `alpha` each have 4
@@ -182,11 +184,27 @@ impl SmhmModel for BehrooziFormSmhm {
     }
 }
 
+impl DescribedPlugin for BehrooziFormSmhm {
+    fn descriptor(&self) -> PluginDescriptor {
+        PluginDescriptor {
+            id: "behroozi_form",
+            // Behroozi+2013/2018 presets are calibrated on a Chabrier
+            // IMF.
+            imf: Imf::Chabrier,
+            mass_definition: MassDefinition::Vir,
+            h_convention: HConvention::PerH,
+            calibrated_cosmology: Some(CosmologyTag::Planck15),
+            // Applies its own log-normal scatter via `self.scatter`,
+            // same as `MosterFormSmhm`.
+            provides: &[Capability::StellarMass, Capability::Scatter],
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::test_support::flat_ctx;
-    use steel_core::cosmology::MassDefinition;
 
     #[test]
     fn b18c_is_monotonically_increasing_with_halo_mass() {

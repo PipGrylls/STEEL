@@ -8,6 +8,8 @@
 //! Memoryless in the accretion history: `_ctx` is ignored by design, not omission.
 
 use steel_core::accretion::AccretionContext;
+use steel_core::compat::{Capability, CosmologyTag, DescribedPlugin, HConvention, Imf, PluginDescriptor};
+use steel_core::cosmology::MassDefinition;
 use steel_core::sfr::SfrModel;
 
 /// `s0 - log10(1 + (10^(SM - logM0))^Gamma)`, with `s0`, `logM0`, and
@@ -52,6 +54,19 @@ impl SfrModel for TomczakFormSfr {
         let log_m0 = Self::poly(self.log_m0, z);
         let gamma = -Self::poly(self.gamma, z);
         s0 - (1.0 + 10f64.powf((log_sm - log_m0) * gamma)).log10()
+    }
+}
+
+impl DescribedPlugin for TomczakFormSfr {
+    fn descriptor(&self) -> PluginDescriptor {
+        PluginDescriptor {
+            id: "tomczak_form",
+            imf: Imf::Chabrier,
+            mass_definition: MassDefinition::Vir,
+            h_convention: HConvention::PerH,
+            calibrated_cosmology: Some(CosmologyTag::Planck15),
+            provides: &[Capability::StarFormationRate],
+        }
     }
 }
 
@@ -109,6 +124,19 @@ impl SfrModel for SchreiberFormSfr {
         let r = (1.0 + z).log10();
         let max_term = (m - self.m1 - self.a2 * r).max(0.0);
         m - self.m0 + self.a0 * r - self.a1 * max_term * max_term
+    }
+}
+
+impl DescribedPlugin for SchreiberFormSfr {
+    fn descriptor(&self) -> PluginDescriptor {
+        PluginDescriptor {
+            id: "schreiber_form",
+            imf: Imf::Chabrier,
+            mass_definition: MassDefinition::Vir,
+            h_convention: HConvention::PerH,
+            calibrated_cosmology: Some(CosmologyTag::Planck15),
+            provides: &[Capability::StarFormationRate],
+        }
     }
 }
 
@@ -187,11 +215,30 @@ impl SfrModel for DoublePowerLawSfr {
     }
 }
 
+// Not one of the five plugins the composition-validator task named, but
+// `build_sfr` (`steel-cli::registry`) reaches this type through the
+// `double_power_law` runfile key exactly like the other two SFR forms
+// (see `runfiles/published/p2-dpl-*.toml`), and every `build_sfr` arm
+// must produce a descriptor once the registry validates the composed
+// plugin set. Same conventions as `TomczakFormSfr`/`SchreiberFormSfr`:
+// Chabrier IMF, STEEL's virial/`Msun/h` convention, Planck15.
+impl DescribedPlugin for DoublePowerLawSfr {
+    fn descriptor(&self) -> PluginDescriptor {
+        PluginDescriptor {
+            id: "double_power_law",
+            imf: Imf::Chabrier,
+            mass_definition: MassDefinition::Vir,
+            h_convention: HConvention::PerH,
+            calibrated_cosmology: Some(CosmologyTag::Planck15),
+            provides: &[Capability::StarFormationRate],
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::test_support::flat_ctx;
-    use steel_core::cosmology::MassDefinition;
 
     #[test]
     fn ce_is_monotonically_increasing_below_the_turnover() {

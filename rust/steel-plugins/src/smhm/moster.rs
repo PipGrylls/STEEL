@@ -11,6 +11,8 @@ use rand::RngCore;
 use rand_distr::{Distribution, Normal};
 
 use steel_core::accretion::AccretionContext;
+use steel_core::compat::{Capability, CosmologyTag, DescribedPlugin, HConvention, Imf, PluginDescriptor};
+use steel_core::cosmology::MassDefinition;
 use steel_core::smhm::SmhmModel;
 
 /// Which redshift-evolution parametrization applies. The Python's three
@@ -283,13 +285,28 @@ impl SmhmModel for MosterFormSmhm {
     }
 }
 
+impl DescribedPlugin for MosterFormSmhm {
+    fn descriptor(&self) -> PluginDescriptor {
+        PluginDescriptor {
+            id: "moster_form",
+            // The G19 presets are PyMorph/cmodel SDSS calibrations on a
+            // Chabrier IMF; verify against Grylls+2019 before publishing.
+            imf: Imf::Chabrier,
+            mass_definition: MassDefinition::Vir,
+            h_convention: HConvention::PerH,
+            calibrated_cosmology: Some(CosmologyTag::Planck15),
+            // Applies its own log-normal scatter via `self.scatter`.
+            provides: &[Capability::StellarMass, Capability::Scatter],
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use rand::rngs::StdRng;
     use rand::SeedableRng;
     use crate::test_support::flat_ctx;
-    use steel_core::cosmology::MassDefinition;
 
     #[test]
     fn g19_se_is_monotonically_increasing_with_halo_mass() {
