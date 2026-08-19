@@ -353,7 +353,19 @@ impl UniverseMachineGrowth {
     /// call during this context's integration. See the module doc for
     /// why this takes only `&ctx`, not a `(log_mh, z)` pair.
     pub fn log_vmpeak(&self, ctx: &AccretionContext<'_>) -> f64 {
-        let log_m_peak = ctx.own_track.log_mass[0];
+        // `own_track.log_mass` is h-free (physical Msun; see
+        // `AccretionContext`'s construction in `context.rs`, which
+        // subtracts `log10(h)` off the internal Msun/h sampling mass
+        // before storing it on the track). `mpeak_to_vmax`, by contrast,
+        // expects `Msun/h` (its NFW conversion runs through
+        // `Cosmology::rho_crit`, which is in `Msun h^2 / kpc^3`, and
+        // `DuttonMaccio14`'s concentration fit pivots on `1e12 h^-1
+        // Msun` — matching every other call site of `m_to_r` in this
+        // codebase). Converting back to `Msun/h` requires `+log10(h)`
+        // (`M_true = M_quoted / h` => `log_true = log_quoted - log_h` =>
+        // `log_quoted = log_true + log_h`). Omitting this silently
+        // biased every UM vMpeak high by ~0.052-0.053 dex.
+        let log_m_peak = ctx.own_track.log_mass[0] + ctx.cosmology.h().log10();
         let z_peak = ctx.own_track.z[0];
         mpeak_to_vmax(log_m_peak, z_peak, ctx.cosmology, self.cm.as_ref(), ctx.mass_definition).log10()
     }
@@ -512,7 +524,7 @@ mod tests {
     use rand::SeedableRng;
     use std::sync::Arc;
     use steel_core::accretion::AccretionContext;
-    use steel_core::cosmology::MassDefinition;
+    use steel_core::cosmology::{Cosmology, MassDefinition};
     use steel_core::halo_growth::GrowthTrack;
 
     fn model() -> UniverseMachineGrowth {
@@ -618,19 +630,78 @@ mod tests {
         let ctx = AccretionContext::central(&t, &c, MassDefinition::Vir);
         let log_v = m.log_vmpeak(&ctx);
 
-        let expected =
-            mpeak_to_vmax(t.log_mass[0], t.z[0], &c, &DuttonMaccio14, MassDefinition::Vir).log10();
+        // `own_track.log_mass` is h-free; `mpeak_to_vmax` expects
+        // `Msun/h` (Correction: log_vmpeak's h-conversion fix). The
+        // direct comparison must apply the same `+log10(h)` on the
+        // right-hand side, or it is comparing the fixed implementation
+        // against an old, wrong invocation.
+        let log_h = c.h().log10();
+        let expected = mpeak_to_vmax(t.log_mass[0] + log_h, t.z[0], &c, &DuttonMaccio14, MassDefinition::Vir)
+            .log10();
         assert!((log_v - expected).abs() < 1e-12, "log_v={log_v} expected={expected}");
 
         // The wrong alternative pairs the peak MASS with a LATER step's
         // redshift; mpeak_to_vmax's NFW conversion is z-dependent (via
         // rho_crit(z), delta_vir(z), and concentration(z)), so this must
         // give a materially different answer.
-        let wrong =
-            mpeak_to_vmax(t.log_mass[0], t.z[2], &c, &DuttonMaccio14, MassDefinition::Vir).log10();
+        let wrong = mpeak_to_vmax(t.log_mass[0] + log_h, t.z[2], &c, &DuttonMaccio14, MassDefinition::Vir)
+            .log10();
         assert!(
             (log_v - wrong).abs() > 1e-6,
             "log_vmpeak must depend on the peak epoch's z, not a later step's z"
+        );
+    }
+
+    /// Final-review fix: the full composed path
+    /// (`own_track -> log_vmpeak -> mpeak_to_vmax`), which no other test
+    /// exercised. Task 11's fixture-agreement tests
+    /// (`sfr_sf_grid.npy`/`quenched_fraction_grid.npy`) feed explicit
+    /// `log_v` grid values straight into `log_sfr_star_forming`/
+    /// `quenched_fraction`, bypassing `own_track` and `log_vmpeak`
+    /// entirely, so they could not have caught the missing `+log10(h)`
+    /// conversion between `own_track.log_mass` (h-free) and
+    /// `mpeak_to_vmax` (expects `Msun/h`). Uses a Milky-Way-mass halo
+    /// (`log_mh ~ 12.0`, h-free, matching `own_track`'s convention --
+    /// same as `track()` above), analogous to Task 6's
+    /// `vmax_is_physically_plausible_for_a_milky_way_halo` in
+    /// `harmonise.rs`.
+    #[test]
+    fn log_vmpeak_composed_path_gives_a_physically_plausible_milky_way_vmax() {
+        let m = model();
+        let c = Planck15::new();
+        let t = track(); // log_mass[0] = 12.0 [h-free Msun], z[0] = 0.0
+        let ctx = AccretionContext::central(&t, &c, MassDefinition::Vir);
+
+        let log_v = m.log_vmpeak(&ctx);
+        let v = 10f64.powf(log_v);
+
+        // A Milky-Way-mass halo should have Vmax of order 100-300 km/s
+        // (the same wide sanity bound harmonise.rs's
+        // vmax_is_physically_plausible_for_a_milky_way_halo test uses
+        // for mpeak_to_vmax directly) -- catches a unit error of either
+        // sign, not just this specific one.
+        assert!((100.0..300.0).contains(&v), "Vmax = {v} km/s for a MW-mass halo");
+
+        // Cross-check against an independently hand-derived expected
+        // value that explicitly encodes the +log10(h) correction, to
+        // prove this SPECIFIC fix is present in the composed path -- not
+        // just "some plausible-looking number".
+        let log_h = c.h().log10();
+        let expected_v =
+            mpeak_to_vmax(t.log_mass[0] + log_h, t.z[0], &c, &DuttonMaccio14, MassDefinition::Vir);
+        assert!((v - expected_v).abs() < 1e-9, "v={v} expected_v={expected_v}");
+
+        // And confirm the pre-fix (buggy) invocation -- feeding the
+        // h-free mass straight into mpeak_to_vmax with no h conversion
+        // -- would have given a measurably higher answer with
+        // approximately the reported ~0.05 dex bias, so this test
+        // actually discriminates the fix rather than passing either way.
+        let old_wrong_v = mpeak_to_vmax(t.log_mass[0], t.z[0], &c, &DuttonMaccio14, MassDefinition::Vir);
+        assert!(old_wrong_v > v, "pre-fix invocation should overestimate Vmax: old={old_wrong_v} fixed={v}");
+        let bias_dex = old_wrong_v.log10() - v.log10();
+        assert!(
+            (0.03..0.08).contains(&bias_dex),
+            "expected bias of omitting +log10(h) to be ~0.05 dex, got {bias_dex}"
         );
     }
 
