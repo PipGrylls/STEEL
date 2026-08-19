@@ -22,14 +22,15 @@
 //! same way `Simulation::run` does.
 
 use rand::SeedableRng;
-use steel_core::cosmology::Cosmology;
-use steel_core::halo_growth::HaloGrowthModel;
+use steel_core::accretion::AccretionContext;
+use steel_core::cosmology::{Cosmology, MassDefinition};
+use steel_core::halo_growth::{GrowthTrack, HaloGrowthModel};
 use steel_core::smhm::SmhmModel;
 use steel_plugins::{DoublePowerLawSfr, MosterFormSmhm, Planck15, VandenBosch14};
 use steel_postprocess::central_evolution::CentralEvolution;
 
-fn invert_smhm(smhm: &dyn SmhmModel, target_log_sm: f64, z: f64) -> f64 {
-    let f = |log_dm: f64| smhm.stellar_mass(log_dm, z, None) - target_log_sm;
+fn invert_smhm(smhm: &dyn SmhmModel, target_log_sm: f64, z: f64, ctx: &AccretionContext<'_>) -> f64 {
+    let f = |log_dm: f64| smhm.stellar_mass(log_dm, z, ctx, None) - target_log_sm;
     let (mut lo, mut hi) = (9.0_f64, 17.0_f64);
     for _ in 0..200 {
         let mid = 0.5 * (lo + hi);
@@ -66,7 +67,14 @@ fn main() {
     let growth = VandenBosch14::new(&cosmo);
     let log_h = cosmo.h().log10();
 
-    let log_dm_z0 = invert_smhm(&smhm, target_log_sm, 0.0);
+    // Every SMHM/SFR model this tool exercises is memoryless, so a
+    // single flat point is enough to satisfy the trait's context
+    // argument -- the real growth track built below is what actually
+    // drives the mass calculation.
+    let flat_track = GrowthTrack { z: vec![0.0], log_mass: vec![target_log_sm] };
+    let flat_ctx = AccretionContext::central(&flat_track, &cosmo, MassDefinition::Vir);
+
+    let log_dm_z0 = invert_smhm(&smhm, target_log_sm, 0.0, &flat_ctx);
     let track = growth.growth_history(log_dm_z0 + log_h, 0.0);
 
     // growth_history returns z increasing from z0; reverse to get time
@@ -83,7 +91,8 @@ fn main() {
     z.reverse();
     log_mh.reverse();
 
-    let log_sm_am: Vec<f64> = z.iter().zip(&log_mh).map(|(&zi, &lm)| smhm.stellar_mass(lm, zi, None)).collect();
+    let log_sm_am: Vec<f64> =
+        z.iter().zip(&log_mh).map(|(&zi, &lm)| smhm.stellar_mass(lm, zi, &flat_ctx, None)).collect();
 
     let t: Vec<f64> = z.iter().map(|&zi| cosmo.age(zi)).collect();
     let mut dt: Vec<f64> = t.windows(2).map(|w| w[1] - w[0]).collect();
@@ -100,7 +109,7 @@ fn main() {
         // quenches. (t_quench beyond the *last* age does the opposite:
         // it freezes SFR at its i==0 value for the whole track.)
         t[0] - 1.0,
-        false, &mut rng,
+        false, &flat_ctx, &mut rng,
     );
 
     println!("z,log_mh,log_sm_am,log_sm_insitu");

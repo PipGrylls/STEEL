@@ -4,7 +4,12 @@
 //! which is a non-accelerated sibling used only for other bookkeeping
 //! and disagrees with the Cython on the Schreiber-form clamp direction;
 //! see `SchreiberFormSfr`'s doc comment).
+//!
+//! Memoryless in the accretion history: `_ctx` is ignored by design, not omission.
 
+use steel_core::accretion::AccretionContext;
+use steel_core::compat::{Capability, CosmologyTag, DescribedPlugin, HConvention, Imf, PluginDescriptor};
+use steel_core::cosmology::MassDefinition;
 use steel_core::sfr::SfrModel;
 
 /// `s0 - log10(1 + (10^(SM - logM0))^Gamma)`, with `s0`, `logM0`, and
@@ -44,11 +49,24 @@ impl TomczakFormSfr {
 }
 
 impl SfrModel for TomczakFormSfr {
-    fn log_sfr(&self, log_sm: f64, z: f64) -> f64 {
+    fn log_sfr(&self, log_sm: f64, z: f64, _ctx: &AccretionContext<'_>) -> f64 {
         let s0 = Self::poly(self.s0, z);
         let log_m0 = Self::poly(self.log_m0, z);
         let gamma = -Self::poly(self.gamma, z);
         s0 - (1.0 + 10f64.powf((log_sm - log_m0) * gamma)).log10()
+    }
+}
+
+impl DescribedPlugin for TomczakFormSfr {
+    fn descriptor(&self) -> PluginDescriptor {
+        PluginDescriptor {
+            id: "tomczak_form",
+            imf: Imf::Chabrier,
+            mass_definition: MassDefinition::Vir,
+            h_convention: HConvention::PerH,
+            calibrated_cosmology: Some(CosmologyTag::Planck15),
+            provides: &[Capability::StarFormationRate],
+        }
     }
 }
 
@@ -101,11 +119,24 @@ impl SchreiberFormSfr {
 }
 
 impl SfrModel for SchreiberFormSfr {
-    fn log_sfr(&self, log_sm: f64, z: f64) -> f64 {
+    fn log_sfr(&self, log_sm: f64, z: f64, _ctx: &AccretionContext<'_>) -> f64 {
         let m = log_sm - 9.0;
         let r = (1.0 + z).log10();
         let max_term = (m - self.m1 - self.a2 * r).max(0.0);
         m - self.m0 + self.a0 * r - self.a1 * max_term * max_term
+    }
+}
+
+impl DescribedPlugin for SchreiberFormSfr {
+    fn descriptor(&self) -> PluginDescriptor {
+        PluginDescriptor {
+            id: "schreiber_form",
+            imf: Imf::Chabrier,
+            mass_definition: MassDefinition::Vir,
+            h_convention: HConvention::PerH,
+            calibrated_cosmology: Some(CosmologyTag::Planck15),
+            provides: &[Capability::StarFormationRate],
+        }
     }
 }
 
@@ -173,7 +204,7 @@ impl DoublePowerLawSfr {
 }
 
 impl SfrModel for DoublePowerLawSfr {
-    fn log_sfr(&self, log_sm: f64, z: f64) -> f64 {
+    fn log_sfr(&self, log_sm: f64, z: f64, _ctx: &AccretionContext<'_>) -> f64 {
         let log_m_n = Self::poly(self.log_m_n, z);
         let norm = 10f64.powf(Self::poly(self.norm, z));
         let alpha = Self::poly(self.alpha, z);
@@ -184,15 +215,38 @@ impl SfrModel for DoublePowerLawSfr {
     }
 }
 
+// Not one of the five plugins the composition-validator task named, but
+// `build_sfr` (`steel-cli::registry`) reaches this type through the
+// `double_power_law` runfile key exactly like the other two SFR forms
+// (see `runfiles/published/p2-dpl-*.toml`), and every `build_sfr` arm
+// must produce a descriptor once the registry validates the composed
+// plugin set. Same conventions as `TomczakFormSfr`/`SchreiberFormSfr`:
+// Chabrier IMF, STEEL's virial/`Msun/h` convention, Planck15.
+impl DescribedPlugin for DoublePowerLawSfr {
+    fn descriptor(&self) -> PluginDescriptor {
+        PluginDescriptor {
+            id: "double_power_law",
+            imf: Imf::Chabrier,
+            mass_definition: MassDefinition::Vir,
+            h_convention: HConvention::PerH,
+            calibrated_cosmology: Some(CosmologyTag::Planck15),
+            provides: &[Capability::StarFormationRate],
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::flat_ctx;
 
     #[test]
     fn ce_is_monotonically_increasing_below_the_turnover() {
+        let (track, cosmo) = flat_ctx();
+        let ctx = AccretionContext::central(&track, &cosmo, MassDefinition::Vir);
         let sfr = TomczakFormSfr::ce();
-        let s1 = sfr.log_sfr(9.0, 0.1);
-        let s2 = sfr.log_sfr(10.0, 0.1);
+        let s1 = sfr.log_sfr(9.0, 0.1, &ctx);
+        let s2 = sfr.log_sfr(10.0, 0.1, &ctx);
         assert!(s2 > s1, "{s1} {s2}");
     }
 
@@ -202,6 +256,8 @@ mod tests {
         // quadratic term switches ON above the mass threshold and OFF
         // below it. `Functions_c.pyx` has this backwards; this pins the
         // published direction so the correction cannot silently revert.
+        let (track, cosmo) = flat_ctx();
+        let ctx = AccretionContext::central(&track, &cosmo, MassDefinition::Vir);
         let sfr = SchreiberFormSfr::s15();
         let z: f64 = 0.01;
         let r = (1.0 + z).log10();
@@ -211,7 +267,7 @@ mod tests {
         let low = 9.2;
         assert!(low - 9.0 - 0.36 - 2.5 * r < 0.0, "test setup: low mass should be below the knee");
         assert!(
-            (sfr.log_sfr(low, z) - linear(low)).abs() < 1e-9,
+            (sfr.log_sfr(low, z, &ctx) - linear(low)).abs() < 1e-9,
             "below the knee the main sequence must be linear"
         );
 
@@ -220,21 +276,23 @@ mod tests {
         let max_term = high - 9.0 - 0.36 - 2.5 * r;
         assert!(max_term > 0.0, "test setup: high mass should be above the knee");
         let expected = linear(high) - 0.3 * max_term * max_term;
-        assert!((sfr.log_sfr(high, z) - expected).abs() < 1e-9);
+        assert!((sfr.log_sfr(high, z, &ctx) - expected).abs() < 1e-9);
         assert!(
-            sfr.log_sfr(high, z) < linear(high) - 0.5,
+            sfr.log_sfr(high, z, &ctx) < linear(high) - 0.5,
             "the high-mass bend should be a large suppression, got {} vs linear {}",
-            sfr.log_sfr(high, z),
+            sfr.log_sfr(high, z, &ctx),
             linear(high)
         );
     }
 
     #[test]
     fn double_power_law_peaks_near_the_knee_mass() {
+        let (track, cosmo) = flat_ctx();
+        let ctx = AccretionContext::central(&track, &cosmo, MassDefinition::Vir);
         for sfr in [DoublePowerLawSfr::satellite(), DoublePowerLawSfr::central()] {
-            let s_low = sfr.log_sfr(9.0, 1.0);
-            let s_knee = sfr.log_sfr(10.7, 1.0);
-            let s_high = sfr.log_sfr(12.5, 1.0);
+            let s_low = sfr.log_sfr(9.0, 1.0, &ctx);
+            let s_knee = sfr.log_sfr(10.7, 1.0, &ctx);
+            let s_high = sfr.log_sfr(12.5, 1.0, &ctx);
             assert!(s_knee > s_low, "{s_knee} vs {s_low}");
             assert!(s_knee > s_high, "{s_knee} vs {s_high}");
         }
@@ -246,13 +304,15 @@ mod tests {
         // `PipGrylls` (the branch the papers were run from). Collapsing
         // them back into one struct would silently undo the rebaseline,
         // so pin the divergence.
+        let (track, cosmo) = flat_ctx();
+        let ctx = AccretionContext::central(&track, &cosmo, MassDefinition::Vir);
         let sat = DoublePowerLawSfr::satellite();
         let cen = DoublePowerLawSfr::central();
 
         // Nowhere on the grid STEEL actually samples do the two agree.
         for &z in &[0.0, 0.5, 1.0, 2.0, 3.0] {
             for &m in &[9.0, 10.0, 11.0, 11.5, 12.0] {
-                let d = cen.log_sfr(m, z) - sat.log_sfr(m, z);
+                let d = cen.log_sfr(m, z, &ctx) - sat.log_sfr(m, z, &ctx);
                 assert!(d.abs() > 1e-3, "satellite and central agree to {d} at z={z}, log M*={m}");
             }
         }
@@ -261,7 +321,7 @@ mod tests {
         // it is largest at the massive, high-redshift corner where the
         // two beta polynomials diverge most (`-0.7z - 0.035z^2` against
         // `-1.0z + 0.1z^2`).
-        let widest = cen.log_sfr(12.0, 3.0) - sat.log_sfr(12.0, 3.0);
+        let widest = cen.log_sfr(12.0, 3.0, &ctx) - sat.log_sfr(12.0, 3.0, &ctx);
         assert!((-0.24..-0.21).contains(&widest), "widest gap = {widest}");
     }
 
@@ -270,6 +330,8 @@ mod tests {
         // `master`'s coefficients (identical in both Cython branches
         // there) are not what Papers 2 and 3 were run with. Pin the
         // difference so a revert cannot pass silently.
+        let (track, cosmo) = flat_ctx();
+        let ctx = AccretionContext::central(&track, &cosmo, MassDefinition::Vir);
         let sat = DoublePowerLawSfr::satellite();
         let master = DoublePowerLawSfr {
             log_m_n: [10.7, 0.34, -0.079],
@@ -281,8 +343,8 @@ mod tests {
         // the massive end where the beta difference is unambiguous:
         // at z = 0, log M* = 12 the PipGrylls main sequence sits ~0.37
         // dex *below* master's, and at z = 3 ~0.76 dex above.
-        let low_z = sat.log_sfr(12.0, 0.0) - master.log_sfr(12.0, 0.0);
-        let high_z = sat.log_sfr(12.0, 3.0) - master.log_sfr(12.0, 3.0);
+        let low_z = sat.log_sfr(12.0, 0.0, &ctx) - master.log_sfr(12.0, 0.0, &ctx);
+        let high_z = sat.log_sfr(12.0, 3.0, &ctx) - master.log_sfr(12.0, 3.0, &ctx);
         assert!((-0.38..-0.36).contains(&low_z), "z=0 gap = {low_z}");
         assert!((0.75..0.78).contains(&high_z), "z=3 gap = {high_z}");
     }

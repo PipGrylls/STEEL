@@ -9,8 +9,10 @@
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 
+use steel_core::accretion::AccretionContext;
 use steel_core::baryonic::{BaryonicPipeline, SatelliteState, Timeline};
-use steel_core::cosmology::Cosmology;
+use steel_core::cosmology::{Cosmology, MassDefinition};
+use steel_core::halo_growth::GrowthTrack;
 use steel_plugins::{Cattaneo11, Planck15, StewartScaling, TomczakFormSfr, Wetzel13};
 
 fn main() {
@@ -56,10 +58,21 @@ fn main() {
         Box::new(Cattaneo11),
     );
 
+    // `BaryonicPipeline::evolve`/`SfrModel::log_sfr` take an
+    // `AccretionContext`, but `TomczakFormSfr` is memoryless and ignores
+    // it, so a single flat point satisfies the trait argument.
+    let flat_track = GrowthTrack { z: vec![0.0], log_mass: vec![13.0] };
+    let ctx = AccretionContext::central(&flat_track, &cosmo, MassDefinition::Vir);
+
     // With scatter off the gas ceiling is the relation's mean, so both
     // sides can compute it independently and still agree -- no need to
     // (impossibly) sync RNG streams across languages.
-    let sfr_at_infall = steel_core::sfr::SfrModel::log_sfr(&TomczakFormSfr::ce(), galaxy.log_sm_infall, galaxy.z_infall);
+    let sfr_at_infall = steel_core::sfr::SfrModel::log_sfr(
+        &TomczakFormSfr::ce(),
+        galaxy.log_sm_infall,
+        galaxy.z_infall,
+        &ctx,
+    );
     let max_gas = steel_core::gas::GasMassModel::gas_mass(
         &StewartScaling::from_cosmology(&cosmo),
         sfr_at_infall,
@@ -71,7 +84,7 @@ fn main() {
 
     for (label, stripping) in [("unstripped", false), ("stripped", true)] {
         let mut rng = StdRng::seed_from_u64(1);
-        let history = pipeline.evolve(&galaxy, &timeline, stripping, false, &mut rng);
+        let history = pipeline.evolve(&galaxy, &timeline, stripping, false, &ctx, &mut rng);
         println!("# log_sm ({label}, noiseless)");
         for v in &history.log_sm {
             println!("{v:.10}");

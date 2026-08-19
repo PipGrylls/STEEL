@@ -4,7 +4,11 @@
 
 use rand::RngCore;
 
+use steel_core::accretion::AccretionContext;
+use steel_core::cosmology::MassDefinition;
+use steel_core::halo_growth::GrowthTrack;
 use steel_core::smhm::SmhmModel;
+use steel_plugins::Planck15;
 
 fn histogram_bin_index(x: f64, min: f64, bin_width: f64, n_bins: usize) -> Option<usize> {
     if x < min {
@@ -54,11 +58,20 @@ pub fn dm_to_sm(
     // bin below `smf_x[0]` (the Python's `- 0.05`).
     let hist_min = smf_x[0] - smf_bin / 2.0;
 
+    // The SMF fit evaluates the mean relation (with scatter) at each
+    // halo mass independently; no accretion history is involved. Every
+    // `SmhmModel` this function is called with today is memoryless, so
+    // the concrete cosmology and the single-point track below are never
+    // actually dereferenced -- they exist only to satisfy the trait.
+    let cosmology = Planck15::new();
+
     for (&log_m_h, &n_h) in halo_mr.iter().zip(hmf) {
         let dm = log_m_h - h.log10();
         let weight_per_draw = n_h * h3 * hmf_bin / n_mc as f64;
+        let track = GrowthTrack { z: vec![z], log_mass: vec![dm] };
+        let ctx = AccretionContext::central(&track, &cosmology, MassDefinition::Vir);
         for _ in 0..n_mc {
-            let sm = smhm.stellar_mass(dm, z, Some(rng));
+            let sm = smhm.stellar_mass(dm, z, &ctx, Some(rng));
             if let Some(bin) = histogram_bin_index(sm, hist_min, smf_bin, smf_x.len()) {
                 smf_y[bin] += weight_per_draw;
             }

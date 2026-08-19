@@ -1,0 +1,277 @@
+# Provenance for the committed UM-SAGA reference grids.
+# Everything needed to regenerate them from scratch.
+#
+# Both grids are a direct, literal evaluation of upstream UM-SAGA's own
+# compiled calc_sf_model() (src/sf_model.c) plus two small formulas
+# (sfr_at_vmp() and the combined star-forming/low-mass quenched-fraction
+# expression) transcribed verbatim from real, un-conflicted source lines
+# at the pinned commit -- not a reimplementation from a paper or a guess.
+# See [formula] and [method] below before trusting this fixture for
+# anything beyond what it actually is; in particular, note the upstream
+# repository's own checked-in Makefile and make_sf_catalog.c contain real,
+# unresolved git merge-conflict markers at this exact pinned commit (see
+# [build_notes]) -- this is an upstream defect, not something introduced
+# here, and it is why the full `make_sf_catalog` binary could not be
+# built end-to-end.
+
+[upstream]
+repo = "https://bitbucket.org/RW-Stanford/universemachine-saga.git"
+ref = "saga"
+commit = "6aff8d792e81bf6049058e3e1bc6f2cfa616b525"
+build_command = "make util CC='cc -I SHIMDIR' where SHIMDIR/malloc.h contains only #include stdlib.h (macOS has no top-level malloc.h; this changes no semantics, matching Task 8's GSL_INCL-style portability flag). The upstream Makefile at this exact pinned commit has two literal unresolved git merge-conflict blocks (GSL_FLAGS, lines 18-22) that were hand-resolved in the scratchpad clone only (never committed) by keeping the non-conflicting flags and pointing GSL at this machine's Homebrew install (-L/opt/homebrew/lib -I/opt/homebrew/include); both conflict sides were byte-identical except for SLAC/SDF-cluster-specific extra GSL search paths that do not exist on this machine, so no model-affecting choice was made. make all (the make_sf_catalog/reg target) fails to compile: make_sf_catalog.c itself has real, unresolved git merge-conflict markers in its body (lines 930, 936, 968, 984, 1248 at this pinned commit) that are NOT path-only and were NOT hand-resolved (resolving them would require guessing upstream's intent inside real logic, which is out of scope and risky) -- see build_notes below. make util builds successfully up to (and including) gen_total_csfr, gen_total_uvlf, extract_smhm_params, gen_plot_data, extract_slopes and others; it fails only when it reaches sample_corr_sm.c, which includes the same broken make_sf_catalog.c. The already-built gen_total_csfr binary (Mach-O 64-bit arm64, ran successfully, confirms sf_model.c/sf_model.h compile and link cleanly) was used as an executable sanity check of the base (DR1-inherited) SFR formula; see method section below."
+run_command = "A scratchpad-only driver (um_fixture_driver.c, not committed) was compiled with: cc -I. -I SHIMDIR -std=c99 -O2 um_fixture_driver.c sf_model.c -lm -o um_fixture_driver -- i.e. linked directly against the pinned commit's real, unmodified, compiling sf_model.c (calc_sf_model()) -- and run as ./um_fixture_driver scripts/bestfit_var15_fin.dat (the real upstream best-fit parameter file, read in NUM_PARAMS+1=53 double format exactly as gen_total_csfr.c's own main() reads it via stringparse). The driver calls calc_sf_model(m, a=1/(1+z)) once per (log_vmpeak,z) grid point, then evaluates sfr_at_vmp() and the combined f_Q formula transcribed verbatim from real source lines (see formula section below); output was piped to CSV and packed into the two .npy files with numpy."
+parameter_file = "scripts/bestfit_var15_fin.dat (the real, committed UM-SAGA var15 'final' MCMC best-fit vector; 52 model parameters + chi2, chi2=402.707); cross-referenced against fit_var15_fin.py, which documents the exact same 53-length vector split into fixed blocks PA/PB/PC/PD (37 parameters held fixed during the MCMC) and the 15 explored/free parameters at indices [8:12, 22:26, 44, 46:52] -- see [free_parameter_indices]"
+
+[cosmology]
+name = "Planck15"
+h = 0.6774
+omega_m0 = 0.3089
+omega_b0 = 0.0486
+omega_de0 = 0.6911
+# NOT used anywhere in the SFR(vMpeak,z) or f_Q(vMpeak,z) formulas
+# evaluated for this fixture (calc_sf_model/sfr_at_vmp/the fq expression
+# are pure functions of log10(vMpeak) and z; no cosmological parameter
+# ever enters them). Recorded here only for cross-fixture consistency
+# with the EMERGE fixture's [cosmology] block (rust/steel-plugins/tests/fixtures/emerge/provenance.toml),
+# per the task brief's template. Note upstream's OWN fit used a
+# different, real cosmology for the N-body box the best-fit parameters
+# were calibrated against: scripts/um_fit_var15_fin.cfg states
+# Om=0.286, Ol=0.714, h0=0.7, fb=0.158 for its "c125-2048" simulation
+# box (not Bolshoi-Planck's Om=0.307, h0=0.68, the box the base UM DR1
+# README.pdf:1053-1057 recommends). Neither box cosmology is Planck15
+# exactly; this discrepancy does not affect the fixture values because,
+# as stated, cosmology is not an input to the evaluated formulas.
+
+[free_parameter_indices]
+# From fit_var15_fin.py (real, committed): the 53-length parameter
+# vector (52 model params + chi2) is split as
+# PA(8) + x[0:4] + PB(10) + x[4:8] + PC(18) + [x[8]] + PD(1) + x[9:15],
+# where PA/PB/PC/PD are FIXED blocks (37 parameters, held at UM DR1
+# posterior-sampled priors) and x is the 15-parameter vector explored by
+# COBYLA in the SAGA extension fit. Concatenating block lengths
+# (8,4,10,4,18,1,1,6) against sf_model.h's index macros identifies the
+# 15 explored/free indices exactly as [8,9,10,11, 22,23,24,25, 44,
+# 46,47,48,49,50,51] -- i.e. the ALPHA family, the R_CENTER/R_WIDTH/R_MIN
+# family, ORPHAN_THRESH_V1, and the six new Q_LVMP_low/Q_SIG_low_LVMP
+# terms. This matches README.pdf section 2.3's prose description of "a
+# subset of nine parameters from UM DR1 ... [plus] a set of six new
+# parameters" exactly (9 = 4+4+1, 6 = 3+3).
+indices = [8, 9, 10, 11, 22, 23, 24, 25, 44, 46, 47, 48, 49, 50, 51]
+
+[um_dr1_inherited_parameters]
+# The 9 explored parameters inherited from UM DR1 (README.pdf section
+# 2.3). Values read verbatim from scripts/bestfit_var15_fin.dat by
+# 0-based index; macro/index citations from sf_model.h.
+#
+# alpha_0/alpha_a/alpha_la/alpha_z: "the z=0 intercept and three redshift
+# evolution coefficients of the low-mass end power-law slope of the
+# SFR(vmax) relation" (README.pdf:317-318). calc_sf_model()
+# (sf_model.c:92) computes c.alpha = ALPHA + flow20*ALPHA_A +
+# fhigh20*ALPHA_A2 + ALPHA_A3*fmid20. Substituting flow20=-(a-1),
+# fhigh20=z+(a-1), fmid20=-ln(a)+(a-1) (algebraic identities from
+# sf_model.c:79-85's own definitions; verified exactly, not
+# approximately) shows the coefficient of the *pure* z basis is exactly
+# ALPHA_A2, and the coefficient of the pure ln(a) ("la") basis is
+# exactly ALPHA_A3, independent of the (a-1) admixture that all three
+# terms share. This resolves the alpha_z-vs-alpha_la ordering ambiguity
+# in the task brief's Step 3 template (which lists "alpha_0, alpha_a,
+# alpha_la, alpha_z") and is independently corroborated by the
+# design-time "unreliable automated summary" values passed into this
+# task (alpha_0=-6.14, alpha_a=-3.93, alpha_z=-0.54, alpha_la=6.37),
+# which numerically match ALPHA/ALPHA_A/ALPHA_A2/ALPHA_A3 respectively
+# to within the vague precision expected of an unverified transcription.
+alpha_0  = -6.16624844    # ALPHA,     bestfit_var15_fin.dat[8],  sf_model.h:70
+alpha_a  = -3.97921077    # ALPHA_A,   bestfit_var15_fin.dat[9],  sf_model.h:71
+alpha_z  = -0.571438200   # ALPHA_A2,  bestfit_var15_fin.dat[10], sf_model.h:72  (exact z-coefficient; see note above)
+alpha_la =  6.60432668    # ALPHA_A3,  bestfit_var15_fin.dat[11], sf_model.h:73  (exact ln(a)-coefficient; see note above)
+
+# "Halo-assembly and star formation rate rank correlation r_c ... the
+# minimum correlation r_min, the z=0 intercept V_R,0 and redshift
+# evolution coefficient V_R,a of the vmax scale that r_c==(1+r_min)/2,
+# and the scale parameter of the error function r_width" (README.pdf:
+# 322-327). calc_sf_model() (sf_model.c:110): c.r_cen = R_CENTER +
+# R_CENTER_A*flow (flow = 1-a, UNcapped, unlike the *_20 variants used
+# for alpha/beta/gamma/epsilon); c.r_width = R_WIDTH; c.r_min = R_MIN.
+r_min    =  0.464005834   # R_MIN,     bestfit_var15_fin.dat[25], sf_model.h:89
+r_width  =  0.240743627   # R_WIDTH,   bestfit_var15_fin.dat[24], sf_model.h:88
+v_r_0    =  2.32425410    # R_CENTER,  bestfit_var15_fin.dat[22], sf_model.h:86
+v_r_a    = -6.10531145    # R_CENTER_A,bestfit_var15_fin.dat[23], sf_model.h:87
+
+# "T_merge,300: the ratio of vmax(z_now)/vMpeak below which orphans are
+# no longer tracked; the sub '300' represents the host halo vMpeak scale
+# of 300 km/s (roughly Milky-Way mass scale) for the orphan galaxy."
+# (README.pdf:329-332). This is ORPHAN_THRESH_V1 (sf_model.h:112),
+# consumed as exactly this ratio in sample_dens_sm.c:188 and
+# sample_corr_sm.c:250 ("halos[i].v is less than orphan_thresh*halos[i].vmp").
+# NOTE: this parameter plays NO role in either committed grid (it never
+# appears in calc_sf_model()'s epsilon/alpha/beta/gamma/delta or in the
+# q_lvmp*/q_sig_lvmp* fields; it only gates orphan-subhalo disruption in
+# the clustering/correlation-function catalog tools), so its value is
+# recorded here for completeness only and does not affect
+# sfr_sf_grid.npy or quenched_fraction_grid.npy.
+t_merge_300 = 0.699186364 # ORPHAN_THRESH_V1, bestfit_var15_fin.dat[44], sf_model.h:112
+
+[um_saga_new_low_mass_quenching_parameters]
+# The 6 new parameters (README.pdf:343-352): "VQ2,0, VQ2,a, VQ2,z: the
+# z=0 intercept and two redshift evolution coefficients that determine
+# the halo vmax scale at which the low-mass f_Q reaches 50%" and
+# "sigma_VQ2,0, sigma_VQ2,a, sigma_VQ2,z: ... the scale parameter of the
+# error functional form." calc_sf_model() (sf_model.c:128-129):
+# c.q_lvmp_low = Q_LVMP_low + flow20*Q_LVMP_low_A + fhigh20*Q_LVMP_low_Z;
+# c.q_sig_lvmp_low = Q_SIG_low_LVMP + flow20*Q_SIG_low_LVMP_A + fmid20*Q_SIG_low_LVMP_Z.
+v_q2_0       =  1.65023184    # Q_LVMP_low,        bestfit_var15_fin.dat[46], sf_model.h:115
+v_q2_a       = -0.264936233   # Q_LVMP_low_A,      bestfit_var15_fin.dat[47], sf_model.h:116
+v_q2_z       = -0.754329105   # Q_LVMP_low_Z,      bestfit_var15_fin.dat[48], sf_model.h:117
+sigma_vq2_0  =  0.162369262   # Q_SIG_low_LVMP,    bestfit_var15_fin.dat[49], sf_model.h:118
+sigma_vq2_a  =  0.386523504   # Q_SIG_low_LVMP_A,  bestfit_var15_fin.dat[50], sf_model.h:119
+sigma_vq2_z  =  0.0807415281  # Q_SIG_low_LVMP_Z,  bestfit_var15_fin.dat[51], sf_model.h:120
+# (sf_model.c:63's own inline comment literally labels this last one
+# "//sVQ_2,la", i.e. upstream itself uses "la" and "z" as interchangeable
+# labels for this slot -- consistent with the ambiguity resolved above
+# for the alpha family.)
+
+[fixed_parameters_needed_to_evaluate_the_grids]
+# Held FIXED during the UM-SAGA MCMC (not among the 15 explored) but
+# REQUIRED to evaluate SFR(vMpeak,z) and f_Q(vMpeak,z) at all -- these
+# were flagged by the task controller as "never captured at all" during
+# design and are sourced here for the first time, same
+# bestfit_var15_fin.dat / sf_model.h citation discipline as above.
+#
+# log_sfr_norm (EFF_0 family): c.epsilon = 10^(EFF_0 + EFF_0_A*flow20 +
+# EFF_0_A2*fhigh20 + EFF_0_A3*fmid20)  [sf_model.c:90] -- the SFR
+# normalization, expressed in log10, hence the name.
+log_sfr_norm_0  =  0.219183863   # EFF_0,    bestfit_var15_fin.dat[0], sf_model.h:62
+log_sfr_norm_a  =  0.601031497   # EFF_0_A,  bestfit_var15_fin.dat[1], sf_model.h:63
+log_sfr_norm_z  = -0.767542291   # EFF_0_A2, bestfit_var15_fin.dat[2], sf_model.h:64
+log_sfr_norm_la =  5.21295141    # EFF_0_A3, bestfit_var15_fin.dat[3], sf_model.h:65
+
+# v_pivot (V_1 family): c.v_1 = V_1 + flow*V_1_A + fhigh*V_1_A2 +
+# V_1_A3*fmid  [sf_model.c:91] -- note this uses the UNcapped
+# flow/fhigh/fmid (no z=20 ceiling), unlike alpha/beta/gamma/epsilon.
+v_pivot_0  =  2.13901060   # V_1,    bestfit_var15_fin.dat[4], sf_model.h:66
+v_pivot_a  = -0.141230884  # V_1_A,  bestfit_var15_fin.dat[5], sf_model.h:67
+v_pivot_z  = -0.215809966  # V_1_A2, bestfit_var15_fin.dat[6], sf_model.h:68
+v_pivot_la =  1.56135690   # V_1_A3, bestfit_var15_fin.dat[7], sf_model.h:69
+
+# beta (high-mass branch of the double power law): c.beta = BETA +
+# flow20*BETA_A + fhigh20*BETA_A2  [sf_model.c:94]. Only 2 evolution
+# terms exist for beta (no 3rd/"la" term -- sf_model.c:94 never
+# references a fmid20*BETA_A3 term, and no such macro exists in
+# sf_model.h), unlike alpha/epsilon/v_1's 3-term evolution.
+beta_0 = -1.81310646   # BETA,    bestfit_var15_fin.dat[12], sf_model.h:74
+beta_a =  0.767409694  # BETA_A,  bestfit_var15_fin.dat[13], sf_model.h:75
+beta_z =  1.77222666   # BETA_A2, bestfit_var15_fin.dat[14], sf_model.h:76
+
+# delta and gamma (needed for the exp(-0.5*(vd/delta)^2) bump term):
+# c.delta = DELTA [sf_model.c:95]; c.gamma = 10^(GAMMA + flow20*GAMMA_A
+# + fhigh20*GAMMA_A2) [sf_model.c:96]. gamma also has only 2 evolution
+# terms, same pattern as beta.
+delta   =  0.0658936762  # DELTA,   bestfit_var15_fin.dat[15], sf_model.h:77
+gamma_0 = -1.91445849    # GAMMA,   bestfit_var15_fin.dat[16], sf_model.h:78
+gamma_a =  4.13279629    # GAMMA_A, bestfit_var15_fin.dat[17], sf_model.h:79
+gamma_z = -0.920527434   # GAMMA_A2,bestfit_var15_fin.dat[18], sf_model.h:80
+
+# v_q / sigma_vq (DR1 high-mass/mass-quenching term -- distinct from the
+# NEW v_q2/sigma_vq2 low-mass term above): c.q_lvmp = Q_LVMP +
+# flow20*Q_LVMP_A + fhigh20*Q_LVMP_Z; c.q_sig_lvmp = Q_SIG_LVMP +
+# flow20*Q_SIG_LVMP_A + fmid20*Q_SIG_LVMP_Z  [sf_model.c:124-125].
+v_q_0       =  2.23213145    # Q_LVMP,       bestfit_var15_fin.dat[27], sf_model.h:92
+v_q_a       =  0.138994602   # Q_LVMP_A,     bestfit_var15_fin.dat[28], sf_model.h:93
+v_q_z       =  0.107465062   # Q_LVMP_Z,     bestfit_var15_fin.dat[29], sf_model.h:94
+sigma_vq_0  =  0.270386706   # Q_SIG_LVMP,   bestfit_var15_fin.dat[30], sf_model.h:95
+sigma_vq_a  = -0.203837747   # Q_SIG_LVMP_A, bestfit_var15_fin.dat[31], sf_model.h:96
+sigma_vq_z  =  0.0542323029  # Q_SIG_LVMP_Z, bestfit_var15_fin.dat[32], sf_model.h:97
+
+# fq_min (quenched-fraction floor at low mass, before the new low-mass
+# quenching term is added back on top): c.fq_min = Q_MIN +
+# flow20*Q_MIN_A, clamped to >=0  [sf_model.c:121-122].
+q_min_0 = -1.08574167   # Q_MIN,   bestfit_var15_fin.dat[33], sf_model.h:98
+q_min_a =  0.721040181  # Q_MIN_A, bestfit_var15_fin.dat[34], sf_model.h:99
+
+[formula]
+# SFR(vMpeak,z), star-forming mode (sfr_sf_grid.npy). Verbatim from four
+# byte-identical, un-conflicted copies of the same function at this
+# pinned commit: gen_total_csfr.c:36-40, gen_colorplot_uncertainties.c:
+# 30-33, gen_total_uvlf.c:47-50, estimate_total_csfr.c:14-17.
+#   vd  = lv - v_1                      (lv = log10(vMpeak))
+#   SFR(lv) = epsilon * ( 1 / (10^(alpha*vd) + 10^(beta*vd))
+#                         + gamma * exp(-0.5*(vd/delta)^2) )
+# epsilon, v_1, alpha, beta, gamma, delta all come from calc_sf_model()
+# (sf_model.c:73-96) evaluated at the grid's z. sfr_sf_grid.npy stores
+# log10(SFR), in Msun/yr (SFR is used directly, unconverted, when
+# gen_total_csfr.c sums it against number density to report
+# "Total_CSFR(Msun/yr)" -- confirms no extra unit factor is needed).
+sfr_formula = "epsilon * (1/(10^(alpha*(lv-v_1)) + 10^(beta*(lv-v_1))) + gamma*exp(-0.5*((lv-v_1)/delta)^2))"
+
+# f_Q(vMpeak,z) (quenched_fraction_grid.npy). Verbatim from
+# make_sf_catalog.c:687 -- the ONLY place in the checked-out tree where
+# q_lvmp_low/q_sig_lvmp_low (the new SAGA low-mass quenching term) are
+# ever consumed:
+#   fq = fq_min + (1-fq_min)*Phi((lv-q_lvmp)/q_sig_lvmp)
+#              + (1-fq_min)*(1 - Phi((lv-q_lvmp_low)/q_sig_lvmp_low))
+# where cached_rank(x) (upstream's name for Phi) is proven equal to the
+# exact standard-normal CDF 0.5+0.5*erf(x/sqrt(2)) by its own generator
+# (make_sf_catalog.c:1295: "erf_cache[i] = 0.5+0.5*erf(x/M_SQRT2)") and
+# consumer (make_sf_catalog.c:1312-1318, linear interpolation of that
+# same table). This fixture uses the exact closed form rather than the
+# lookup-table approximation -- strictly more precise, not a different
+# formula. The result is clamped to [0,1] for this fixture (JUDGMENT
+# CALL, flagged): the additive combination of two independent sigmoids
+# has no a-priori upper bound below 1, and no explicit clamp is visible
+# at the point of use in make_sf_catalog.c:687 itself, but downstream
+# consumers (e.g. rank_to_sfr) assume fq in [0,1]; clamping matches the
+# only self-consistent reading of the code and is required by the task
+# brief's own um_quenched_fraction_is_a_fraction test. In practice, on
+# this fixture's grid the pre-clamp value never left [0,1] by more than
+# floating-point roundoff.
+fq_formula = "fq_min + (1-fq_min)*Phi((lv-q_lvmp)/q_sig_lvmp) + (1-fq_min)*(1-Phi((lv-q_lvmp_low)/q_sig_lvmp_low)), clamped to [0,1]"
+z_basis_note = "flow=1-a; fmid=ln(1+z)-flow; fhigh=z-flow; the *_20 variants cap z at 20 before computing flow/fmid/fhigh (sf_model.c:75-85). alpha/beta/gamma/epsilon/q_lvmp*/q_sig_lvmp* use the capped (*_20) basis; v_1/r_cen use the uncapped basis. All z values in this fixture's grid (max 6.0) are well below the z=20 ceiling, so this distinction does not affect the committed values, but matters for any future extension of the grid."
+
+[grid]
+log_vmpeak_min = 1.4
+log_vmpeak_max = 3.0
+log_vmpeak_step = 0.04
+n_velocity = 41
+redshifts = [0.1, 0.5, 1.0, 2.0, 4.0, 6.0]
+dtype = "float64"
+order = "C"
+axes = "[velocity, redshift]"
+
+[conventions]
+velocity_units = "km/s"
+# vMpeak's precise definition, resolved directly from upstream's own
+# merger-tree-building code (split_halo_trees_phase2.c), NOT a guess:
+# EXTRA_HALO_INFO (line 20) tracks a *separate* running-max-of-Vmax
+# pointer (vpeak_halo) DISTINCT from the running-max-of-Mvir pointer
+# (mpeak_halo, updated at lines 462-463: "if (h->mvir >
+# h->prog->mpeak_halo->mvir) h->mpeak_halo = h; else h->mpeak_halo =
+# h->prog->mpeak_halo;"). The catalog field actually named "vmp"
+# ("vMpeak") is assigned from mpeak_halo, NOT vpeak_halo:
+#   ch.vmp = h->mpeak_halo->vmax;   (line 736)
+#   ch.mp  = h->mpeak_halo->mvir;   (line 738)
+# i.e. vMpeak = Vmax evaluated AT the halo's peak-Mvir epoch, NOT the
+# historical maximum of Vmax over the halo's whole history (that
+# quantity exists too, as vpeak_halo->vmax, but is a different field
+# never used as "vmp" anywhere in the codebase). Task 11's Mpeak->Vmax
+# conversion must reproduce THIS definition: Vmax computed at the epoch
+# of peak halo mass, not the peak of Vmax's own history.
+vmpeak_definition = "vmax_at_mpeak"   # Vmax at the epoch of peak Mvir (NOT peak-over-history of Vmax); split_halo_trees_phase2.c:462-463,736,738
+halo_mass_definition = "vir"    # "mvir" throughout split_halo_trees_phase2.c (standard Rockstar/consistent-trees virial mass); no other mass definition appears anywhere near mpeak/vmp tracking
+h_convention = "h_free"         # vmax/vmp are stored and consumed in km/s with no 1/h or h factor applied anywhere in split_halo_trees_phase2.c or sf_model.c; the grid's log_vmpeak axis is likewise absolute, not h-scaled
+imf = "chabrier"                # README.pdf (this repo, section 7.1, p.20): "All files provided should ideally have the same assumptions employed: specifically, a Chabrier IMF, a Calzetti dust law, and the BC03 SPS model."
+
+[build_notes]
+# Real, upstream defects discovered and worked around at this exact
+# pinned commit (6aff8d79...), recorded for reproducibility and so a
+# future re-run isn't surprised by them:
+makefile_conflict = "Makefile lines 18-22 (GSL_FLAGS) contain literal, unresolved git merge-conflict markers (a run of seven angle-open characters followed by HEAD / a divider of seven equals characters / a run of seven angle-close characters followed by commit 401bece...) checked into the saga branch at this commit. Both sides are byte-identical except for SLAC/SDF-cluster-specific extra GSL search paths (/sdf/home/y/ycwang/GSL vs /fs/ddn/sdf/group/kipac/g/cosmo/ki21/ycwang/GSL) that exist on neither this machine nor, presumably, most machines outside SLAC. Resolved in the scratchpad clone only (never committed) to the non-conflicting flags plus this machine's real Homebrew GSL install path."
+make_sf_catalog_conflict = "make_sf_catalog.c has real, unresolved git merge-conflict markers inside function bodies at lines 930, 936, 968, 984, 1248 (three-way conflicts in one case, markers from two different merge commits: 401bece... and 8aa6ad3...). These are inside actual control-flow / logic (a tmp variable swap block, an included write_catalog.c, and other catalog-writing code), not path-only differences, so they were NOT hand-resolved -- doing so would require guessing upstream's intended merge resolution inside real physics/IO logic, which is out of scope for this task and was explicitly disallowed by the task's stop conditions (no fabricating/guessing). This is why the make / make all (reg) target and any make util target that pulls in make_sf_catalog.c (e.g. sample_corr_sm, sample_dens_sm, sample_conf_sm) do not build. All parameter and formula extraction for this fixture instead used files that compile cleanly at this commit (sf_model.c/h, gen_total_csfr.c, gen_total_uvlf.c, gen_colorplot_uncertainties.c, estimate_total_csfr.c) plus a direct, line-cited read of make_sf_catalog.c:687 (which sits well before the first conflict marker at line 930, and was verified by direct inspection to contain no conflict markers itself)."
+malloc_h = "make_sf_catalog.c and other files #include malloc.h, which does not exist on macOS/Darwin (malloc/free are declared via stdlib.h there). Worked around with a one-line scratchpad-only shim header (containing only #include stdlib.h) added to the include path via CC='cc -I SHIMDIR'; not a upstream defect, just a Linux-vs-macOS portability gap, and not committed."
+
+[files]
+sfr_sf_grid = "sfr_sf_grid.npy"
+quenched_fraction_grid = "quenched_fraction_grid.npy"
+
+[generated]
+date = "2026-08-18"
+by = "scripts/fixtures/build_um_fixture.sh (clone/SHA-check/locate-parameter-file/attempted build only) plus a scratchpad-only C driver (um_fixture_driver.c, linked against the pinned commit's real, compiling sf_model.c) and a scratchpad-only Python assembly script described in [upstream].run_command; those one-off tools are not committed, per the task brief"

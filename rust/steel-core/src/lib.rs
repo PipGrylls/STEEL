@@ -8,7 +8,9 @@
 //! chosen implementation of each into a [`context::Simulation`] from a
 //! TOML runfile.
 
+pub mod accretion;
 pub mod baryonic;
+pub mod compat;
 pub mod context;
 pub mod cosmology;
 pub mod gas;
@@ -20,9 +22,15 @@ pub mod quenching;
 pub mod sfr;
 pub mod shmf;
 pub mod smhm;
+pub mod stellar_growth;
 pub mod stripping;
 
+pub use accretion::AccretionContext;
 pub use baryonic::{BaryonicPipeline, EvolutionHistory, SatelliteState, Timeline};
+pub use compat::{
+    validate_composition, Capability, CosmologyTag, DescribedPlugin, HConvention, Imf, Incompatibility,
+    PluginDescriptor,
+};
 pub use context::{ModelContext, OutputSelection, RunConfig, RunOutput, Simulation};
 pub use cosmology::{Cosmology, MassDefinition};
 pub use gas::GasMassModel;
@@ -33,4 +41,5 @@ pub use quenching::{QuenchTimescales, QuenchingModel};
 pub use sfr::SfrModel;
 pub use shmf::SubhaloMassFunctionModel;
 pub use smhm::SmhmModel;
+pub use stellar_growth::{integrate_stellar_mass, StellarGrowthAsSmhm, StellarGrowthModel};
 pub use stripping::{HaloStrippingModel, HaloStrippingTrack, StellarStrippingModel};

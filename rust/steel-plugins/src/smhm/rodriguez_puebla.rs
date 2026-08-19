@@ -27,9 +27,14 @@
 //! `return SHMR_RP17(z, DM)` sits above the block that would have
 //! applied the log-normal draw. `stellar_mass` therefore ignores its
 //! `rng` argument; that is faithful to the source, not an omission.
+//!
+//! Memoryless in the accretion history: `_ctx` is ignored by design, not omission.
 
 use rand::RngCore;
 
+use steel_core::accretion::AccretionContext;
+use steel_core::compat::{Capability, CosmologyTag, DescribedPlugin, HConvention, Imf, PluginDescriptor};
+use steel_core::cosmology::MassDefinition;
 use steel_core::smhm::SmhmModel;
 
 /// `P(x, y, z) = y z - x z/(1+z)` — the redshift expansion shared by
@@ -89,22 +94,48 @@ impl RodriguezPuebla17 {
 }
 
 impl SmhmModel for RodriguezPuebla17 {
-    fn stellar_mass(&self, log_dm: f64, z: f64, _rng: Option<&mut dyn RngCore>) -> f64 {
+    fn stellar_mass(
+        &self,
+        log_dm: f64,
+        z: f64,
+        _ctx: &AccretionContext<'_>,
+        _rng: Option<&mut dyn RngCore>,
+    ) -> f64 {
         let (alpha, delta, gamma, log10_eps, log10_m1) = Self::coefficients(z);
         shmr_behroozi10(alpha, delta, gamma, log10_eps, log10_m1, log_dm)
+    }
+}
+
+impl DescribedPlugin for RodriguezPuebla17 {
+    fn descriptor(&self) -> PluginDescriptor {
+        PluginDescriptor {
+            id: "rodriguez_puebla_form",
+            imf: Imf::Chabrier,
+            mass_definition: MassDefinition::Vir,
+            h_convention: HConvention::PerH,
+            calibrated_cosmology: Some(CosmologyTag::Planck15),
+            // Returns the mean relation only; no scatter is applied, so
+            // `Scatter` is deliberately omitted, permitting another
+            // scatter source in the composition.
+            provides: &[Capability::StellarMass],
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::flat_ctx;
 
     #[test]
     fn is_monotonically_increasing_with_halo_mass() {
+        let (track, cosmo) = flat_ctx();
+        let ctx = AccretionContext::central(&track, &cosmo, MassDefinition::Vir);
         let model = RodriguezPuebla17;
         let masses: Vec<f64> = (110..=150).map(|i| i as f64 / 10.0).collect();
         for w in masses.windows(2) {
-            let (a, b) = (model.stellar_mass(w[0], 0.1, None), model.stellar_mass(w[1], 0.1, None));
+            let (a, b) =
+                (model.stellar_mass(w[0], 0.1, &ctx, None), model.stellar_mass(w[1], 0.1, &ctx, None));
             assert!(b > a, "SM({}) = {a} >= SM({}) = {b}", w[0], w[1]);
         }
     }
@@ -113,7 +144,9 @@ mod tests {
     fn lands_in_the_right_ballpark_at_the_knee() {
         // The RP17 relation should put a Milky-Way-scale halo at
         // roughly a Milky-Way-scale stellar mass.
-        let sm = RodriguezPuebla17.stellar_mass(12.0, 0.1, None);
+        let (track, cosmo) = flat_ctx();
+        let ctx = AccretionContext::central(&track, &cosmo, MassDefinition::Vir);
+        let sm = RodriguezPuebla17.stellar_mass(12.0, 0.1, &ctx, None);
         assert!((10.0..11.2).contains(&sm), "SM(1e12) = {sm}");
     }
 
@@ -128,9 +161,11 @@ mod tests {
 
     #[test]
     fn evolves_with_redshift() {
+        let (track, cosmo) = flat_ctx();
+        let ctx = AccretionContext::central(&track, &cosmo, MassDefinition::Vir);
         let model = RodriguezPuebla17;
-        let z0 = model.stellar_mass(12.0, 0.1, None);
-        let z2 = model.stellar_mass(12.0, 2.0, None);
+        let z0 = model.stellar_mass(12.0, 0.1, &ctx, None);
+        let z2 = model.stellar_mass(12.0, 2.0, &ctx, None);
         assert!((z0 - z2).abs() > 0.01, "z=0.1 {z0} vs z=2 {z2}");
     }
 
@@ -138,10 +173,12 @@ mod tests {
     fn ignores_the_rng_because_the_python_returns_before_applying_scatter() {
         use rand::rngs::StdRng;
         use rand::SeedableRng;
+        let (track, cosmo) = flat_ctx();
+        let ctx = AccretionContext::central(&track, &cosmo, MassDefinition::Vir);
         let model = RodriguezPuebla17;
         let mut rng = StdRng::seed_from_u64(7);
-        let scattered = model.stellar_mass(12.0, 0.1, Some(&mut rng));
-        let plain = model.stellar_mass(12.0, 0.1, None);
+        let scattered = model.stellar_mass(12.0, 0.1, &ctx, Some(&mut rng));
+        let plain = model.stellar_mass(12.0, 0.1, &ctx, None);
         assert_eq!(scattered, plain);
     }
 }

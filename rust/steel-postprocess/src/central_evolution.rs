@@ -16,6 +16,7 @@
 use rand::RngCore;
 use rand_distr::{Distribution, Normal};
 
+use steel_core::accretion::AccretionContext;
 use steel_core::sfr::SfrModel;
 
 const RECYCLING_C0: f64 = 0.05;
@@ -65,6 +66,7 @@ impl CentralEvolution {
         accretion_rate: &[f64],
         t_quench: f64,
         scatter_on: bool,
+        ctx: &AccretionContext<'_>,
         rng: &mut dyn RngCore,
     ) -> CentralHistory {
         let n = t.len();
@@ -81,7 +83,7 @@ impl CentralEvolution {
         let mut sfr = 0.0_f64;
         for i in 0..n {
             if t_quench < t[i] || i == 0 {
-                sfr = 10f64.powf(self.sfr.log_sfr(log_sm[i], z[i]));
+                sfr = 10f64.powf(self.sfr.log_sfr(log_sm[i], z[i], ctx));
             }
             if scatter_on {
                 sfr = 10f64.powf(sfr.log10() + normal.sample(rng));
@@ -114,7 +116,9 @@ mod tests {
     use super::*;
     use rand::rngs::StdRng;
     use rand::SeedableRng;
-    use steel_plugins::DoublePowerLawSfr;
+    use steel_core::cosmology::MassDefinition;
+    use steel_core::halo_growth::GrowthTrack;
+    use steel_plugins::{DoublePowerLawSfr, Planck15};
 
     fn toy_timeline() -> (Vec<f64>, Vec<f64>, Vec<f64>) {
         let z: Vec<f64> = (0..10).map(|i| 2.0 - i as f64 * 0.15).collect();
@@ -124,13 +128,22 @@ mod tests {
         (z, t, dt)
     }
 
+    /// Single-point track and a concrete cosmology: `CentralEvolution`
+    /// only forwards `ctx` to the SFR model, and every SFR model tested
+    /// here is memoryless, so the content is irrelevant.
+    fn flat_ctx() -> (GrowthTrack, Planck15) {
+        (GrowthTrack { z: vec![0.0], log_mass: vec![10.5] }, Planck15::new())
+    }
+
     #[test]
     fn mass_grows_with_zero_accretion_and_no_quenching() {
         let (z, t, dt) = toy_timeline();
         let accretion = vec![0.0; t.len()];
         let evo = CentralEvolution::new(Box::new(DoublePowerLawSfr::central()));
         let mut rng = StdRng::seed_from_u64(1);
-        let history = evo.evolve(10.5, &z, &t, &dt, &accretion, f64::INFINITY, false, &mut rng);
+        let (track, cosmo) = flat_ctx();
+        let ctx = AccretionContext::central(&track, &cosmo, MassDefinition::Vir);
+        let history = evo.evolve(10.5, &z, &t, &dt, &accretion, f64::INFINITY, false, &ctx, &mut rng);
 
         for w in history.log_sm.windows(2) {
             assert!(w[1] >= w[0] - 1e-9, "mass should not decrease with in-situ SF only: {:?}", w);
@@ -142,14 +155,16 @@ mod tests {
     fn positive_accretion_rate_increases_growth() {
         let (z, t, dt) = toy_timeline();
         let evo = CentralEvolution::new(Box::new(DoublePowerLawSfr::central()));
+        let (track, cosmo) = flat_ctx();
+        let ctx = AccretionContext::central(&track, &cosmo, MassDefinition::Vir);
 
         let zero_acc = vec![0.0; t.len()];
         let mut rng_a = StdRng::seed_from_u64(1);
-        let no_acc = evo.evolve(10.5, &z, &t, &dt, &zero_acc, f64::INFINITY, false, &mut rng_a);
+        let no_acc = evo.evolve(10.5, &z, &t, &dt, &zero_acc, f64::INFINITY, false, &ctx, &mut rng_a);
 
         let with_acc = vec![5.0; t.len()]; // Msun/yr, deliberately large
         let mut rng_b = StdRng::seed_from_u64(1);
-        let accreted = evo.evolve(10.5, &z, &t, &dt, &with_acc, f64::INFINITY, false, &mut rng_b);
+        let accreted = evo.evolve(10.5, &z, &t, &dt, &with_acc, f64::INFINITY, false, &ctx, &mut rng_b);
 
         assert!(*accreted.log_sm.last().unwrap() > *no_acc.log_sm.last().unwrap());
     }
@@ -162,9 +177,11 @@ mod tests {
         let accretion = vec![0.0; t.len()];
         let evo = CentralEvolution::new(Box::new(DoublePowerLawSfr::central()));
         let mut rng = StdRng::seed_from_u64(1);
+        let (track, cosmo) = flat_ctx();
+        let ctx = AccretionContext::central(&track, &cosmo, MassDefinition::Vir);
         // Quench immediately after the first step.
         let t_quench = t[0];
-        let history = evo.evolve(10.5, &z, &t, &dt, &accretion, t_quench, false, &mut rng);
+        let history = evo.evolve(10.5, &z, &t, &dt, &accretion, t_quench, false, &ctx, &mut rng);
         assert!(history.log_sm.iter().all(|v| v.is_finite()));
     }
 }
