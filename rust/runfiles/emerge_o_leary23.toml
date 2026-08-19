@@ -1,0 +1,47 @@
+# EMERGE (O'Leary et al. 2023) through STEEL's accretion machinery.
+# Base configuration copied from `steel-sf-stripping.toml`, the G19_SE
+# reference runfile Papers 2 and 3 are built on; only the stellar-mass
+# prescription differs, so any difference in output is attributable to
+# the model rather than the setup.
+#
+# No [smhm] section: EMERGE supplies Capability::StellarMass through
+# [stellar_growth], and having both would be rejected by the
+# composition validator as a duplicate supplier.
+
+[merger_time]
+dynamical_time_factor = 1.0
+redshift_correction = false
+
+[stellar_growth]
+model = "emerge"
+preset = "o_leary23"
+
+[gas]
+model = "stewart_scaling"
+
+[stripping]
+model = "cattaneo11"
+
+# [quenching] is omitted, defaulting to Wetzel13: EMERGE's reionization
+# gate suppresses early low-mass growth and is not a satellite quenching
+# prescription, so it is not double-counting to combine it with STEEL's
+# own quenching model -- docs/model-assumptions.md documents the two as
+# compatible, and the composition validator agrees (its h-convention
+# check treats a QuenchingModel's host-mass axis as a separate concern
+# from a StellarGrowthModel's own halo-mass axis).
+
+# No [sfr] section, and star_formation/stellar_stripping are both left
+# false (the [run] defaults): [stellar_growth] drives infall-time
+# stellar mass only -- it is not yet wired into STEEL's post-infall
+# satellite evolution (BaryonicPipeline), and every [sfr] model in this
+# codebase is calibrated with a PerH halo-mass-axis convention that does
+# not apply to EMERGE's own HFree halo-mass axis. See docs/VALIDATION.md
+# for the full explanation and docs/model-assumptions.md for the
+# assumptions this implies. build_simulation refuses any runfile that
+# sets star_formation/stellar_stripping without an [sfr] section, so
+# this is enforced, not merely assumed.
+
+[run]
+log_m_min = 11.0
+log_m_max = 16.6
+log_m_bin = 0.1

@@ -41,5 +41,5 @@ pub use quenching::{QuenchTimescales, QuenchingModel};
 pub use sfr::SfrModel;
 pub use shmf::SubhaloMassFunctionModel;
 pub use smhm::SmhmModel;
-pub use stellar_growth::{integrate_stellar_mass, StellarGrowthModel};
+pub use stellar_growth::{integrate_stellar_mass, StellarGrowthAsSmhm, StellarGrowthModel};
 pub use stripping::{HaloStrippingModel, HaloStrippingTrack, StellarStrippingModel};

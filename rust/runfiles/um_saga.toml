@@ -1,0 +1,50 @@
+# UniverseMachine UM-SAGA (Wang et al. 2024) through STEEL's accretion
+# machinery. Base configuration copied from `steel-sf-stripping.toml`,
+# the G19_SE reference runfile Papers 2 and 3 are built on.
+#
+# No [smhm] section: UniverseMachine supplies Capability::StellarMass
+# through [stellar_growth], and having both would be rejected by the
+# composition validator as a duplicate supplier.
+
+[merger_time]
+dynamical_time_factor = 1.0
+redshift_correction = false
+
+[stellar_growth]
+model = "universe_machine"
+preset = "um_saga"
+concentration = "dutton_maccio14"
+
+[gas]
+model = "stewart_scaling"
+
+[stripping]
+model = "cattaneo11"
+
+# [quenching] is set to "none" -- deliberately, not an omission. UM's
+# bimodal SFR PDF already contains quenching (it declares
+# Capability::Quenching itself), so adding STEEL's Wetzel13 on top would
+# quench every satellite twice. The composition validator rejects the
+# combination outright if [quenching] is left absent (which defaults to
+# Wetzel13) or set explicitly to "wetzel13": both are proven to fail in
+# Task 13's Step 2 rejection test. See docs/model-assumptions.md.
+[quenching]
+model = "none"
+
+# No [sfr] section, and star_formation/stellar_stripping are both left
+# false (the [run] defaults). This is not optional for UM the way it
+# is a defensible choice for EMERGE: UniverseMachine's rate genuinely
+# supplies Capability::StarFormationRate itself (its SFR PDF governs the
+# whole object, not just its pre-infall growth), so pairing it with a
+# second [sfr] model is a real duplicate the composition validator
+# correctly rejects -- not a false positive. [stellar_growth] drives
+# infall-time stellar mass only; STEEL's post-infall satellite evolution
+# (BaryonicPipeline) is not exercised for this run. See
+# docs/VALIDATION.md for the full explanation. build_simulation refuses
+# any runfile that sets star_formation/stellar_stripping without an
+# [sfr] section, so this is enforced, not merely assumed.
+
+[run]
+log_m_min = 11.0
+log_m_max = 16.6
+log_m_bin = 0.1

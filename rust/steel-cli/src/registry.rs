@@ -16,11 +16,11 @@ use steel_core::baryonic::BaryonicPipeline;
 use steel_core::compat::{validate_composition, CosmologyTag, DescribedPlugin, PluginDescriptor};
 use steel_core::context::{ModelContext, OutputSelection, RunConfig, Simulation};
 use steel_core::stellar_growth::StellarGrowthModel;
-use steel_core::{QuenchingModel, SfrModel, SmhmModel, StellarStrippingModel};
+use steel_core::{QuenchingModel, SfrModel, SmhmModel, StellarGrowthAsSmhm, StellarStrippingModel};
 use steel_io::runfile::RunFile;
 use steel_plugins::{
     BehrooziFormSmhm, Cattaneo11, ConcentrationMassRelation, Despali16, DoublePowerLawSfr,
-    DuttonMaccio14, EmergeGrowth, Jiang16, McCavanaBK08, MosterFormSmhm, Planck15,
+    DuttonMaccio14, EmergeGrowth, Jiang16, McCavanaBK08, MosterFormSmhm, NoQuenching, Planck15,
     RodriguezPuebla17, SchreiberFormSfr, StewartScaling, TomczakFormSfr, UniverseMachineGrowth,
     VandenBosch14, Wetzel13,
 };
@@ -97,9 +97,11 @@ fn build_smhm(cfg: &steel_io::runfile::SmhmConfig) -> Result<(Box<dyn SmhmModel>
 }
 
 /// Builds a rate-based `StellarGrowthModel`, the `[stellar_growth]`
-/// alternative to `[smhm]`. Not yet wired into `Simulation` itself (see
-/// the doc on `RunFile::stellar_growth`); exists today so its descriptor
-/// can be validated against the rest of a runfile's plugin set.
+/// alternative to `[smhm]`. `build_simulation` wraps the result in
+/// `steel_core::StellarGrowthAsSmhm` when `[smhm]` is absent, so this
+/// actually drives the run; when both sections are present it is still
+/// built here (discarded) purely so its descriptor takes part in
+/// `validate_composition`'s duplicate-`Capability::StellarMass` check.
 fn build_stellar_growth(
     cfg: &steel_io::runfile::StellarGrowthConfig,
 ) -> Result<(Box<dyn StellarGrowthModel>, PluginDescriptor)> {
@@ -158,6 +160,30 @@ fn build_sfr(cfg: &steel_io::runfile::SfrConfig) -> Result<(Box<dyn SfrModel>, P
     }
 }
 
+/// Stand-in `SfrModel` used only when `[sfr]` is absent from the
+/// runfile. `build_simulation` requires `[run].star_formation` and
+/// `[run].stellar_stripping` to both be `false` whenever `[sfr]` is
+/// absent (checked explicitly, not merely hoped for), so
+/// `BaryonicPipeline::evolve` -- the only place any `SfrModel` is ever
+/// called -- structurally never runs for such a runfile: `evolved =
+/// n_w > 0 && (config.star_formation || config.stellar_stripping)` in
+/// `steel_core::context::Simulation::run` is always `false`. This type
+/// only exists to satisfy `BaryonicPipeline::new`'s constructor, which
+/// takes a concrete `Box<dyn SfrModel>` unconditionally; it panics if
+/// ever actually called, so a future change that starts invoking it
+/// without also lifting the `[sfr]` requirement fails loudly rather
+/// than silently returning a wrong, always-zero SFR.
+struct UnreachableSfr;
+
+impl SfrModel for UnreachableSfr {
+    fn log_sfr(&self, _log_sm: f64, _z: f64, _ctx: &steel_core::accretion::AccretionContext<'_>) -> f64 {
+        unreachable!(
+            "UnreachableSfr::log_sfr called -- [sfr] was absent, so build_simulation should have \
+             refused a runfile with star_formation or stellar_stripping enabled"
+        )
+    }
+}
+
 fn build_gas(cfg: &steel_io::runfile::GasConfig, cosmology: &Planck15) -> Result<Box<dyn steel_core::GasMassModel>> {
     match cfg.model.as_str() {
         "stewart_scaling" => Ok(Box::new(StewartScaling::from_cosmology(cosmology))),
@@ -172,10 +198,27 @@ fn build_stripping(cfg: &steel_io::runfile::StrippingConfig) -> Result<Box<dyn S
     }
 }
 
-fn build_quenching() -> (Box<dyn QuenchingModel>, PluginDescriptor) {
-    let m = Wetzel13::new();
-    let descriptor = m.descriptor();
-    (Box::new(m), descriptor)
+/// `cfg = None` (the `[quenching]` section absent from the runfile) and
+/// `cfg = Some(model = "wetzel13")` are the same thing: `Wetzel13`,
+/// STEEL's own satellite quenching model and the default every runfile
+/// written before `[quenching]` existed already gets. `model = "none"`
+/// selects `NoQuenching` -- see its doc comment for why this exists.
+fn build_quenching(
+    cfg: Option<&steel_io::runfile::QuenchingConfig>,
+) -> Result<(Box<dyn QuenchingModel>, PluginDescriptor)> {
+    match cfg.map(|c| c.model.as_str()) {
+        None | Some("wetzel13") => {
+            let m = Wetzel13::new();
+            let descriptor = m.descriptor();
+            Ok((Box::new(m), descriptor))
+        }
+        Some("none") => {
+            let m = NoQuenching;
+            let descriptor = m.descriptor();
+            Ok((Box::new(m), descriptor))
+        }
+        Some(other) => Err(anyhow!("unknown quenching model: {other}")),
+    }
 }
 
 /// The Python identifier for an SMHM preset — the `AbnMtch` key that
@@ -212,6 +255,21 @@ pub fn smhm_legacy_name(cfg: &steel_io::runfile::SmhmConfig) -> &str {
     }
 }
 
+/// The output-directory name for a `[stellar_growth]`-driven run, the
+/// `StellarGrowthConfig` counterpart to [`smhm_legacy_name`]. There is
+/// no `STEEL.py`/`AbnMtch` precedent for EMERGE or UniverseMachine
+/// (they never ran through the Python), so this coins a new but
+/// analogous identifier (`EMERGE_o_leary23`, `UniverseMachine_um_saga`)
+/// rather than forcing one of the `AbnMtch` names to mean something it
+/// doesn't.
+pub fn stellar_growth_legacy_name(cfg: &steel_io::runfile::StellarGrowthConfig) -> String {
+    match cfg.model.as_str() {
+        "emerge" => format!("EMERGE_{}", cfg.preset),
+        "universe_machine" => format!("UniverseMachine_{}", cfg.preset),
+        other => format!("Unknown_{other}"),
+    }
+}
+
 /// The Python `SFR_Model` string for an SFR preset (`CE`, `G19_DPL`,
 /// ...), used for the same output-directory-compatibility reason as
 /// [`smhm_legacy_name`].
@@ -234,22 +292,65 @@ pub fn build_simulation(runfile: &RunFile) -> Result<(Simulation, RunConfig)> {
     // plugin exists to choose between.
     let run_cosmology_tag = CosmologyTag::Planck15;
 
-    let (smhm, smhm_descriptor) = build_smhm(&runfile.smhm)?;
-    let (sfr, sfr_descriptor) = build_sfr(&runfile.sfr)?;
+    let mut descriptors = Vec::new();
+    let sfr: Box<dyn SfrModel> = match &runfile.sfr {
+        Some(cfg) => {
+            let (m, d) = build_sfr(cfg)?;
+            descriptors.push(d);
+            m
+        }
+        None => {
+            if runfile.run.star_formation || runfile.run.stellar_stripping {
+                return Err(anyhow!(
+                    "runfile enables [run].star_formation or [run].stellar_stripping but has \
+                     no [sfr] section -- post-infall satellite evolution needs an SfrModel. \
+                     Either add [sfr], or set both to false (the [stellar_growth] runfiles ship \
+                     with today, since [stellar_growth] only drives infall-time stellar mass; \
+                     see docs/VALIDATION.md)."
+                ));
+            }
+            Box::new(UnreachableSfr)
+        }
+    };
     let gas = build_gas(&runfile.gas, &cosmology)?;
     let stripping = build_stripping(&runfile.stripping)?;
-    let (quenching, quenching_descriptor) = build_quenching();
+    let (quenching, quenching_descriptor) = build_quenching(runfile.quenching.as_ref())?;
+    descriptors.push(quenching_descriptor);
 
-    let mut descriptors = vec![smhm_descriptor, sfr_descriptor, quenching_descriptor];
-    // `[stellar_growth]` is not yet consumed by `Simulation` (see the
-    // doc on `RunFile::stellar_growth`), but its descriptor still needs
-    // to take part in composition validation: a runfile that sets both
-    // `[smhm]` and `[stellar_growth]` must be rejected as a duplicate
-    // `Capability::StellarMass`, not silently run with `[smhm]` alone.
-    if let Some(cfg) = &runfile.stellar_growth {
-        let (_stellar_growth, stellar_growth_descriptor) = build_stellar_growth(cfg)?;
-        descriptors.push(stellar_growth_descriptor);
+    // Exactly one of `[smhm]` / `[stellar_growth]` supplies
+    // `Capability::StellarMass`. Neither present is caught here
+    // (`validate_composition` only checks pairwise conflicts among
+    // descriptors that exist, so it has nothing to say about an
+    // *absent* capability); both present is caught by
+    // `validate_composition` below, once both descriptors are pushed.
+    if runfile.smhm.is_none() && runfile.stellar_growth.is_none() {
+        return Err(anyhow!(
+            "runfile must set exactly one of [smhm] or [stellar_growth] -- \
+             neither section is present, so nothing supplies a stellar mass"
+        ));
     }
+    // `StellarGrowthAsSmhm` (steel-core) integrates a rate-based model's
+    // `stellar_growth_rate` along the same `AccretionContext` the
+    // orchestrator already builds for `[smhm]`'s memoryless
+    // `stellar_mass`, so either section can drive
+    // `Simulation::smhm: Arc<dyn SmhmModel>` through one call site.
+    let smhm_from_config: Option<Arc<dyn SmhmModel>> = match &runfile.smhm {
+        Some(cfg) => {
+            let (m, d) = build_smhm(cfg)?;
+            descriptors.push(d);
+            Some(Arc::from(m))
+        }
+        None => None,
+    };
+    let smhm_from_stellar_growth: Option<Arc<dyn SmhmModel>> = match &runfile.stellar_growth {
+        Some(cfg) => {
+            let (m, d) = build_stellar_growth(cfg)?;
+            descriptors.push(d);
+            Some(Arc::new(StellarGrowthAsSmhm::new(m)))
+        }
+        None => None,
+    };
+
     if let Err(problems) = validate_composition(&descriptors, run_cosmology_tag) {
         let detail = problems.iter().map(|p| format!("  - {p}")).collect::<Vec<_>>().join("\n");
         return Err(anyhow!(
@@ -257,6 +358,14 @@ pub fn build_simulation(runfile: &RunFile) -> Result<(Simulation, RunConfig)> {
              See docs/model-assumptions.md for what each plugin assumes."
         ));
     }
+
+    // Validation just confirmed at most one of the two supplies
+    // `Capability::StellarMass` (both present would have failed as a
+    // `DuplicateCapability` above), and the emptiness check above ruled
+    // out neither being present, so exactly one of these is `Some`.
+    let smhm = smhm_from_config
+        .or(smhm_from_stellar_growth)
+        .expect("exactly one of [smhm]/[stellar_growth] checked present above");
 
     let halo_growth = Arc::new(VandenBosch14::new(&cosmology));
     let hmf = Arc::new(Despali16::new(&cosmology));
@@ -277,7 +386,7 @@ pub fn build_simulation(runfile: &RunFile) -> Result<(Simulation, RunConfig)> {
         shmf,
         merger_time,
         halo_stripping: None,
-        smhm: Arc::from(smhm),
+        smhm,
         baryonic,
     };
 

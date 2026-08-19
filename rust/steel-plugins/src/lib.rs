@@ -28,7 +28,7 @@ pub use halo_growth::VandenBosch14;
 pub use harmonise::{ConcentrationMassRelation, DuttonMaccio14, HConvention, Imf};
 pub use hmf::Despali16;
 pub use merger_time::McCavanaBK08;
-pub use quenching::Wetzel13;
+pub use quenching::{NoQuenching, Wetzel13};
 pub use sfr::{DoublePowerLawSfr, SchreiberFormSfr, TomczakFormSfr};
 pub use shmf::Jiang16;
 pub use smhm::{BehrooziFormSmhm, MosterFormSmhm, RodriguezPuebla17};

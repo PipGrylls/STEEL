@@ -16,6 +16,7 @@
 use rand::RngCore;
 
 use crate::accretion::AccretionContext;
+use crate::smhm::SmhmModel;
 
 pub trait StellarGrowthModel: Send + Sync {
     /// log10 dM*/dt \[Msun/yr\] for a halo of mass `log_mh` \[log10
@@ -32,6 +33,23 @@ pub trait StellarGrowthModel: Send + Sync {
         ctx: &AccretionContext<'_>,
         rng: Option<&mut dyn RngCore>,
     ) -> f64;
+}
+
+/// Lets a boxed trait object satisfy the same `M: StellarGrowthModel`
+/// bound a concrete model does -- needed so `StellarGrowthAsSmhm` can
+/// wrap `Box<dyn StellarGrowthModel>` (what `steel_cli::registry`
+/// actually has after selecting a model at runtime) without a second,
+/// object-specific adapter impl.
+impl StellarGrowthModel for Box<dyn StellarGrowthModel> {
+    fn stellar_growth_rate(
+        &self,
+        log_mh: f64,
+        z: f64,
+        ctx: &AccretionContext<'_>,
+        rng: Option<&mut dyn RngCore>,
+    ) -> f64 {
+        (**self).stellar_growth_rate(log_mh, z, ctx, rng)
+    }
 }
 
 /// Call `model.stellar_growth_rate`, reborrowing `rng` rather than
@@ -99,6 +117,43 @@ pub fn integrate_stellar_mass(
         f64::NEG_INFINITY
     } else {
         mass.log10()
+    }
+}
+
+/// Adapts a rate-based [`StellarGrowthModel`] to the memoryless
+/// [`SmhmModel`] interface by integrating its rate over the accretion
+/// history `ctx` already carries.
+///
+/// This is what lets `[stellar_growth]` (EMERGE, UniverseMachine) drive
+/// the same orchestrator loop `[smhm]` does
+/// (`steel_core::context::Simulation::run`'s single
+/// `self.smhm.stellar_mass(...)` call site): the loop always builds an
+/// `AccretionContext` whose `own_track` is the object's own halo-mass
+/// history evaluated to the redshift being queried, which is exactly
+/// what [`integrate_stellar_mass`] consumes. `log_dm` is intentionally
+/// unused -- the rate integrator reads the halo mass history from
+/// `ctx.own_track` rather than from a single scalar, and that track is
+/// already consistent with `log_dm` at the call site (both come from
+/// the same halo mass sample).
+pub struct StellarGrowthAsSmhm<M> {
+    pub model: M,
+}
+
+impl<M> StellarGrowthAsSmhm<M> {
+    pub fn new(model: M) -> Self {
+        Self { model }
+    }
+}
+
+impl<M: StellarGrowthModel> SmhmModel for StellarGrowthAsSmhm<M> {
+    fn stellar_mass(
+        &self,
+        _log_dm: f64,
+        z: f64,
+        ctx: &AccretionContext<'_>,
+        rng: Option<&mut dyn RngCore>,
+    ) -> f64 {
+        integrate_stellar_mass(&self.model, ctx, z, rng)
     }
 }
 
@@ -190,5 +245,20 @@ mod tests {
         let got = integrate_stellar_mass(&ConstantRate, &ctx, 0.0, None);
         // Exactly rate x elapsed time: no 0.6-0.8 return-fraction factor.
         assert!((got - 1.035e10f64.log10()).abs() < 1e-6);
+    }
+
+    #[test]
+    fn stellar_growth_as_smhm_matches_integrate_stellar_mass_directly() {
+        let t = track();
+        let c = StubCosmo;
+        let ctx = AccretionContext::central(&t, &c, MassDefinition::Vir);
+        let adapter = StellarGrowthAsSmhm::new(ConstantRate);
+
+        // `log_dm` is deliberately a nonsense value here (unrelated to
+        // the track): the adapter must ignore it entirely and defer to
+        // `ctx.own_track`, exactly like `integrate_stellar_mass` does.
+        let via_adapter = adapter.stellar_mass(-999.0, 0.0, &ctx, None);
+        let via_direct_call = integrate_stellar_mass(&ConstantRate, &ctx, 0.0, None);
+        assert_eq!(via_adapter, via_direct_call);
     }
 }

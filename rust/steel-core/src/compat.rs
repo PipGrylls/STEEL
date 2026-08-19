@@ -37,6 +37,20 @@ pub enum Imf {
 pub enum HConvention {
     HFree,
     PerH,
+    /// The plugin's h-sensitive argument, where it has one, is not the
+    /// run's own stellar/halo-mass axis. `QuenchingModel`'s
+    /// `log_host_mass_infall`, for instance, is always populated from
+    /// STEEL's own native halo-mass grid (`PerH`) regardless of which
+    /// `SmhmModel`/`StellarGrowthModel` the run selects to determine
+    /// *that object's own* mass -- the two are genuinely different
+    /// quantities that happen to share this one flag. Comparing them
+    /// against each other is a false positive, not a real unit slip:
+    /// EMERGE (`HFree`) is documented as compatible with `Wetzel13`
+    /// (`docs/model-assumptions.md`, "EMERGE and Wetzel13 remain
+    /// compatible") precisely because EMERGE's own halo-mass axis and
+    /// Wetzel13's host-mass axis never interact. Compatibility checks
+    /// skip it, mirroring [`Imf::NotApplicable`].
+    NotApplicable,
 }
 
 /// Cosmology a plugin's parameters were fitted under.
@@ -171,8 +185,19 @@ pub fn validate_composition(
                     second: d.id,
                 });
             }
-            if d.h_convention != first.h_convention {
-                errors.push(Incompatibility::HConventionMismatch { first: first.id, second: d.id });
+        }
+    }
+
+    // h convention gets its own `NotApplicable`-aware pass (mirroring
+    // rule 2's IMF pattern) rather than living in the block above: unlike
+    // mass definition, which every descriptor here does share an opinion
+    // on, `h_convention` is compared even by descriptors whose
+    // h-sensitive argument (where they have one) is not the run's own
+    // stellar/halo-mass axis -- see `HConvention::NotApplicable`'s doc.
+    if let Some(first_h) = descriptors.iter().find(|d| d.h_convention != HConvention::NotApplicable) {
+        for d in descriptors {
+            if d.h_convention != HConvention::NotApplicable && d.h_convention != first_h.h_convention {
+                errors.push(Incompatibility::HConventionMismatch { first: first_h.id, second: d.id });
             }
         }
     }
@@ -294,6 +319,43 @@ mod tests {
         let mut b = base("b", &[Capability::StarFormationRate]);
         b.h_convention = HConvention::HFree;
         let err = validate_composition(&[a, b], CosmologyTag::Planck15).expect_err("must reject");
+        assert!(
+            err.iter().any(|e| matches!(e, Incompatibility::HConventionMismatch { .. })),
+            "{err:?}"
+        );
+    }
+
+    /// Task 13's exact live case: EMERGE's own halo-mass axis is
+    /// `HFree`, a quenching model's host-mass axis is `PerH` -- two
+    /// different quantities that must not conflict. Regression guard for
+    /// the fix; `docs/model-assumptions.md` documents EMERGE+Wetzel13 as
+    /// compatible, and this is what makes that true in code.
+    #[test]
+    fn h_convention_not_applicable_does_not_conflict_with_either_side() {
+        let mut emerge = base("emerge", &[Capability::StellarMass]);
+        emerge.h_convention = HConvention::HFree;
+        let mut quenching = base("wetzel13", &[Capability::Quenching]);
+        quenching.h_convention = HConvention::NotApplicable;
+        assert!(
+            validate_composition(&[emerge, quenching], CosmologyTag::Planck15).is_ok(),
+            "a NotApplicable h_convention must not be compared against anything"
+        );
+    }
+
+    /// A `NotApplicable` descriptor sitting first in the list must not
+    /// suppress a genuine mismatch between the *other* two -- it should
+    /// simply be skipped as the reference, not treated as "no opinion
+    /// exists yet".
+    #[test]
+    fn h_convention_not_applicable_does_not_mask_a_real_mismatch_between_others() {
+        let mut not_applicable = base("wetzel13", &[Capability::Quenching]);
+        not_applicable.h_convention = HConvention::NotApplicable;
+        let mut a = base("a", &[Capability::StellarMass]);
+        a.h_convention = HConvention::PerH;
+        let mut b = base("b", &[Capability::StarFormationRate]);
+        b.h_convention = HConvention::HFree;
+        let err = validate_composition(&[not_applicable, a, b], CosmologyTag::Planck15)
+            .expect_err("a and b genuinely disagree and must still be caught");
         assert!(
             err.iter().any(|e| matches!(e, Incompatibility::HConventionMismatch { .. })),
             "{err:?}"

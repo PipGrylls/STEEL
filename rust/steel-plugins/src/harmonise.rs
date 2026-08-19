@@ -53,13 +53,21 @@ pub enum HConvention {
     HFree,
     /// Masses in Msun/h — STEEL's internal convention.
     PerH,
+    /// The plugin's h-sensitive argument, where it has one, is not the
+    /// run's own stellar/halo-mass axis (e.g. `QuenchingModel`'s
+    /// `log_host_mass_infall`, always populated from STEEL's own native
+    /// grid regardless of which stellar-mass model the run selects).
+    /// Compatibility checks skip it, mirroring [`Imf::NotApplicable`].
+    /// No numeric convention to convert, so `to_h_free`/`from_h_free`
+    /// are the identity for it.
+    NotApplicable,
 }
 
 impl HConvention {
     /// Convert a log10 mass in `self`'s convention to h-free log10 Msun.
     pub fn to_h_free(self, log_m: f64, h: f64) -> f64 {
         match self {
-            HConvention::HFree => log_m,
+            HConvention::HFree | HConvention::NotApplicable => log_m,
             HConvention::PerH => log_m - h.log10(),
         }
     }
@@ -67,7 +75,7 @@ impl HConvention {
     /// Inverse of [`to_h_free`](Self::to_h_free).
     pub fn from_h_free(self, log_m: f64, h: f64) -> f64 {
         match self {
-            HConvention::HFree => log_m,
+            HConvention::HFree | HConvention::NotApplicable => log_m,
             HConvention::PerH => log_m + h.log10(),
         }
     }
@@ -165,6 +173,12 @@ mod tests {
     fn not_applicable_offset_is_zero_and_does_not_panic() {
         assert_eq!(Imf::NotApplicable.log_offset_to(Imf::Chabrier), 0.0);
         assert_eq!(Imf::Chabrier.log_offset_to(Imf::NotApplicable), 0.0);
+    }
+
+    #[test]
+    fn not_applicable_h_conversion_is_the_identity() {
+        assert_eq!(HConvention::NotApplicable.to_h_free(12.0, 0.6774), 12.0);
+        assert_eq!(HConvention::NotApplicable.from_h_free(12.0, 0.6774), 12.0);
     }
 
     #[test]

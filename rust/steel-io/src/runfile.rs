@@ -10,8 +10,36 @@ use serde::Deserialize;
 pub struct RunFile {
     #[serde(default)]
     pub merger_time: MergerTimeConfig,
-    pub smhm: SmhmConfig,
-    pub sfr: SfrConfig,
+    /// Memoryless `SmhmModel`-based stellar mass, the alternative to
+    /// `[stellar_growth]`. Exactly one of the two must be present:
+    /// `steel_cli::registry::build_simulation` rejects a runfile that
+    /// sets neither (there would be no `Capability::StellarMass`
+    /// supplier at all) and, when both are set, the composition
+    /// validator rejects the pair as a duplicate `Capability::StellarMass`
+    /// rather than silently letting one shadow the other.
+    #[serde(default)]
+    pub smhm: Option<SmhmConfig>,
+    /// STEEL's own post-infall satellite SFR law, consumed by
+    /// `BaryonicPipeline` (`[run].star_formation`/`.stellar_stripping`).
+    /// Optional: absent means no post-infall satellite evolution is
+    /// possible, and `steel_cli::registry::build_simulation` requires
+    /// both `[run].star_formation` and `[run].stellar_stripping` to be
+    /// `false` in that case (checked, not assumed) -- there would
+    /// otherwise be no `SfrModel` to drive it.
+    ///
+    /// Absent in every `[stellar_growth]` runfile today: EMERGE's own
+    /// halo-mass axis is `HFree` while every `[sfr]` model's declared
+    /// convention is `PerH` (compatible with `[smhm]`, which shares
+    /// that convention, but not with EMERGE), and UniverseMachine's rate
+    /// declares `Capability::StarFormationRate` itself, so pairing it
+    /// with a second `SfrModel` is a genuine duplicate the composition
+    /// validator correctly rejects. Fully integrating `[stellar_growth]`
+    /// with post-infall satellite evolution (using the object's own
+    /// post-infall halo-mass track, not yet wired anywhere -- see
+    /// `steel_core::stripping::HaloStrippingModel`, always `None` in
+    /// `Simulation` today) is out of scope here; see `docs/VALIDATION.md`.
+    #[serde(default)]
+    pub sfr: Option<SfrConfig>,
     #[serde(default)]
     pub gas: GasConfig,
     #[serde(default)]
@@ -20,21 +48,30 @@ pub struct RunFile {
     pub run: RunSection,
     #[serde(default)]
     pub outputs: OutputsSection,
+    /// Satellite quenching model. Optional: absent means `Wetzel13`
+    /// (STEEL's own default), matching the behaviour of every runfile
+    /// written before this field existed. `model = "none"` selects
+    /// `NoQuenching`, needed for `UniverseMachineGrowth`
+    /// (`[stellar_growth] model = "universe_machine"`), whose SFR PDF
+    /// already contains quenching -- stacking `Wetzel13` on top would
+    /// quench twice, and the composition validator rejects the
+    /// combination (`docs/model-assumptions.md`).
+    #[serde(default)]
+    pub quenching: Option<QuenchingConfig>,
     /// Rate-based stellar growth model (EMERGE, UniverseMachine), an
     /// alternative supplier of `Capability::StellarMass` to `[smhm]`.
-    ///
-    /// `[smhm]` remains a required section: `steel_core::context::Simulation`
-    /// still has a fixed `smhm: Arc<dyn SmhmModel>` field, and wiring a
-    /// `StellarGrowthModel` all the way through the run pipeline (so
-    /// `[smhm]` can be omitted entirely) is not part of this task. What
-    /// *is* enforced today: if a runfile sets both `[smhm]` and
-    /// `[stellar_growth]`, `build_stellar_growth`'s descriptor is added
-    /// to the same `validate_composition` call as `[smhm]`'s, and the
-    /// validator rejects the pair as a duplicate `Capability::StellarMass`
-    /// (`steel_core::compat`) rather than silently letting one shadow
-    /// the other.
+    /// See the doc on `smhm` for the exactly-one-of-the-two contract.
     #[serde(default)]
     pub stellar_growth: Option<StellarGrowthConfig>,
+}
+
+/// `model`: `"wetzel13"` (the default, selected both when this section
+/// is present with that value and when the section is absent entirely)
+/// or `"none"` (`steel_plugins::NoQuenching`, a provably inert model --
+/// see its doc comment).
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct QuenchingConfig {
+    pub model: String,
 }
 
 /// `model`: `"emerge"` (needs `preset`: `o_leary23`) or
@@ -274,12 +311,41 @@ mod tests {
             model = "double_power_law"
         "#;
         let run = RunFile::parse(toml).unwrap();
-        assert_eq!(run.smhm.model, "moster_form");
-        assert_eq!(run.smhm.preset, "g19_se");
-        assert!(run.smhm.z_evo);
-        assert_eq!(run.sfr.model, "double_power_law");
+        let smhm = run.smhm.as_ref().expect("[smhm] present");
+        assert_eq!(smhm.model, "moster_form");
+        assert_eq!(smhm.preset, "g19_se");
+        assert!(smhm.z_evo);
+        assert_eq!(run.sfr.expect("[sfr] present").model, "double_power_law");
         assert_eq!(run.run.n_realizations, 5); // default
         assert_eq!(run.merger_time.dynamical_time_factor, 1.0); // default
+        assert!(run.quenching.is_none());
+    }
+
+    #[test]
+    fn sfr_is_optional_when_absent_and_present_when_set() {
+        let without = RunFile::parse(
+            r#"
+            [stellar_growth]
+            model = "universe_machine"
+            preset = "um_saga"
+            "#,
+        )
+        .unwrap();
+        assert!(without.sfr.is_none());
+        assert!(without.smhm.is_none());
+
+        let with = RunFile::parse(
+            r#"
+            [smhm]
+            model = "moster_form"
+            preset = "g19_se"
+
+            [sfr]
+            model = "double_power_law"
+            "#,
+        )
+        .unwrap();
+        assert!(with.sfr.is_some());
     }
 
     #[test]
@@ -306,27 +372,20 @@ mod tests {
             model = "double_power_law"
         "#;
         let run = RunFile::parse(toml).unwrap();
-        let p = run.smhm.params.expect("params should parse");
+        let p = run.smhm.expect("[smhm] present").params.expect("params should parse");
         assert_eq!(p.m10, 12.0);
         assert_eq!(p.beta11, -0.7);
         assert_eq!(p.scatter, 0.15, "scatter should default to the Python's 0.15");
     }
 
-    /// `[smhm]`/`[sfr]` are included even though they are logically
-    /// superseded by `[stellar_growth]` here: both fields remain
-    /// required on `RunFile` (see the field doc on `stellar_growth`), so
-    /// a runfile that omits them does not parse at all. This test
-    /// therefore checks what actually matters — that `[stellar_growth]`
-    /// round-trips through `RunFile` correctly — rather than the
-    /// smhm/sfr-free snippet the spec illustrates.
+    /// `[sfr]` remains required (governs post-infall satellite
+    /// evolution, orthogonal to how infall-time M* is assigned); `[smhm]`
+    /// is deliberately absent here to check that `[stellar_growth]` alone
+    /// is enough to parse -- the shape every EMERGE/UM runfile uses.
     #[test]
     fn parses_stellar_growth_section() {
         let run: RunFile = toml::from_str(
             r#"
-            [smhm]
-            model = "moster_form"
-            preset = "g19_se"
-
             [sfr]
             model = "double_power_law"
 
@@ -336,9 +395,70 @@ mod tests {
             "#,
         )
         .expect("should parse");
+        assert!(run.smhm.is_none());
         let sg = run.stellar_growth.expect("section present");
         assert_eq!(sg.model, "emerge");
         assert_eq!(sg.preset, "o_leary23");
+    }
+
+    #[test]
+    fn smhm_is_optional_when_absent_and_present_when_set() {
+        let without = RunFile::parse(
+            r#"
+            [sfr]
+            model = "double_power_law"
+
+            [stellar_growth]
+            model = "universe_machine"
+            preset = "um_saga"
+            "#,
+        )
+        .unwrap();
+        assert!(without.smhm.is_none());
+
+        let with = RunFile::parse(
+            r#"
+            [smhm]
+            model = "moster_form"
+            preset = "g19_se"
+
+            [sfr]
+            model = "double_power_law"
+            "#,
+        )
+        .unwrap();
+        assert!(with.smhm.is_some());
+    }
+
+    #[test]
+    fn quenching_section_is_absent_by_default() {
+        let toml = r#"
+            [smhm]
+            model = "moster_form"
+            preset = "g19_se"
+
+            [sfr]
+            model = "double_power_law"
+        "#;
+        let run = RunFile::parse(toml).unwrap();
+        assert!(run.quenching.is_none(), "absence must mean the Wetzel13 default, not a parse requirement");
+    }
+
+    #[test]
+    fn parses_quenching_none() {
+        let toml = r#"
+            [smhm]
+            model = "moster_form"
+            preset = "g19_se"
+
+            [sfr]
+            model = "double_power_law"
+
+            [quenching]
+            model = "none"
+        "#;
+        let run = RunFile::parse(toml).unwrap();
+        assert_eq!(run.quenching.expect("section present").model, "none");
     }
 
     #[test]
@@ -404,9 +524,10 @@ mod tests {
         let run = RunFile::parse(toml).unwrap();
         assert_eq!(run.merger_time.dynamical_time_factor, 0.8);
         assert!(run.merger_time.redshift_correction);
-        assert_eq!(run.smhm.model, "behroozi_form");
-        assert!(!run.smhm.z_evo);
-        assert_eq!(run.sfr.preset.as_deref(), Some("ce"));
+        let smhm = run.smhm.as_ref().expect("[smhm] present");
+        assert_eq!(smhm.model, "behroozi_form");
+        assert!(!smhm.z_evo);
+        assert_eq!(run.sfr.expect("[sfr] present").preset.as_deref(), Some("ce"));
         assert!(run.run.star_formation);
         assert_eq!(run.run.n_realizations, 10);
         assert_eq!(run.run.rng_seed, 7);
