@@ -23,7 +23,7 @@ pub mod variance;
 
 pub use cosmology::Planck15;
 pub use gas::StewartScaling;
-pub use growth_models::EmergeGrowth;
+pub use growth_models::{EmergeGrowth, UniverseMachineGrowth};
 pub use halo_growth::VandenBosch14;
 pub use harmonise::{ConcentrationMassRelation, DuttonMaccio14, HConvention, Imf};
 pub use hmf::Despali16;

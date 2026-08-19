@@ -162,3 +162,62 @@ fn um_provenance_has_no_unfilled_placeholders() {
         .expect("provenance.toml must exist");
     assert!(!text.contains('<'), "provenance.toml still contains placeholders:\n{text}");
 }
+
+#[test]
+fn um_star_forming_sfr_agrees_with_upstream() {
+    use steel_plugins::harmonise::DuttonMaccio14;
+    use steel_plugins::UniverseMachineGrowth;
+
+    let sfr_ref = load_um("sfr_sf_grid.npy");
+    let m = UniverseMachineGrowth::um_saga(std::sync::Arc::new(DuttonMaccio14));
+    let mut worst = 0.0_f64;
+    let mut worst_at = (0.0, 0.0);
+
+    for (i, log_v) in (0..41).map(|i| (i, 1.4 + i as f64 * 0.04)) {
+        for (j, &z) in REDSHIFTS.iter().enumerate() {
+            let d = (m.log_sfr_star_forming(log_v, z) - sfr_ref[[i, j]]).abs();
+            if d > worst {
+                worst = d;
+                worst_at = (log_v, z);
+            }
+        }
+    }
+
+    println!("worst UM SFR deviation {worst:.9} dex at log_v={} z={}", worst_at.0, worst_at.1);
+    // Achieved: 1e-6 dex (float64 transcendental-function rounding only
+    // -- both sides evaluate the exact same closed-form expression, so
+    // there is no discretization/integration error to absorb here, only
+    // ln/exp/powf implementation differences between Rust's libm and C's).
+    // Tightened from the spec's 0.01 "investigate above" threshold to
+    // just above the achieved figure, per spec section 6 step 5.
+    assert!(
+        worst < 1.0e-4,
+        "worst UM SFR deviation {worst:.9} dex at log_v={} z={} exceeds 1e-4; identify the cause \
+         rather than widening the bound (spec section 6)",
+        worst_at.0,
+        worst_at.1
+    );
+}
+
+#[test]
+fn um_quenched_fraction_agrees_with_upstream() {
+    use steel_plugins::harmonise::DuttonMaccio14;
+    use steel_plugins::UniverseMachineGrowth;
+
+    let f_ref = load_um("quenched_fraction_grid.npy");
+    let m = UniverseMachineGrowth::um_saga(std::sync::Arc::new(DuttonMaccio14));
+    let mut worst = 0.0_f64;
+
+    for (i, log_v) in (0..41).map(|i| (i, 1.4 + i as f64 * 0.04)) {
+        for (j, &z) in REDSHIFTS.iter().enumerate() {
+            // Absolute, not dex: f_Q is a fraction and can be zero.
+            worst = worst.max((m.quenched_fraction(log_v, z) - f_ref[[i, j]]).abs());
+        }
+    }
+
+    println!("worst UM f_Q deviation {worst:.9} (absolute)");
+    // Achieved: below 1e-6 (float64 erf/transcendental rounding only, no
+    // discretization). Tightened from the spec's 0.02 "investigate
+    // above" threshold to just above the achieved figure.
+    assert!(worst < 1.0e-4, "worst f_Q deviation {worst:.9} exceeds 1e-4");
+}

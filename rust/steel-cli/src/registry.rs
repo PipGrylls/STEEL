@@ -19,8 +19,9 @@ use steel_core::stellar_growth::StellarGrowthModel;
 use steel_core::{QuenchingModel, SfrModel, SmhmModel, StellarStrippingModel};
 use steel_io::runfile::RunFile;
 use steel_plugins::{
-    BehrooziFormSmhm, Cattaneo11, Despali16, DoublePowerLawSfr, EmergeGrowth, Jiang16, McCavanaBK08,
-    MosterFormSmhm, Planck15, RodriguezPuebla17, SchreiberFormSfr, StewartScaling, TomczakFormSfr,
+    BehrooziFormSmhm, Cattaneo11, ConcentrationMassRelation, Despali16, DoublePowerLawSfr,
+    DuttonMaccio14, EmergeGrowth, Jiang16, McCavanaBK08, MosterFormSmhm, Planck15,
+    RodriguezPuebla17, SchreiberFormSfr, StewartScaling, TomczakFormSfr, UniverseMachineGrowth,
     VandenBosch14, Wetzel13,
 };
 
@@ -105,6 +106,15 @@ fn build_stellar_growth(
     match (cfg.model.as_str(), cfg.preset.as_str()) {
         ("emerge", "o_leary23") => {
             let m = EmergeGrowth::o_leary23();
+            let descriptor = m.descriptor();
+            Ok((Box::new(m), descriptor))
+        }
+        ("universe_machine", "um_saga") => {
+            let cm: Arc<dyn ConcentrationMassRelation> = match cfg.concentration.as_deref() {
+                None | Some("dutton_maccio14") => Arc::new(DuttonMaccio14),
+                Some(other) => return Err(anyhow!("unknown concentration relation: {other}")),
+            };
+            let m = UniverseMachineGrowth::um_saga(cm);
             let descriptor = m.descriptor();
             Ok((Box::new(m), descriptor))
         }

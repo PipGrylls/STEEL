@@ -37,12 +37,19 @@ pub struct RunFile {
     pub stellar_growth: Option<StellarGrowthConfig>,
 }
 
-/// `model`: `"emerge"` (needs `preset`: `o_leary23`). See
+/// `model`: `"emerge"` (needs `preset`: `o_leary23`) or
+/// `"universe_machine"` (needs `preset`: `um_saga`, optional
+/// `concentration`: `"dutton_maccio14"`, the default). See
 /// `steel_plugins::growth_models`.
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct StellarGrowthConfig {
     pub model: String,
     pub preset: String,
+    /// Concentration-mass relation `universe_machine` converts its
+    /// vMpeak axis through. Ignored by other models. `None` selects the
+    /// default (`dutton_maccio14`).
+    #[serde(default)]
+    pub concentration: Option<String>,
 }
 
 /// Which output families to accumulate — the runfile face of

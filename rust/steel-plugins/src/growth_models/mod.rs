@@ -6,7 +6,7 @@
 //! distinction is load-bearing.
 
 mod emerge;
-// mod universe_machine; // Task 11 restores this.
+mod universe_machine;
 
 pub use emerge::EmergeGrowth;
-// pub use universe_machine::UniverseMachineGrowth; // Task 11 restores this.
+pub use universe_machine::UniverseMachineGrowth;
