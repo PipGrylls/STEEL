@@ -43,9 +43,17 @@ for peak `Vmax` (`vpeak_halo`); the catalog field actually consumed as
 `vmp` is assigned from the *former* (`ch.vmp = h->mpeak_halo->vmax;`,
 line 736), i.e. **`Vmax` evaluated at the epoch of the halo's peak `Mvir`**,
 not the peak-over-history of `Vmax` itself. `steel-plugins`' port
-(`growth_models/universe_machine.rs::log_vmpeak`) reproduces this exact
-definition: it is a fixed per-halo property computed once at the track's
-peak-mass epoch, not recomputed at every timestep.
+(`growth_models/universe_machine.rs::vmpeak_at`) reproduces this exact
+definition, evaluated per snapshot: because `GrowthTrack` masses are
+monotonically non-decreasing forward in time, a progenitor's peak mass
+*so far* is exactly its own contemporary mass at that epoch, so
+`stellar_growth_rate` derives vMpeak from each integration step's own
+`(log_mh, z)` rather than holding one value fixed across an object's
+whole assembly history (an earlier version of this port did the latter;
+see the module doc and `docs/VALIDATION.md` §6.5.3 for why that was a
+bug, not upstream's actual definition). `UniverseMachineGrowth::log_vmpeak`
+remains available as a convenience query for an object's vMpeak *right
+now*, at `ctx.own_track`'s root/observed epoch.
 
 All three models are calibrated against the same Planck15 flat LCDM
 cosmology (`h = 0.6774`, `Omega_m0 = 0.3089`, `Omega_b0 = 0.0486`,

@@ -545,15 +545,32 @@ inconsistency of its own: does the *local* implied rate for one native
 track step (`0.5*(rate(z_lo) + rate(z_hi))`, exactly
 `integrate_stellar_mass`'s own trapezoidal average) agree with
 `stellar_growth_rate` evaluated directly at that step, using the *same*
-real, full-history `AccretionContext` both times? (Using the same,
-un-truncated context both times matters for UniverseMachine
-specifically: its rate is keyed on vMpeak, the track's own peak mass
-over its *whole* history, not the per-step mass — an artificially
-truncated or synthetic local context would silently evaluate a
-different vMpeak and produce a spurious disagreement that is a bug in
-the check, not evidence about the model; an earlier draft of this check
-made exactly that mistake and showed up to 0.86 dex of "disagreement"
-before the fix.)
+real, full-history `AccretionContext` both times?
+
+**Correction (post-merge):** an earlier draft of this check fed
+`stellar_growth_rate` a per-step `(log_mh, z)` pair and found up to 0.86
+dex of "disagreement" against the whole-track-context version, which
+was — at the time — attributed to the check using an artificially
+truncated/local context rather than the real one, and "fixed" by making
+both call sites share one full, un-truncated `AccretionContext`
+regardless of which step they were evaluating. That was backwards: the
+0.86 dex was real evidence of a genuine bug in
+`UniverseMachineGrowth::stellar_growth_rate` itself, which at the time
+computed vMpeak once from `ctx.own_track`'s root (observed-epoch, i.e.
+*final*) sample and reused that single value for every redshift
+`integrate_stellar_mass` visits while walking an object's whole
+progenitor track — retroactively stamping a massive halo's near-total
+*final* quenched fraction onto every earlier, unquenched progenitor.
+This collapsed the integrated M* for massive halos and made M*(Mh)
+non-monotonic (see `steel-plugins/src/growth_models/universe_machine.rs`
+module doc, "`log_vmpeak`: a per-snapshot running peak, not one value
+held fixed...", for the full mechanism and the fix: `vmpeak_at(log_mh,
+z, ctx)` now keys vMpeak off each call's own `(log_mh, z)`, since a
+progenitor's peak-so-far on a monotonic `GrowthTrack` is exactly its own
+contemporary mass). With the fix, the check below no longer needs an
+artificial "share one full context" workaround — `ssfr_self_consistency.rs`
+already passed each step's own `(log_mh, z)` pair, so it is now
+measuring real trapezoidal-quadrature error, not masking a modelling bug.
 
 ```
 $ cargo run --release -p steel-plugins --example ssfr_self_consistency
@@ -561,10 +578,10 @@ $ cargo run --release -p steel-plugins --example ssfr_self_consistency
 max |direct - local_implied| over 16 points = 0.0058 dex
 
 === UniverseMachine (um_saga, deterministic mode: rng=None) ===
-max |direct - local_implied| over 16 points = 0.0046 dex
+max |direct - local_implied| over 16 points = 0.0065 dex
 ```
 
-Both under 0.006 dex over a 4x4 `(log_mh0, z)` grid spanning `log_mh0
+Both under 0.007 dex over a 4x4 `(log_mh0, z)` grid spanning `log_mh0
 in {11,12,13,14}` and `z in {0.2,1,2,4}` — consistent with ordinary
 trapezoidal quadrature error at this track resolution, not a genuine
 inconsistency. `rust/steel-plugins/examples/ssfr_self_consistency.rs`.

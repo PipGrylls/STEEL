@@ -91,25 +91,44 @@
 //! to upstream's own `cached_rank` lookup table by that table's own
 //! generator (`make_sf_catalog.c`: `erf_cache[i] = 0.5+0.5*erf(x/M_SQRT2)`).
 //!
-//! # `log_vmpeak`: a FIXED per-object property, not a per-step lookup
+//! # `log_vmpeak`: a per-*snapshot* running peak, not one value held
+//! # fixed across an object's whole assembly history
 //!
-//! UM's `vMpeak` is `Vmax` evaluated at the halo's epoch of peak
-//! historical mass (`vmax_at_mpeak`; resolved directly from upstream's
-//! own merger-tree builder, `split_halo_trees_phase2.c:462-463,736,738` —
-//! **not** the historical maximum of `Vmax` itself, a different field
-//! upstream never uses as `vmp`). Once computed for an object it never
-//! changes: every later redshift's SFR/quenching evaluation reuses the
-//! same `log_v`. `AccretionContext::own_track` is monotonic (mass
-//! strictly decreasing into the past), so the peak epoch is always the
-//! track's own first sample — `own_track.z[0]` / `own_track.log_mass[0]`
-//! — for centrals the observed (z=0) epoch, for satellites (Task 4's
-//! design) the infall epoch. `log_vmpeak` therefore takes only `&ctx`,
-//! not a `(log_mh, z)` pair: pairing the peak mass with whatever
-//! redshift a later integration step happens to be evaluating at would
-//! feed `mpeak_to_vmax`'s z-dependent NFW conversion (`rho_crit(z)`,
-//! `delta_vir(z)`, and the concentration relation's own z-dependence)
-//! the wrong epoch, silently shifting every subsequent SFR/quenching
-//! evaluation for that object.
+//! UM's `vMpeak` is `Vmax` evaluated at a halo's epoch of peak
+//! historical mass *so far* (`vmax_at_mpeak`; resolved directly from
+//! upstream's own merger-tree builder,
+//! `split_halo_trees_phase2.c:462-463,736,738` — **not** the historical
+//! maximum of `Vmax` itself, a different field upstream never uses as
+//! `vmp`). Upstream computes this per **snapshot**: every node in a
+//! merger tree is its own catalog entry with its own Mpeak-so-far, fixed
+//! once that snapshot exists, and it is *that* per-snapshot value each
+//! snapshot's own SFR/quenching draw uses.
+//!
+//! An earlier version of this module conflated "fixed once a snapshot
+//! exists" with "fixed across every snapshot of one integration call":
+//! `stellar_growth_rate` computed `log_v` once from `ctx.own_track`'s
+//! root (observed-epoch) sample and reused it for every redshift
+//! `integrate_stellar_mass` visits while walking that object's whole
+//! progenitor track. That retroactively stamped a halo's *final*
+//! quenched fraction onto every earlier progenitor — including
+//! progenitors that were small, unremarkable, actively star-forming
+//! halos at high z — collapsing the integrated M* for massive halos and
+//! making M*(Mh) non-monotonic (confirmed: at z=0.1 a 10^14.2 Msun/h
+//! halo's root-fixed vMpeak gave f_Q ~= 0.98 even paired with a z~5.5,
+//! 10^11.75 Msun/h progenitor that should be essentially unquenched).
+//! `docs/VALIDATION.md` §6.5 records a self-consistency check that hit
+//! exactly this discrepancy and, at the time, concluded the check's
+//! "per-step" context was the mistake rather than the fixed-root
+//! implementation — the wrong direction.
+//!
+//! The fix: `AccretionContext::own_track` is monotonic (mass
+//! non-decreasing forward in time), so a progenitor's peak-so-far *is*
+//! its own contemporary mass — exactly the `log_mh` argument
+//! `StellarGrowthModel::stellar_growth_rate` already receives at every
+//! integration step. `vmpeak_at(log_mh, z, ctx)` uses that per-step
+//! pair; [`UniverseMachineGrowth::log_vmpeak`] remains as a convenience
+//! query for "this object's vMpeak right now" (its root/observed epoch)
+//! but is no longer what `stellar_growth_rate` itself consults.
 //!
 //! **Velocity-keyed, not mass-keyed.** Converting `log_mh -> vMpeak`
 //! goes through `crate::harmonise::mpeak_to_vmax`, which needs a
@@ -348,26 +367,51 @@ impl UniverseMachineGrowth {
             .clamp(0.0, self.obs_scatter_sfr_sf)
     }
 
-    /// log10 vMpeak \[km/s\] for this object: `Vmax` at the halo's own
-    /// peak-mass epoch, computed once and reused for every subsequent
-    /// call during this context's integration. See the module doc for
-    /// why this takes only `&ctx`, not a `(log_mh, z)` pair.
+    /// log10 vMpeak \[km/s\] for a halo of mass `log_mh` \[log10 Msun,
+    /// h-free\] observed at `z`.
+    ///
+    /// `log_mh` must be the halo's own peak mass *so far*, as of `z` —
+    /// not necessarily its final/observed-epoch mass. Because
+    /// `GrowthTrack` masses are monotonically non-decreasing forward in
+    /// time, the peak-so-far at any epoch on a track *is* that epoch's
+    /// own contemporary mass, which is exactly what
+    /// `StellarGrowthModel::stellar_growth_rate` receives as `log_mh` at
+    /// every integration step (bug fix, was: this method took only
+    /// `&ctx` and always read `ctx.own_track`'s root/observed-epoch
+    /// sample, applying the object's *final* vMpeak retroactively to
+    /// every earlier progenitor. For a halo massive enough to be
+    /// strongly quenched today, that stamped today's near-total quenched
+    /// fraction onto ancestors that were small, unremarkable,
+    /// unquenched halos — collapsing the integrated M* for massive
+    /// halos and making M*(Mh) non-monotonic. See
+    /// `docs/VALIDATION.md` §6.5 for the self-consistency check that,
+    /// pre-fix, mistook this bug's symptom for a bug in the check
+    /// itself and papered over it instead of catching it).
+    fn vmpeak_at(&self, log_mh: f64, z: f64, ctx: &AccretionContext<'_>) -> f64 {
+        // `log_mh` is h-free (physical Msun; see `AccretionContext`'s
+        // construction in `context.rs`, which subtracts `log10(h)` off
+        // the internal Msun/h sampling mass before storing it on the
+        // track). `mpeak_to_vmax`, by contrast, expects `Msun/h` (its
+        // NFW conversion runs through `Cosmology::rho_crit`, which is in
+        // `Msun h^2 / kpc^3`, and `DuttonMaccio14`'s concentration fit
+        // pivots on `1e12 h^-1 Msun` — matching every other call site of
+        // `m_to_r` in this codebase). Converting back to `Msun/h`
+        // requires `+log10(h)` (`M_true = M_quoted / h` => `log_true =
+        // log_quoted - log_h` => `log_quoted = log_true + log_h`).
+        // Omitting this silently biased every UM vMpeak high by
+        // ~0.052-0.053 dex.
+        let log_m_peak = log_mh + ctx.cosmology.h().log10();
+        mpeak_to_vmax(log_m_peak, z, ctx.cosmology, self.cm.as_ref(), ctx.mass_definition).log10()
+    }
+
+    /// log10 vMpeak \[km/s\] for this object *right now*: `Vmax` at
+    /// `ctx.own_track`'s root (observed/current) epoch. A convenience
+    /// query for "what is this object's vMpeak today" — `stellar_growth_rate`
+    /// does not use this; it calls [`Self::vmpeak_at`] with each
+    /// integration step's own `(log_mh, z)` instead (see that method's
+    /// doc for why).
     pub fn log_vmpeak(&self, ctx: &AccretionContext<'_>) -> f64 {
-        // `own_track.log_mass` is h-free (physical Msun; see
-        // `AccretionContext`'s construction in `context.rs`, which
-        // subtracts `log10(h)` off the internal Msun/h sampling mass
-        // before storing it on the track). `mpeak_to_vmax`, by contrast,
-        // expects `Msun/h` (its NFW conversion runs through
-        // `Cosmology::rho_crit`, which is in `Msun h^2 / kpc^3`, and
-        // `DuttonMaccio14`'s concentration fit pivots on `1e12 h^-1
-        // Msun` — matching every other call site of `m_to_r` in this
-        // codebase). Converting back to `Msun/h` requires `+log10(h)`
-        // (`M_true = M_quoted / h` => `log_true = log_quoted - log_h` =>
-        // `log_quoted = log_true + log_h`). Omitting this silently
-        // biased every UM vMpeak high by ~0.052-0.053 dex.
-        let log_m_peak = ctx.own_track.log_mass[0] + ctx.cosmology.h().log10();
-        let z_peak = ctx.own_track.z[0];
-        mpeak_to_vmax(log_m_peak, z_peak, ctx.cosmology, self.cm.as_ref(), ctx.mass_definition).log10()
+        self.vmpeak_at(ctx.own_track.log_mass[0], ctx.own_track.z[0], ctx)
     }
 
     /// log10 SFR \[Msun/yr\] for the star-forming mode: the double
@@ -412,9 +456,8 @@ impl UniverseMachineGrowth {
     /// Track-local proxy for "how fast has this halo grown recently":
     /// the change in log halo mass over the most recent track interval.
     /// A stand-in for upstream's own persistent tree-wide SFR rank — see
-    /// the module doc. Unaffected by the `log_vmpeak` fix (Correction 5):
-    /// this deliberately reflects recent growth, not a vMpeak
-    /// derivation.
+    /// the module doc. Unaffected by the per-step `vmpeak_at` fix: this
+    /// deliberately reflects recent growth, not a vMpeak derivation.
     fn delta_vmax_proxy(ctx: &AccretionContext<'_>) -> f64 {
         let t = ctx.own_track;
         if t.log_mass.len() < 2 {
@@ -427,16 +470,17 @@ impl UniverseMachineGrowth {
 impl StellarGrowthModel for UniverseMachineGrowth {
     fn stellar_growth_rate(
         &self,
-        _log_mh: f64,
+        log_mh: f64,
         z: f64,
         ctx: &AccretionContext<'_>,
         rng: Option<&mut dyn RngCore>,
     ) -> f64 {
-        // `log_mh` (the object's *current* mass at this step) plays no
-        // role: UM is keyed on vMpeak, a fixed property of the object
-        // computed once at its peak-mass epoch (Correction 5, module
-        // doc), not on the per-step mass the integrator happens to pass.
-        let log_v = self.log_vmpeak(ctx);
+        // UM is keyed on vMpeak: this progenitor's own peak mass-so-far,
+        // which — since `GrowthTrack` is monotonic — is exactly its
+        // contemporary `(log_mh, z)` at this call (see `vmpeak_at`'s
+        // doc: this is NOT the object's final/observed-epoch mass held
+        // fixed across the whole integration; that was a bug).
+        let log_v = self.vmpeak_at(log_mh, z, ctx);
         let f_q = self.quenched_fraction(log_v, z);
         let log_sfr_sf = self.log_sfr_star_forming(log_v, z);
 
@@ -608,20 +652,21 @@ mod tests {
         let mean = m.stellar_growth_rate(12.0, 0.5, &ctx, None);
         assert!(mean.is_finite(), "mean rate should be finite, got {mean}");
         // Must sit at or below the pure star-forming rate, since some of
-        // the population is quenched. `log_vmpeak` takes only `&ctx` (see
-        // below): vMpeak is fixed per object, not re-derived from the
-        // current (log_mh, z) an integration step happens to pass in.
-        let log_v = m.log_vmpeak(&ctx);
+        // the population is quenched. `stellar_growth_rate` keys vMpeak
+        // off this call's own `(log_mh, z) = (12.0, 0.5)` via
+        // `vmpeak_at`, not off `ctx`'s root epoch.
+        let log_v = m.vmpeak_at(12.0, 0.5, &ctx);
         assert!(mean <= m.log_sfr_star_forming(log_v, 0.5) + 1e-9);
     }
 
-    /// Correction 5 (task-11-brief review): vMpeak is a FIXED property of
-    /// a halo, computed once from the epoch of peak historical mass, and
-    /// reused unchanged at every later redshift. `GrowthTrack` is
-    /// monotonic (mass strictly decreasing into the past), so the peak
-    /// epoch is always the track's own first sample, `own_track.z[0]` /
-    /// `own_track.log_mass[0]`. `log_vmpeak` must use exactly that, never
-    /// whatever "current" `(log_mh, z)` a later integration step passes.
+    /// `UniverseMachineGrowth::log_vmpeak` is a convenience query for "this
+    /// object's vMpeak right now": `Vmax` at the epoch of peak historical
+    /// mass. `GrowthTrack` is monotonic (mass strictly decreasing into
+    /// the past), so the peak epoch is always the track's own first
+    /// sample, `own_track.z[0]` / `own_track.log_mass[0]`. `log_vmpeak`
+    /// must use exactly that. (`stellar_growth_rate` itself no longer
+    /// calls this method — see `vmpeak_at`'s doc for why holding vMpeak
+    /// fixed across a whole integration was a bug, not this method.)
     #[test]
     fn log_vmpeak_is_fixed_at_the_tracks_peak_epoch_not_recomputed_per_step() {
         let m = model();
@@ -737,5 +782,35 @@ mod tests {
             .collect();
         let distinct = draws.iter().any(|&d| (d - draws[0]).abs() > 1e-9);
         assert!(distinct, "draws across 20 seeds were all identical: {draws:?}");
+    }
+
+    /// Regression test for the vMpeak-retroactive-quenching bug: holding
+    /// vMpeak fixed at an object's root/observed-epoch mass across its
+    /// whole integration stamped a massive halo's near-total final
+    /// quenched fraction onto every earlier, unquenched progenitor,
+    /// collapsing its integrated M* enough to make M*(Mh) non-monotonic.
+    /// log_mh0 = 13.0 and 14.2 (h-free, z0 = 0.1) bracket the dip
+    /// (peak ~13.2, trough ~14.5) observed via
+    /// `steel-plugins/examples/dump_um_pure.rs` before this fix.
+    #[test]
+    fn integrated_stellar_mass_does_not_collapse_for_a_more_massive_halo() {
+        use steel_core::halo_growth::HaloGrowthModel;
+        use steel_core::stellar_growth::integrate_stellar_mass;
+
+        let m = model();
+        let c = Planck15::new();
+        let growth = crate::halo_growth::VandenBosch14::new(&c);
+        let z0 = 0.1;
+        let track_a = growth.growth_history(13.0, z0);
+        let track_b = growth.growth_history(14.2, z0);
+        let ctx_a = AccretionContext::central(&track_a, &c, MassDefinition::Vir);
+        let ctx_b = AccretionContext::central(&track_b, &c, MassDefinition::Vir);
+        let sm_a = integrate_stellar_mass(&m, &ctx_a, z0, None);
+        let sm_b = integrate_stellar_mass(&m, &ctx_b, z0, None);
+        assert!(
+            sm_b >= sm_a,
+            "a more massive halo must not end up with less stellar mass: \
+             log_mh0=13.0 -> log_sm={sm_a}, log_mh0=14.2 -> log_sm={sm_b}"
+        );
     }
 }
