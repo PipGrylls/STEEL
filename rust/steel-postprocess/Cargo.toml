@@ -8,5 +8,6 @@ license.workspace = true
 [dependencies]
 steel-core = { path = "../steel-core" }
 steel-plugins = { path = "../steel-plugins" }
+ndarray = { workspace = true }
 rand = { workspace = true }
 rand_distr = { workspace = true }
