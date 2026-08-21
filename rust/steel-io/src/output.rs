@@ -143,6 +143,15 @@ pub fn write_run(output_root: &Path, run_param_dir: &str, output: &RunOutput) ->
         )?;
     }
 
+    // --- ICL: stripped stellar mass per central ---
+    // No `SaveData_*` counterpart: `STEEL.py` discards stripped mass
+    // instead of banking it, so this family is new rather than ported.
+    if !output.icl_stripped_mass.is_empty() {
+        write_npy(&dir.join("ICL_StrippedMass.npy"), output.icl_stripped_mass.view())?;
+        write_npy_slice(&dir.join("ICL_z.npy"), &output.z)?;
+        write_npy(&dir.join("ICL_AvaHaloMass.npy"), output.host_halo_mass.view())?;
+    }
+
     // --- SaveData_Sat_SMHM ---
     if !output.sat_smhm.is_empty() {
         write_npy_slice(&dir.join("Sat_SMHM_z.npy"), &output.z)?;
@@ -273,6 +282,7 @@ mod tests {
             cuts_nofrac_highz: opt3((n_cuts, n_z, n_host)),
             total_star_formation_mean: opt3((n_z, n_host, n_sm)),
             total_star_formation_std: opt3((n_z, n_host, n_sm)),
+            icl_stripped_mass: opt2((n_z, n_host)),
         }
     }
 
@@ -351,6 +361,9 @@ mod tests {
             "Total_Starformation_Total_StarFormation_Means.npy",
             "Total_Starformation_Total_StarFormation_Std.npy",
             "Total_Starformation_z.npy",
+            "ICL_StrippedMass.npy",
+            "ICL_z.npy",
+            "ICL_AvaHaloMass.npy",
         ];
         for name in expected {
             assert!(out_dir.join(name).exists(), "missing output file {name}");

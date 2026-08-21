@@ -102,6 +102,9 @@ pub struct OutputsSection {
     pub mergers: bool,
     pub ssfr: bool,
     pub total_star_formation: bool,
+    /// `ICL_StrippedMass` -- stellar mass stripped from satellites into
+    /// the host's intracluster light. Requires `stellar_stripping`.
+    pub icl: bool,
 }
 
 impl Default for OutputsSection {
@@ -113,6 +116,7 @@ impl Default for OutputsSection {
             mergers: true,
             ssfr: true,
             total_star_formation: true,
+            icl: true,
         }
     }
 }

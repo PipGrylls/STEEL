@@ -121,6 +121,9 @@ pub struct OutputSelection {
     pub ssfr: bool,
     /// `Total_StarFormation` means and standard deviations.
     pub total_star_formation: bool,
+    /// `ICL_StrippedMass` — stellar mass stripped from satellites into
+    /// the host's intracluster light.
+    pub icl: bool,
 }
 
 impl OutputSelection {
@@ -133,6 +136,7 @@ impl OutputSelection {
             mergers: true,
             ssfr: true,
             total_star_formation: true,
+            icl: true,
         }
     }
 
@@ -146,6 +150,7 @@ impl OutputSelection {
             mergers: false,
             ssfr: false,
             total_star_formation: false,
+            icl: false,
         }
     }
 }
@@ -325,6 +330,19 @@ pub struct RunOutput {
     pub total_star_formation_mean: Array3<f64>,
     /// `Total_StarFormation_Std` \[Msun\]. `(a, b, n_sm)`
     pub total_star_formation_std: Array3<f64>,
+
+    // ---- intracluster light ----
+    /// `ICL_StrippedMass` \[Msun per central, **linear**\]: stellar mass
+    /// stripped from satellites into the host's intracluster light,
+    /// indexed `[z, host_bin]` and attributed to the redshift step the
+    /// stripping happened at (not the satellite's infall or merger
+    /// epoch). `(a, b)`
+    ///
+    /// Has no `STEEL.py` counterpart — the Python discards stripped mass
+    /// rather than banking it. Summing over the redshift axis gives each
+    /// host bin's total ICL, the quantity that closes the mass budget
+    /// `accreted = retained + stripped`.
+    pub icl_stripped_mass: Array2<f64>,
 }
 
 /// Index of the uniform histogram bin `x` falls into over
@@ -582,6 +600,11 @@ impl Simulation {
         } else {
             Array3::<Welford>::default((0, 0, 0))
         };
+        // Only satellites that actually evolve can be stripped, so this
+        // stays empty unless stripping is switched on -- matching how
+        // `total_sf` above sizes itself off the switches that feed it.
+        let mut icl_stripped_mass =
+            Array2::<f64>::zeros(if sel.icl && config.stellar_stripping { (n_z, n_host) } else { (0, 0) });
 
         let mut rng = StdRng::seed_from_u64(self.context.rng_seed);
         let h3 = h * h * h;
@@ -746,6 +769,25 @@ impl Simulation {
                                 &mut rng,
                             );
                             ssfr_final[r] = *history.log_ssfr.last().unwrap();
+
+                            // ---- intracluster light ----
+                            // History step `p` sits at redshift index
+                            // `i - p` (same mapping `sm_at` uses below),
+                            // so stripping is banked at the epoch it
+                            // happened at rather than at infall or
+                            // merger. `weight_sub_only` is the number of
+                            // such satellites per central, so the
+                            // product is a mass per central.
+                            if !icl_stripped_mass.is_empty() {
+                                for (p, &lost) in history.stripped.iter().enumerate() {
+                                    if p > i || lost <= 0.0 {
+                                        continue;
+                                    }
+                                    icl_stripped_mass[[i - p, j]] +=
+                                        lost * weight_sub_only * per_realization;
+                                }
+                            }
+
                             trajectory[r] = history.log_sm;
                         }
                     } else {
@@ -1016,6 +1058,7 @@ impl Simulation {
             cuts_nofrac_highz,
             total_star_formation_mean,
             total_star_formation_std,
+            icl_stripped_mass,
         }
     }
 }

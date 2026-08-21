@@ -101,6 +101,45 @@ fn enabling_stripping_runs_without_panicking() {
     assert!(output.surviving_sat_smf.iter().all(|v| v.is_finite()));
 }
 
+/// Stripped stellar mass has to go somewhere. Before the ICL
+/// accumulator existed, `BaryonicPipeline::evolve` reduced a satellite's
+/// mass and simply dropped the difference, so the model could not
+/// report an intracluster-light mass or close the budget
+/// `accreted = retained + stripped`.
+#[test]
+fn stripping_banks_intracluster_light_that_grows_with_host_mass() {
+    let sim = build_small_simulation();
+    let mut config = small_config();
+    config.stellar_stripping = true;
+    let output = sim.run(&config);
+
+    assert!(!output.icl_stripped_mass.is_empty(), "stripping on must populate the ICL array");
+    assert!(
+        output.icl_stripped_mass.iter().all(|v| v.is_finite() && *v >= 0.0),
+        "ICL mass must be finite and non-negative"
+    );
+
+    // Total ICL per central, by host bin. More massive hosts strip more
+    // -- they accrete more satellites and strip each one harder -- so
+    // this must rise monotonically across the (ascending) host grid.
+    let totals: Vec<f64> = output.icl_stripped_mass.columns().into_iter().map(|c| c.sum()).collect();
+    assert!(totals.iter().any(|&t| t > 0.0), "no ICL banked at all: {totals:?}");
+    for w in totals.windows(2) {
+        assert!(w[1] >= w[0], "ICL must not fall with increasing host mass: {totals:?}");
+    }
+}
+
+/// The counterpart: with stripping off nothing is stripped, so the
+/// family stays unallocated rather than silently banking zeros (or,
+/// worse, the unstripped baseline).
+#[test]
+fn no_stripping_leaves_the_icl_array_empty() {
+    let sim = build_small_simulation();
+    let config = small_config(); // stellar_stripping defaults to false here
+    let output = sim.run(&config);
+    assert!(output.icl_stripped_mass.is_empty());
+}
+
 /// The merger code path did not exist before Phase 1: `Simulation::run`
 /// `continue`d past every satellite with `tdyf < ttz0`, so these two
 /// arrays were structurally guaranteed to be all-zero. Papers 2 and 3

@@ -415,6 +415,7 @@ pub fn build_simulation(runfile: &RunFile) -> Result<(Simulation, RunConfig)> {
             mergers: runfile.outputs.mergers,
             ssfr: runfile.outputs.ssfr,
             total_star_formation: runfile.outputs.total_star_formation,
+            icl: runfile.outputs.icl,
         },
         pair_radius_outer_kpc: runfile.run.pair_radius_outer_kpc,
         pair_radius_inner_kpc: runfile.run.pair_radius_inner_kpc,

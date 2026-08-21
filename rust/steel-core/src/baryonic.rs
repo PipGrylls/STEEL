@@ -91,6 +91,18 @@ pub struct EvolutionHistory {
     pub log_sm: Vec<f64>,
     /// Specific star formation rate \[log10 yr^-1\] at each step.
     pub log_ssfr: Vec<f64>,
+    /// Stellar mass \[Msun, **linear** — not log\] stripped from the
+    /// satellite during step `i`, i.e. removed between `log_sm[i]` and
+    /// `log_sm[i + 1]`. Zero at the final step (no `i + 1` to lose mass
+    /// into) and zero throughout when stripping is disabled.
+    ///
+    /// Linear rather than log because the consumer sums it: this is the
+    /// mass a satellite donates to the intracluster light, which
+    /// `Simulation::run` accumulates per host halo to build STEEL's ICL
+    /// prediction. Before this existed the stripped mass was simply
+    /// dropped, so the model could not close its own mass budget
+    /// (`accreted = retained + stripped`) or say anything about ICL.
+    pub stripped: Vec<f64>,
 }
 
 /// The composed baryonic evolution pipeline: SFR, quenching, gas supply,
@@ -236,6 +248,7 @@ impl BaryonicPipeline {
         let mut log_sm = vec![0.0_f64; n];
         let mut sfh = vec![0.0_f64; n]; // Msun formed during step i
         let mut gmlr = vec![0.0_f64; n]; // Msun/yr, recycled mass-loss rate
+        let mut stripped = vec![0.0_f64; n]; // Msun lost to the ICL during step i
         log_sm[0] = galaxy.log_sm_infall;
 
         let mut sfr_at_quench_onset = 0.0_f64;
@@ -277,8 +290,14 @@ impl BaryonicPipeline {
             let m_dot = sfr - gmlr[i]; // Msun/yr
             if i < n - 1 {
                 log_sm[i + 1] = if apply_stripping {
-                    (10f64.powf(log_sm[i] + (strip_factor[i + 1] - strip_factor[i])) + m_dot * timeline.dt[i] * 1.0e9)
-                        .log10()
+                    // `strip_factor` is log10 of the fraction still
+                    // bound, so the step's incremental factor
+                    // `10^(strip_factor[i+1] - strip_factor[i])` is <= 1
+                    // and the mass it removes is the ICL donation banked
+                    // in `stripped[i]`.
+                    let retained = 10f64.powf(log_sm[i] + (strip_factor[i + 1] - strip_factor[i]));
+                    stripped[i] = 10f64.powf(log_sm[i]) - retained;
+                    (retained + m_dot * timeline.dt[i] * 1.0e9).log10()
                 } else {
                     (10f64.powf(log_sm[i]) + m_dot * timeline.dt[i] * 1.0e9).log10()
                 };
@@ -292,6 +311,6 @@ impl BaryonicPipeline {
             .map(|i| (sfh[i] / (timeline.dt[i] * 1.0e9 * 10f64.powf(log_sm[i]))).log10())
             .collect();
 
-        EvolutionHistory { log_sm, log_ssfr }
+        EvolutionHistory { log_sm, log_ssfr, stripped }
     }
 }

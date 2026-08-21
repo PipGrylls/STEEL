@@ -294,3 +294,79 @@ fn noiseless_evolution_does_not_consume_randomness() {
 
     assert_eq!(a.log_sm, b.log_sm, "a noiseless run must not depend on the seed");
 }
+
+/// A two-step timeline, chosen so the Moster+2018 recycling loop
+/// (`i > 0 && i < n - 1`) cannot run for any `i`: with `n = 2` the only
+/// indices are 0 (fails `i > 0`) and 1 (fails `i < 1`). That makes the
+/// mass returned to the ISM identically zero, so the step-0 mass budget
+/// closes on stripping and star formation alone -- which is what
+/// `stripped_mass_closes_the_budget` needs to check `stripped` against
+/// something other than a restatement of its own formula.
+fn build_two_step_timeline(cosmo: &Planck15) -> Timeline {
+    let z = vec![1.0, 0.95];
+    let t: Vec<f64> = z.iter().map(|&zi| cosmo.age(zi)).collect();
+    let dt = vec![t[1] - t[0], t[1] - t[0]];
+    Timeline { z, t, dt, log_host_mass: vec![13.0; 2], t_dyn_friction: 3.0 }
+}
+
+/// The stripped mass must be exactly the mass that left the satellite.
+///
+/// With recycling suppressed (see `build_two_step_timeline`) the pipeline's
+/// own step-0 budget is
+///
+/// ```text
+/// M(1) = M(0) - stripped(0) + SFH(0)
+/// ```
+///
+/// and `SFH(0)` is recoverable from the returned sSFR
+/// (`log_ssfr[i] = log10(SFH[i] / (dt[i] * 1e9 * M(i)))`), so every term
+/// is reconstructed from the public output rather than from the
+/// implementation. A sign error, an off-by-one in the `strip_factor`
+/// difference, or reporting the cumulative bound fraction instead of the
+/// per-step loss all break this.
+#[test]
+fn stripped_mass_closes_the_budget() {
+    let cosmo = Planck15::new();
+    let timeline = build_two_step_timeline(&cosmo);
+    let galaxy = build_galaxy(timeline.z[0]);
+    let pipeline = build_pipeline(&cosmo);
+    let track = flat_track();
+    let ctx = AccretionContext::central(&track, &cosmo, MassDefinition::Vir);
+    let mut rng = StdRng::seed_from_u64(4);
+
+    let h = pipeline.evolve(&galaxy, &timeline, true, false, &ctx, &mut rng);
+
+    let m0 = 10f64.powf(h.log_sm[0]);
+    let m1 = 10f64.powf(h.log_sm[1]);
+    let sfh0 = 10f64.powf(h.log_ssfr[0]) * timeline.dt[0] * 1.0e9 * m0;
+
+    let expected = m0 - h.stripped[0] + sfh0;
+    let rel = (m1 - expected).abs() / m1;
+    assert!(
+        rel < 1e-12,
+        "step-0 mass budget does not close: M(1)={m1}, M(0)-stripped+SFH={expected} \
+         (M(0)={m0}, stripped={}, SFH={sfh0})",
+        h.stripped[0]
+    );
+
+    assert!(h.stripped[0] > 0.0, "a stripped satellite must lose mass, got {}", h.stripped[0]);
+    assert!(h.stripped.iter().all(|s| s.is_finite() && *s >= 0.0), "{:?}", h.stripped);
+    assert_eq!(h.stripped.len(), h.log_sm.len(), "one stripped-mass entry per timeline step");
+}
+
+/// Stripping off means nothing is stripped -- the ICL accumulator must
+/// stay empty rather than quietly banking the no-stripping baseline.
+#[test]
+fn no_stripping_banks_no_mass() {
+    let cosmo = Planck15::new();
+    let timeline = build_timeline(&cosmo);
+    let galaxy = build_galaxy(timeline.z[0]);
+    let pipeline = build_pipeline(&cosmo);
+    let track = flat_track();
+    let ctx = AccretionContext::central(&track, &cosmo, MassDefinition::Vir);
+    let mut rng = StdRng::seed_from_u64(4);
+
+    let h = pipeline.evolve(&galaxy, &timeline, false, false, &ctx, &mut rng);
+
+    assert!(h.stripped.iter().all(|&s| s == 0.0), "{:?}", h.stripped);
+}
