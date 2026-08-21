@@ -354,6 +354,66 @@ fn stripped_mass_closes_the_budget() {
     assert_eq!(h.stripped.len(), h.log_sm.len(), "one stripped-mass entry per timeline step");
 }
 
+/// Hard stripping must never produce NaN. `evolve` advances the mass as
+/// `(retained + m_dot * dt).log10()`, and when stripping is strong
+/// enough that `retained` is tiny while the recycling term makes
+/// `m_dot` negative, that sum can go non-positive. `log10` of it
+/// returned NaN, which propagated silently into every downstream
+/// accumulator including the ICL total — NaN compares false against
+/// every bound, so it slips through range guards rather than being
+/// rejected by them.
+///
+/// A fully disrupted satellite is now zero stellar mass, i.e. `-inf` in
+/// log. That is a legitimate value here, not a failure: it is
+/// order-comparable, the histogram guards reject it cleanly, and
+/// `10^-inf` is 0 so mass sums stay correct. This test therefore bans
+/// NaN specifically rather than demanding finiteness.
+///
+/// Surfaced by `falsification_sweep`, which sweeps stripping strength
+/// well past the published baseline on purpose.
+#[test]
+fn hard_stripping_does_not_produce_nan_masses() {
+    use steel_plugins::ScaledStripping;
+
+    let cosmo = Planck15::new();
+    let timeline = build_timeline(&cosmo);
+    let galaxy = build_galaxy(timeline.z[0]);
+    let track = flat_track();
+    let ctx = AccretionContext::central(&track, &cosmo, MassDefinition::Vir);
+
+    for strength in [2.0_f64, 4.0, 8.0] {
+        let pipeline = BaryonicPipeline::new(
+            Box::new(TomczakFormSfr::ce()),
+            Box::new(Wetzel13::new()),
+            Box::new(StewartScaling::from_cosmology(&cosmo)),
+            Box::new(ScaledStripping::new(Cattaneo11, strength)),
+        );
+        let mut rng = StdRng::seed_from_u64(4);
+        let h = pipeline.evolve(&galaxy, &timeline, true, false, &ctx, &mut rng);
+
+        assert!(
+            h.log_sm.iter().all(|v| !v.is_nan()),
+            "strength {strength}: NaN stellar mass {:?}",
+            h.log_sm
+        );
+        // Stripped mass feeds a sum, so it must always be a real number.
+        assert!(
+            h.stripped.iter().all(|v| v.is_finite() && *v >= 0.0),
+            "strength {strength}: bad stripped mass {:?}",
+            h.stripped
+        );
+        // Disruption is terminal: once the galaxy is gone it cannot
+        // come back from zero mass on a later step's star formation.
+        if let Some(first_gone) = h.log_sm.iter().position(|v| v.is_infinite()) {
+            assert!(
+                h.log_sm[first_gone..].iter().all(|v| v.is_infinite()),
+                "strength {strength}: a disrupted satellite revived {:?}",
+                h.log_sm
+            );
+        }
+    }
+}
+
 /// Stripping off means nothing is stripped -- the ICL accumulator must
 /// stay empty rather than quietly banking the no-stripping baseline.
 #[test]

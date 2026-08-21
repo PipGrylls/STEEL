@@ -32,4 +32,4 @@ pub use quenching::{NoQuenching, Wetzel13};
 pub use sfr::{DoublePowerLawSfr, SchreiberFormSfr, TomczakFormSfr};
 pub use shmf::Jiang16;
 pub use smhm::{BehrooziFormSmhm, MosterFormSmhm, RodriguezPuebla17};
-pub use stripping::{Cattaneo11, HaloStrippingVdb05};
+pub use stripping::{Cattaneo11, HaloStrippingVdb05, ScaledStripping};

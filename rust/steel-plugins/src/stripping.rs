@@ -95,10 +95,92 @@ impl HaloStrippingModel for HaloStrippingVdb05 {
     }
 }
 
+/// Scales any [`StellarStrippingModel`]'s strip factor, turning
+/// stripping strength into a sweepable parameter.
+///
+/// `strip_factor` is log10 of the fraction still bound, so multiplying
+/// it by `strength` raises that fraction to the power `strength`:
+/// `f_bound -> f_bound^strength`. `strength = 1` leaves the wrapped
+/// model untouched, `> 1` strips harder, `0` disables stripping
+/// entirely. Monotonic in `strength`, since `f_bound <= 1`.
+///
+/// This is a generalisation of something the codebase already does:
+/// [`Cattaneo11`] hardcodes a `* 2.0`, the `Strip_f = Strip_f*2` that
+/// `Functions.py::StellarMassLoss` applies on the `PipGrylls` branch and
+/// that Papers 2 and 3 were run with. **The scale here composes with
+/// that**, so `ScaledStripping::new(Cattaneo11, 1.0)` is the published
+/// baseline (already doubled), not raw Cattaneo et al. (2011); a
+/// `strength` of 2 is four times the paper's stripping in dex.
+///
+/// The point of making this a parameter is the self-consistency
+/// argument: stripping sets a lower bound on how much stellar mass
+/// mergers deliver to a central, so "how hard would we have to strip to
+/// keep the delivered mass inside the SMHM's budget" is the question
+/// that decides whether an SMHM relation is physically attainable. See
+/// `steel_postprocess::central_assembly`.
+pub struct ScaledStripping<S> {
+    pub inner: S,
+    pub strength: f64,
+}
+
+impl<S> ScaledStripping<S> {
+    pub fn new(inner: S, strength: f64) -> Self {
+        assert!(strength >= 0.0, "stripping strength must be non-negative, got {strength}");
+        Self { inner, strength }
+    }
+}
+
+impl<S: StellarStrippingModel> StellarStrippingModel for ScaledStripping<S> {
+    fn strip_factor(&self, log_host_mass: f64, log_sat_mass: f64, time_fraction: f64) -> f64 {
+        self.inner.strip_factor(log_host_mass, log_sat_mass, time_fraction) * self.strength
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::cosmology::Planck15;
+
+    #[test]
+    fn scaled_stripping_at_unit_strength_is_the_wrapped_model() {
+        let base = Cattaneo11;
+        let scaled = ScaledStripping::new(Cattaneo11, 1.0);
+        for tf in [0.0, 0.25, 0.5, 1.0] {
+            let a = base.strip_factor(13.0, 11.0, tf);
+            let b = scaled.strip_factor(13.0, 11.0, tf);
+            assert!((a - b).abs() < 1e-15, "tf={tf}: {a} vs {b}");
+        }
+    }
+
+    /// Raising the strength must strip strictly harder (a more negative
+    /// log-space factor), and zero strength must strip nothing at all --
+    /// the two ends of the sweep the falsification harness relies on.
+    #[test]
+    fn scaled_stripping_is_monotonic_in_strength() {
+        let tf = 0.5;
+        let (h, s) = (13.0, 11.0);
+        let f1 = ScaledStripping::new(Cattaneo11, 1.0).strip_factor(h, s, tf);
+        let f2 = ScaledStripping::new(Cattaneo11, 2.0).strip_factor(h, s, tf);
+        let f0 = ScaledStripping::new(Cattaneo11, 0.0).strip_factor(h, s, tf);
+
+        assert!(f1 < 0.0, "baseline should suppress: {f1}");
+        assert!(f2 < f1, "more strength must strip harder: {f2} vs {f1}");
+        assert_eq!(f0, 0.0, "zero strength must leave the mass untouched, got {f0}");
+    }
+
+    /// The documented meaning of the scale: the *bound fraction* is
+    /// raised to the power `strength`.
+    #[test]
+    fn scaling_exponentiates_the_bound_fraction() {
+        let (h, s, tf) = (13.5, 11.5, 0.7);
+        let base_bound = 10f64.powf(Cattaneo11.strip_factor(h, s, tf));
+        let scaled_bound = 10f64.powf(ScaledStripping::new(Cattaneo11, 3.0).strip_factor(h, s, tf));
+        assert!(
+            (scaled_bound - base_bound.powf(3.0)).abs() < 1e-15,
+            "{scaled_bound} vs {}",
+            base_bound.powf(3.0)
+        );
+    }
 
     #[test]
     fn stellar_stripping_factor_is_zero_or_negative() {

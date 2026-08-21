@@ -255,6 +255,25 @@ impl BaryonicPipeline {
         let normal = Normal::new(0.0, SFR_SCATTER_DEX).unwrap();
 
         for i in 0..n {
+            // Fully disrupted: stripping (plus mass-loss recycling)
+            // already removed everything the satellite had, recorded as
+            // a stellar mass of zero, i.e. `-inf` in log. There is no
+            // galaxy left to form stars, strip, or recycle, so the step
+            // is skipped and the state propagates forward rather than
+            // being fed back through machinery that would turn it into
+            // a NaN. Unreachable at the published stripping strength --
+            // no committed run trips it, and the Cython-comparison
+            // regressions above are unaffected -- but reachable once
+            // stripping strength is swept upward, which
+            // `steel-postprocess`'s falsification sweep does on purpose.
+            if !log_sm[i].is_finite() {
+                sfh[i] = 0.0;
+                if i < n - 1 {
+                    log_sm[i + 1] = f64::NEG_INFINITY;
+                }
+                continue;
+            }
+
             let mut sfr = if quench.t_quench < timeline.t[i] && i != 0 {
                 // Quenched: exponential fade from the SFR at the moment
                 // quenching began.
@@ -289,7 +308,7 @@ impl BaryonicPipeline {
 
             let m_dot = sfr - gmlr[i]; // Msun/yr
             if i < n - 1 {
-                log_sm[i + 1] = if apply_stripping {
+                let next_linear = if apply_stripping {
                     // `strip_factor` is log10 of the fraction still
                     // bound, so the step's incremental factor
                     // `10^(strip_factor[i+1] - strip_factor[i])` is <= 1
@@ -297,10 +316,22 @@ impl BaryonicPipeline {
                     // in `stripped[i]`.
                     let retained = 10f64.powf(log_sm[i] + (strip_factor[i + 1] - strip_factor[i]));
                     stripped[i] = 10f64.powf(log_sm[i]) - retained;
-                    (retained + m_dot * timeline.dt[i] * 1.0e9).log10()
+                    retained + m_dot * timeline.dt[i] * 1.0e9
                 } else {
-                    (10f64.powf(log_sm[i]) + m_dot * timeline.dt[i] * 1.0e9).log10()
+                    10f64.powf(log_sm[i]) + m_dot * timeline.dt[i] * 1.0e9
                 };
+                // A galaxy cannot hold negative stellar mass. `m_dot` is
+                // net of mass-loss recycling and goes negative once
+                // returns outpace star formation; under hard stripping
+                // that deficit can exceed what stripping left behind,
+                // and `log10` of the resulting non-positive sum is NaN.
+                // NaN is the dangerous encoding here, not merely wrong:
+                // it compares false against every bound, so it slips
+                // through range guards and silently poisons downstream
+                // sums. Zero mass is `-inf` in log, which those same
+                // guards reject cleanly.
+                log_sm[i + 1] =
+                    if next_linear > 0.0 { next_linear.log10() } else { f64::NEG_INFINITY };
             }
         }
 
