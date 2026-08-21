@@ -45,3 +45,6 @@ Calabration/*.png
 paper/*.aux
 paper/*.log
 paper/*.out
+
+# Local research notes
+/research_notes/
