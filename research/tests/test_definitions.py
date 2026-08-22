@@ -27,6 +27,15 @@ def test_unknown_never_compares_even_with_itself():
         require_comparable(d, d)
 
 
+def test_differing_z_range_blocks_comparison():
+    d = Definition.from_dict(GZZ07)
+    assert isinstance(d.z_range, tuple)
+    other = Definition.from_dict({**GZZ07, "z_range": [0.2, 0.5]})
+    assert not d.is_comparable_to(other)
+    with pytest.raises(IncompatibleDefinitions, match="z_range"):
+        require_comparable(d, other)
+
+
 def test_component_mismatch_blocks_comparison():
     """BCG+ICL is not ICL-only -- the caveat that went unenforced all session."""
     icl_only = Definition.from_dict({**GZZ07, "component": "icl"})
