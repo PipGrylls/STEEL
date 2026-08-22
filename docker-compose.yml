@@ -1,0 +1,11 @@
+services:
+  research-store:
+    image: mongo:7
+    container_name: steel-research-store
+    ports:
+      - "27017:27017"
+    volumes:
+      - research-store-data:/data/db
+
+volumes:
+  research-store-data:

@@ -1,0 +1,69 @@
+"""MongoDB result store and its gates.
+
+Imported only by `research/mcp/server.py`. Agents reach the store through
+MCP tools, never through this module -- a library can be bypassed by an
+agent writing its own script, which is the behaviour the apparatus exists
+to prevent.
+"""
+from typing import Any
+
+from pymongo import MongoClient
+
+from .definitions import FIELDS as DEFINITION_FIELDS
+
+EXTRACTION_METHODS = {"table", "figure", "text", "abstract"}
+VERIFICATION_METHODS = {"arxiv-api-resolved", "doi-resolved", "manual-pdf"}
+
+
+class GateViolation(Exception):
+    """A write was refused because it would break a spec gate."""
+
+
+class Store:
+    def __init__(self, uri: str, db: str = "steel_research"):
+        self._client = MongoClient(uri, serverSelectionTimeoutMS=3000)
+        self._db = self._client[db]
+
+    def drop(self) -> None:
+        self._client.drop_database(self._db.name)
+
+    def ensure_schema(self) -> None:
+        """Indexes for the pre-check query path."""
+        self._db.artifacts.create_index("kind")
+        self._db.artifacts.create_index("definition.quantity")
+        self._db.artifacts.create_index("definition.mass_def")
+        self._db.sources.create_index("source_id", unique=True)
+
+    def verify_source(self, source_id: str, method: str) -> dict:
+        """Register a source as verified. Recollection is not verification."""
+        if method not in VERIFICATION_METHODS:
+            raise GateViolation(
+                f"verification_method must be one of {sorted(VERIFICATION_METHODS)}")
+        doc = {"source_id": source_id, "verification_method": method}
+        self._db.sources.update_one({"source_id": source_id},
+                                    {"$set": doc}, upsert=True)
+        return doc
+
+    def _check(self, doc: dict[str, Any]) -> None:
+        if doc.get("kind") != "measurement":
+            return
+        source_id = doc.get("source_id")
+        if not source_id or not self._db.sources.find_one({"source_id": source_id}):
+            raise GateViolation(
+                f"measurement requires a verified source; {source_id!r} is not registered")
+        missing = [f for f in DEFINITION_FIELDS if f not in doc.get("definition", {})]
+        if missing:
+            raise GateViolation(
+                f"definition missing required field(s): {', '.join(missing)}")
+        extraction = doc.get("source_snapshot", {}).get("extraction")
+        if extraction not in EXTRACTION_METHODS:
+            raise GateViolation(
+                f"extraction must be one of {sorted(EXTRACTION_METHODS)}, got {extraction!r}")
+
+    def put(self, doc: dict[str, Any]) -> str:
+        self._check(doc)
+        self._db.artifacts.replace_one({"_id": doc["_id"]}, doc, upsert=True)
+        return doc["_id"]
+
+    def query(self, spec: dict[str, Any]) -> list[dict]:
+        return list(self._db.artifacts.find(spec))
