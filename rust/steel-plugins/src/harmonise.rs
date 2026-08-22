@@ -5,6 +5,8 @@
 //! compared, an `Msun/h` vs `Msun` slip, or a halo mass quoted at a
 //! different overdensity. Spec section 7.
 
+use std::f64::consts::PI;
+
 use steel_core::cosmology::{Cosmology, MassDefinition};
 
 /// Stellar initial mass function a stellar-mass calibration assumes.
@@ -149,6 +151,114 @@ pub fn mpeak_to_vmax(
     (v_delta_sq * 0.216 * c / denom).sqrt()
 }
 
+/// NFW characteristic mass function, `mu(x) = ln(1+x) - x/(1+x)`.
+///
+/// The enclosed mass of an NFW halo is `M(<r) = 4 pi rho_s r_s^3 mu(r/r_s)`,
+/// so mass ratios between radii reduce to ratios of `mu`.
+fn nfw_mu(x: f64) -> f64 {
+    (1.0 + x).ln() - x / (1.0 + x)
+}
+
+/// Overdensity threshold for `mdef`, relative to the critical density —
+/// the same convention `Cosmology::m_to_r` uses.
+fn delta_wrt_critical(mdef: MassDefinition, z: f64, cosmology: &dyn Cosmology) -> f64 {
+    match mdef {
+        MassDefinition::Vir => cosmology.delta_vir(z),
+        MassDefinition::Critical(d) => d,
+        MassDefinition::Mean(d) => d * cosmology.omega_m(z),
+    }
+}
+
+/// Mass \[Msun/h\] enclosed by radius `r` \[kpc/h\] under definition
+/// `mdef` — the exact inverse of [`Cosmology::m_to_r`].
+fn mass_from_radius(r: f64, z: f64, mdef: MassDefinition, cosmology: &dyn Cosmology) -> f64 {
+    let delta = delta_wrt_critical(mdef, z, cosmology);
+    (4.0 / 3.0) * PI * r.powi(3) * cosmology.rho_crit(z) * delta
+}
+
+/// Mass at definition `mdef` implied by the NFW halo whose virial mass is
+/// `m_vir` \[Msun/h\].
+///
+/// Solves for the radius where the profile's enclosed mass equals the
+/// mass that `mdef` itself assigns to that radius. Both sides are
+/// continuous and cross exactly once for physical concentrations, so
+/// bisection is safe.
+fn implied_mass_at(
+    m_vir: f64,
+    mdef: MassDefinition,
+    z: f64,
+    cosmology: &dyn Cosmology,
+    concentration: &dyn ConcentrationMassRelation,
+) -> f64 {
+    let c_vir = concentration.concentration(m_vir.log10(), z);
+    let r_vir = cosmology.m_to_r(m_vir, z, MassDefinition::Vir);
+    let r_s = r_vir / c_vir;
+    let mu_c = nfw_mu(c_vir);
+
+    // f(r) > 0 while the profile encloses more than the definition
+    // demands. At tiny r the profile term dominates; at large r the r^3
+    // term does. Bracket generously around r_vir.
+    let f = |r: f64| m_vir * nfw_mu(r / r_s) / mu_c - mass_from_radius(r, z, mdef, cosmology);
+
+    let (mut lo, mut hi) = (1.0e-4 * r_vir, 1.0e2 * r_vir);
+    debug_assert!(f(lo) > 0.0 && f(hi) < 0.0, "root not bracketed for {mdef:?}");
+    for _ in 0..200 {
+        let mid = 0.5 * (lo + hi);
+        if f(mid) > 0.0 {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+    let r = 0.5 * (lo + hi);
+    mass_from_radius(r, z, mdef, cosmology)
+}
+
+/// Convert a spherical-overdensity halo mass between definitions under an
+/// NFW profile, in log10 Msun/h.
+///
+/// Conversions anchor on the virial definition because
+/// [`ConcentrationMassRelation`] is virial-calibrated: `from` is first
+/// inverted to a virial mass, then the profile is re-evaluated at `to`.
+/// The inversion is a bisection on virial mass, since `implied_mass_at`
+/// increases monotonically with it.
+pub fn convert_mass_definition(
+    log_m_from: f64,
+    from: MassDefinition,
+    to: MassDefinition,
+    z: f64,
+    cosmology: &dyn Cosmology,
+    concentration: &dyn ConcentrationMassRelation,
+) -> f64 {
+    if from == to {
+        return log_m_from;
+    }
+    let m_from = 10f64.powf(log_m_from);
+
+    // Invert `from` to a virial mass, unless it already is one.
+    let m_vir = if from == MassDefinition::Vir {
+        m_from
+    } else {
+        let (mut lo, mut hi) = (log_m_from - 3.0, log_m_from + 3.0);
+        for _ in 0..200 {
+            let mid = 0.5 * (lo + hi);
+            let implied =
+                implied_mass_at(10f64.powf(mid), from, z, cosmology, concentration);
+            if implied < m_from {
+                lo = mid;
+            } else {
+                hi = mid;
+            }
+        }
+        10f64.powf(0.5 * (lo + hi))
+    };
+
+    if to == MassDefinition::Vir {
+        return m_vir.log10();
+    }
+    implied_mass_at(m_vir, to, z, cosmology, concentration).log10()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -241,5 +351,46 @@ mod tests {
         let c_z1 = DuttonMaccio14.concentration(12.0, 1.0);
         assert!(c_low > c_high, "concentration must fall with mass");
         assert!(c_z1 < DuttonMaccio14.concentration(12.0, 0.0));
+    }
+
+    #[test]
+    fn converting_to_the_same_definition_is_the_identity() {
+        let c = crate::cosmology::Planck15::new();
+        let got = convert_mass_definition(
+            14.0, MassDefinition::Vir, MassDefinition::Vir, 0.1, &c, &DuttonMaccio14);
+        assert!((got - 14.0).abs() < 1e-6, "got {got}");
+    }
+
+    #[test]
+    fn virial_mass_exceeds_m500c() {
+        // Delta_vir(z~0) ~ 100x critical, well below 500x, so the virial
+        // radius encloses more mass than r500c.
+        let c = crate::cosmology::Planck15::new();
+        let log_mvir = convert_mass_definition(
+            14.0, MassDefinition::Critical(500.0), MassDefinition::Vir, 0.1, &c, &DuttonMaccio14);
+        assert!(log_mvir > 14.0, "Mvir {log_mvir} should exceed M500c 14.0");
+        assert!(log_mvir < 14.5, "conversion should be a modest shift, got {log_mvir}");
+    }
+
+    #[test]
+    fn mass_definition_conversion_round_trips() {
+        let c = crate::cosmology::Planck15::new();
+        let fwd = convert_mass_definition(
+            14.0, MassDefinition::Critical(500.0), MassDefinition::Vir, 0.3, &c, &DuttonMaccio14);
+        let back = convert_mass_definition(
+            fwd, MassDefinition::Vir, MassDefinition::Critical(500.0), 0.3, &c, &DuttonMaccio14);
+        assert!((back - 14.0).abs() < 1e-4, "round trip gave {back}");
+    }
+
+    #[test]
+    fn m200m_exceeds_m200c() {
+        // Mean-density overdensities enclose more mass than critical ones at
+        // the same Delta, since rho_mean < rho_crit.
+        let c = crate::cosmology::Planck15::new();
+        let m200m = convert_mass_definition(
+            14.0, MassDefinition::Vir, MassDefinition::Mean(200.0), 0.0, &c, &DuttonMaccio14);
+        let m200c = convert_mass_definition(
+            14.0, MassDefinition::Vir, MassDefinition::Critical(200.0), 0.0, &c, &DuttonMaccio14);
+        assert!(m200m > m200c, "M200m {m200m} should exceed M200c {m200c}");
     }
 }
