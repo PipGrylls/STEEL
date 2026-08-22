@@ -64,11 +64,19 @@ class Store:
         if not source_id or not self._db.sources.find_one({"source_id": source_id}):
             raise GateViolation(
                 f"measurement requires a verified source; {source_id!r} is not registered")
-        missing = [f for f in DEFINITION_FIELDS if f not in doc.get("definition", {})]
+        definition = doc.get("definition", {})
+        if not isinstance(definition, dict):
+            raise GateViolation(
+                f"definition must be a dict, got {type(definition).__name__}")
+        missing = [f for f in DEFINITION_FIELDS if f not in definition]
         if missing:
             raise GateViolation(
                 f"definition missing required field(s): {', '.join(missing)}")
-        extraction = doc.get("source_snapshot", {}).get("extraction")
+        source_snapshot = doc.get("source_snapshot", {})
+        if not isinstance(source_snapshot, dict):
+            raise GateViolation(
+                f"source_snapshot must be a dict, got {type(source_snapshot).__name__}")
+        extraction = source_snapshot.get("extraction")
         if extraction not in EXTRACTION_METHODS:
             raise GateViolation(
                 f"extraction must be one of {sorted(EXTRACTION_METHODS)}, got {extraction!r}")

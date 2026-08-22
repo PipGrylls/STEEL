@@ -86,3 +86,29 @@ def test_known_non_measurement_kind_is_accepted(store):
     doc = {"_id": "q-icl-definition-ambiguity", "kind": "question",
            "payload": {"text": "Is ICL fraction defined w.r.t. M500c or M200c in GZZ07?"}}
     assert store.put(doc) == "q-icl-definition-ambiguity"
+
+
+def test_definition_as_string_does_not_bypass_the_field_check(store):
+    """A string containing every field name must not fake `in` membership."""
+    store.verify_source("arxiv:0705.1726", method="arxiv-api-resolved")
+    bad = measurement(definition=(
+        "quantity component mass_def aperture h_convention imf cosmology z_range"))
+    with pytest.raises(GateViolation, match="definition"):
+        store.put(bad)
+
+
+def test_definition_as_list_does_not_bypass_the_field_check(store):
+    """A list of the field names must not fake `in` membership either."""
+    store.verify_source("arxiv:0705.1726", method="arxiv-api-resolved")
+    bad = measurement(definition=["quantity", "component", "mass_def", "aperture",
+                                  "h_convention", "imf", "cosmology", "z_range"])
+    with pytest.raises(GateViolation, match="definition"):
+        store.put(bad)
+
+
+def test_source_snapshot_as_string_is_a_gate_violation_not_a_crash(store):
+    """A malformed source_snapshot must be refused cleanly, not raise AttributeError."""
+    store.verify_source("arxiv:0705.1726", method="arxiv-api-resolved")
+    bad = measurement(source_snapshot="abstract")
+    with pytest.raises(GateViolation, match="source_snapshot"):
+        store.put(bad)
