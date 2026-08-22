@@ -85,8 +85,10 @@ Envelope validated by Mongo `$jsonSchema`; payload unconstrained.
     "analytical_form": "log M* = log(eps) + ...",
     "parameters": {"M1": 11.59, "alpha": -1.99}
   },
-  "source": {"arxiv": "0705.1726", "verified_at": "2026-08-21T00:00:00Z",
-             "extraction": "abstract", "locator": "abstract, sentence 6"},
+  "source_id": "arxiv:0705.1726",
+  "source_snapshot": {"arxiv": "0705.1726", "verified_at": "2026-08-21T00:00:00Z",
+                      "verification_method": "arxiv-api-resolved",
+                      "extraction": "abstract", "locator": "abstract, sentence 6"},
   "caveats": ["not-icl-only"],
   "created_by": "data-curator", "created_at": "..."
 }
@@ -94,6 +96,16 @@ Envelope validated by Mongo `$jsonSchema`; payload unconstrained.
 
 **Artifact kinds:** `source`, `measurement`, `model_run`, `derivation_run`,
 `claim`, `question`.
+
+**Sources are their own documents.** A `measurement` references one by
+`source_id`; `source_snapshot` is a denormalised copy carrying the
+verification state *at extraction time*, so a later re-verification
+cannot retroactively rewrite what a published claim rested on.
+
+**What "verified" means.** A `source` is verified when its identifier
+resolves against an authority — `arxiv-api-resolved`, `doi-resolved`, or
+`manual-pdf` (a human confirmed a local copy). Recollection is never
+verification. `verification_method` is mandatory and recorded.
 
 **`definition` is the comparability fingerprint.** Every field is
 mandatory; unknown values must be the explicit string `"unknown"`, which
