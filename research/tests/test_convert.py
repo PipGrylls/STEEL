@@ -24,6 +24,35 @@ def test_unknown_mass_definition_raises():
         convert(14.0, d(mass_def="unknown"), d(mass_def="Mvir"), z=0.1)
 
 
+def test_imf_only_difference_routes_to_convert_stellar():
+    """An IMF-only change must take the IMF-offset path (`convert_stellar`),
+    not silently fall through to a mass-definition conversion that would
+    leave the value unchanged (the Finding-1 bug: `m_star` starts with
+    `m_`, so a naive "quantity starts with m_" heuristic misroutes this)."""
+    log_m, path = convert(14.0, d(imf="salpeter"), d(imf="chabrier"), z=0.1)
+    assert log_m == pytest.approx(13.76, abs=1e-9)
+    assert any("Salpeter->Chabrier" in step for step in path)
+
+
+def test_mass_def_and_imf_both_differ_raises():
+    """Changing both `mass_def` and `imf` in one call is two conversions
+    folded into one; the CLI only does one at a time and silently drops
+    whichever field it doesn't own, so this must refuse rather than guess
+    which one to apply."""
+    with pytest.raises(ConversionError):
+        convert(14.0, d(), d(mass_def="Mvir", imf="kroupa"), z=0.1)
+
+
+def test_missing_cli_binary_raises_with_actionable_message(monkeypatch):
+    from pathlib import Path
+
+    import kernel.convert as convert_mod
+
+    monkeypatch.setattr(convert_mod, "CLI", Path("/nonexistent/steel-harmonise-cli"))
+    with pytest.raises(ConversionError, match="cargo build --release -p steel-harmonise-cli"):
+        convert(14.0, d(), d(mass_def="Mvir"), z=0.1)
+
+
 def test_agrees_with_colossus():
     """Independent validation -- the conversion is new physics, so it is
     checked against an established implementation, not just itself.
