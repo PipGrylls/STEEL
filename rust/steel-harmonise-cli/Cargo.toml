@@ -1,0 +1,13 @@
+[package]
+name = "steel-harmonise-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+steel-core = { path = "../steel-core" }
+steel-plugins = { path = "../steel-plugins" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
