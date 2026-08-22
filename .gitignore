@@ -48,3 +48,8 @@ paper/*.out
 
 # Local research notes
 /research_notes/
+
+# Python virtualenv and build artifacts for the research/ package
+/research/.venv/
+research/**/__pycache__/
+research/**/*.egg-info/
