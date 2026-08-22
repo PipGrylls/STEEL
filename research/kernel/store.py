@@ -1,9 +1,9 @@
 """MongoDB result store and its gates.
 
-Imported only by `research/mcp/server.py`. Agents reach the store through
-MCP tools, never through this module -- a library can be bypassed by an
-agent writing its own script, which is the behaviour the apparatus exists
-to prevent.
+Imported only by `research/mcp_server/server.py`. Agents reach the store
+through MCP tools, never through this module -- a library can be bypassed
+by an agent writing its own script, which is the behaviour the apparatus
+exists to prevent.
 """
 from typing import Any
 

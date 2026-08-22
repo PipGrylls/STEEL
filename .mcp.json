@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "arxiv": {
+      "type": "sse",
+      "url": "http://localhost:8050/sse"
+    },
+    "research-store": {
+      "command": "research/.venv/bin/python",
+      "args": ["-m", "mcp_server.server"],
+      "cwd": "research"
+    }
+  }
+}
