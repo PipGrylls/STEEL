@@ -89,7 +89,13 @@ impl HConvention {
 /// results. It is a selectable modelling assumption, not an
 /// implementation detail (spec section 7).
 pub trait ConcentrationMassRelation: Send + Sync {
-    /// NFW concentration c = R_delta / r_s for `log_mh` \[log10 Msun\].
+    /// NFW concentration c = R_delta / r_s for `log_mh`
+    /// \[log10 **Msun/h**\], virial mass definition.
+    ///
+    /// The h-convention is load-bearing: `DuttonMaccio14`'s fit is
+    /// pivoted at 1e12 h^-1 Msun, so passing an h-free mass shifts the
+    /// concentration by `b * log10(h)`. Pinned by
+    /// `dutton_maccio_pivot_is_defined_at_1e12_msun_per_h`.
     fn concentration(&self, log_mh: f64, z: f64) -> f64;
 }
 
@@ -216,5 +222,24 @@ mod tests {
         let cm = DuttonMaccio14;
         let v = mpeak_to_vmax(12.1, 0.0, &cosmo, &cm, MassDefinition::Vir);
         assert!((120.0..300.0).contains(&v), "Vmax = {v} km/s");
+    }
+
+    #[test]
+    fn dutton_maccio_pivot_is_defined_at_1e12_msun_per_h() {
+        // D&M14 eq. 7 pivot: at z=0 and M_vir = 1e12 h^-1 Msun the mass term
+        // vanishes, leaving log10 c = a(0) = 0.537 + 0.488 = 1.025. This test
+        // pins the argument convention as log10 Msun/h -- passing an h-free
+        // mass here would silently shift c.
+        let c = DuttonMaccio14.concentration(12.0, 0.0);
+        assert!((c - 10f64.powf(1.025)).abs() < 1e-9, "c = {c}");
+    }
+
+    #[test]
+    fn concentration_falls_with_mass_and_redshift() {
+        let c_low = DuttonMaccio14.concentration(11.0, 0.0);
+        let c_high = DuttonMaccio14.concentration(14.0, 0.0);
+        let c_z1 = DuttonMaccio14.concentration(12.0, 1.0);
+        assert!(c_low > c_high, "concentration must fall with mass");
+        assert!(c_z1 < DuttonMaccio14.concentration(12.0, 0.0));
     }
 }
