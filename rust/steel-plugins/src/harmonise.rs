@@ -201,7 +201,13 @@ fn implied_mass_at(
     let f = |r: f64| m_vir * nfw_mu(r / r_s) / mu_c - mass_from_radius(r, z, mdef, cosmology);
 
     let (mut lo, mut hi) = (1.0e-4 * r_vir, 1.0e2 * r_vir);
-    debug_assert!(f(lo) > 0.0 && f(hi) < 0.0, "root not bracketed for {mdef:?}");
+    // Promoted from debug_assert!: this is exactly the check that matters
+    // in release builds, where the science runs. Two extra evaluations of
+    // `f` are negligible against the 200-iteration bisection below, so
+    // there is no performance case for leaving it debug-only. An
+    // unbracketed root would otherwise return a silently wrong-but-
+    // plausible-looking mass.
+    assert!(f(lo) > 0.0 && f(hi) < 0.0, "root not bracketed for {mdef:?}");
     for _ in 0..200 {
         let mid = 0.5 * (lo + hi);
         if f(mid) > 0.0 {
@@ -240,6 +246,20 @@ pub fn convert_mass_definition(
         m_from
     } else {
         let (mut lo, mut hi) = (log_m_from - 3.0, log_m_from + 3.0);
+        // `implied_mass_at` increases monotonically with virial mass, so a
+        // valid bracket has the implied mass below `m_from` at `lo` and
+        // above it at `hi`. Without this check an out-of-range target
+        // (e.g. an absurd overdensity) silently returns a bracket
+        // endpoint rather than failing loudly.
+        let implied_lo = implied_mass_at(10f64.powf(lo), from, z, cosmology, concentration);
+        let implied_hi = implied_mass_at(10f64.powf(hi), from, z, cosmology, concentration);
+        assert!(
+            implied_lo < m_from && implied_hi > m_from,
+            "convert_mass_definition: outer bisection root not bracketed for \
+             from={from:?} at z={z}, log_m_from={log_m_from} \
+             (tried bracket [{lo}, {hi}] in log10 Msun/h, implied masses \
+             [{implied_lo:e}, {implied_hi:e}] vs target {m_from:e})"
+        );
         for _ in 0..200 {
             let mid = 0.5 * (lo + hi);
             let implied =
@@ -392,5 +412,55 @@ mod tests {
         let m200c = convert_mass_definition(
             14.0, MassDefinition::Vir, MassDefinition::Critical(200.0), 0.0, &c, &DuttonMaccio14);
         assert!(m200m > m200c, "M200m {m200m} should exceed M200c {m200c}");
+    }
+
+    #[test]
+    fn m500c_to_mvir_pinned_value_at_z_0_1() {
+        // Pins the exact numeric output so a future silent regression is
+        // loud. Three of four deliberately-wrong variants tried during
+        // review (mass_from_radius 3x too large, nfw_mu missing its
+        // -x/(1+x) term, concentration hard-wired to 5.0) still passed
+        // every other test in this file -- none of them constrain the
+        // actual numerics. This value, 14.22438425687037, is this
+        // implementation's own output for M500c=10^14 Msun/h at z=0.1; it
+        // was independently cross-checked during code review, where a
+        // from-scratch reimplementation reproduced it to all 16 digits
+        // and a separate analytic root-find agreed to 15 digits
+        // (c_vir ~= 6.11, Mvir/M500c ~= 1.676).
+        let c = crate::cosmology::Planck15::new();
+        let log_mvir = convert_mass_definition(
+            14.0, MassDefinition::Critical(500.0), MassDefinition::Vir, 0.1, &c, &DuttonMaccio14);
+        assert!(
+            (log_mvir - 14.22438425687037).abs() < 1e-3,
+            "expected log10(Mvir) ~= 14.2244, got {log_mvir}"
+        );
+    }
+
+    #[test]
+    fn mass_from_radius_inverts_m_to_r() {
+        // mass_from_radius must be the exact inverse of Cosmology::m_to_r
+        // -- implied_mass_at's bisection relies on that algebraic fact.
+        // A mutant that scales either side by a stray constant (e.g. the
+        // 3x mass_from_radius bug found in review) still passes every
+        // other test here, since those only check ordering/identity/
+        // round-trip properties that survive a shared constant-factor
+        // error. This test would have caught it directly.
+        let c = crate::cosmology::Planck15::new();
+        let z = 0.2;
+        let log_m = 13.5;
+        let m = 10f64.powf(log_m);
+        for mdef in [
+            MassDefinition::Vir,
+            MassDefinition::Critical(500.0),
+            MassDefinition::Mean(200.0),
+        ] {
+            let r = c.m_to_r(m, z, mdef);
+            let back = mass_from_radius(r, z, mdef, &c);
+            let rel_err = (back - m).abs() / m;
+            assert!(
+                rel_err < 1e-9,
+                "{mdef:?}: m_to_r/mass_from_radius round trip gave relative error {rel_err}"
+            );
+        }
     }
 }
