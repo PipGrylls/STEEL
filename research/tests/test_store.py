@@ -63,3 +63,26 @@ def test_query_returns_definition_and_verification_state(store):
     assert len(hits) == 1
     assert hits[0]["definition"]["mass_def"] == "M500c"
     assert hits[0]["source_snapshot"]["extraction"] == "abstract"
+
+
+def test_misspelled_kind_is_rejected(store):
+    """A typo in `kind` must not silently bypass every gate below it."""
+    store.verify_source("arxiv:0705.1726", method="arxiv-api-resolved")
+    bad = measurement(kind="measurment")
+    with pytest.raises(GateViolation, match="kind"):
+        store.put(bad)
+
+
+def test_missing_kind_is_rejected(store):
+    store.verify_source("arxiv:0705.1726", method="arxiv-api-resolved")
+    bad = measurement()
+    del bad["kind"]
+    with pytest.raises(GateViolation, match="kind"):
+        store.put(bad)
+
+
+def test_known_non_measurement_kind_is_accepted(store):
+    """The allowlist must not over-block legitimate non-measurement kinds."""
+    doc = {"_id": "q-icl-definition-ambiguity", "kind": "question",
+           "payload": {"text": "Is ICL fraction defined w.r.t. M500c or M200c in GZZ07?"}}
+    assert store.put(doc) == "q-icl-definition-ambiguity"

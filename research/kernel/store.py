@@ -14,6 +14,15 @@ from .definitions import FIELDS as DEFINITION_FIELDS
 EXTRACTION_METHODS = {"table", "figure", "text", "abstract"}
 VERIFICATION_METHODS = {"arxiv-api-resolved", "doi-resolved", "manual-pdf"}
 
+# `_check` used to return early for any doc whose `kind` wasn't exactly the
+# string "measurement" -- which meant a typo ("measurment"), a wrong case
+# ("Measurement"), or a missing `kind` field bypassed every gate below and
+# was written unchecked. That is allow-by-default for anything malformed,
+# which defeats the point of a gate. This allowlist makes "not a kind we
+# recognise" a loud refusal instead of a silent pass. Do not remove it as a
+# "simplification" -- the early return it replaces was the bug.
+KNOWN_KINDS = {"source", "measurement", "model_run", "derivation_run", "claim", "question"}
+
 
 class GateViolation(Exception):
     """A write was refused because it would break a spec gate."""
@@ -45,7 +54,11 @@ class Store:
         return doc
 
     def _check(self, doc: dict[str, Any]) -> None:
-        if doc.get("kind") != "measurement":
+        kind = doc.get("kind")
+        if kind not in KNOWN_KINDS:
+            raise GateViolation(
+                f"kind must be one of {sorted(KNOWN_KINDS)}, got {kind!r}")
+        if kind != "measurement":
             return
         source_id = doc.get("source_id")
         if not source_id or not self._db.sources.find_one({"source_id": source_id}):
