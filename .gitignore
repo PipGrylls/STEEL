@@ -53,3 +53,8 @@ paper/*.out
 /research/.venv/
 research/**/__pycache__/
 research/**/*.egg-info/
+
+# Derivation figures are `derivation_run` outputs, regenerated from the
+# committed sweep CSV in research/data/ -- the run record in Mongo carries
+# the code hash and input ids, so the binary itself is not the artifact.
+/research/figures/
