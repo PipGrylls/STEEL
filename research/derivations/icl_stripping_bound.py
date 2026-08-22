@@ -301,12 +301,8 @@ def run(sweep_csv: str, gzz07_value: float, out_png: str,
         kinds.append(kind)
         sources.append(log_mh_perh)
 
-    # `max_strength_at` below is keyed on the *converted* mass, so two grid
-    # masses converting to the same value would silently collapse into one
-    # entry -- and the headline "14 genuine bounds of 30" count is read off
-    # that mapping. Refuse rather than quietly lose a point. The conversion
-    # is monotonic in mass, so this can only fire if the input grid itself
-    # repeats a mass, which is a defect in the sweep worth hearing about.
+    # `max_strength_at` below is keyed on the converted mass; see
+    # `_require_distinct` for why a repeat must stop the run.
     _require_distinct(xs, sources)
 
     # THE COMPARISON THIS DERIVATION EXISTS TO MAKE, AND ITS REFUSAL.
