@@ -43,6 +43,51 @@ def test_mass_def_and_imf_both_differ_raises():
         convert(14.0, d(), d(mass_def="Mvir", imf="kroupa"), z=0.1)
 
 
+@pytest.mark.parametrize("field,value", [
+    ("quantity", "m_star"),
+    ("component", "icl"),
+    ("aperture", "r200"),
+    ("cosmology", "wmap7"),
+    ("z_range", [0.0, 0.13]),
+])
+def test_non_convertible_field_difference_is_refused(field, value):
+    """`_endpoint` transmits only mass_def/imf/h_convention, so a difference
+    in any other field used to be dropped silently and the CLI would return
+    an authoritative-looking number for two endpoints that describe
+    different things. Each of the five must refuse, naming itself."""
+    with pytest.raises(ConversionError, match=field):
+        convert(14.0, d(), d(mass_def="Mvir", **{field: value}), z=0.1)
+
+
+def test_refusal_names_every_offending_field_not_just_the_first():
+    """A caller fixing one field at a time would otherwise be led through
+    the mismatches one refusal at a time, and could easily stop early."""
+    with pytest.raises(ConversionError) as exc:
+        convert(14.0, d(), d(mass_def="Mvir", aperture="r200",
+                             cosmology="wmap7"), z=0.1)
+    assert "aperture" in str(exc.value)
+    assert "cosmology" in str(exc.value)
+
+
+def test_unknown_aperture_on_both_sides_still_converts():
+    """Conversion is not comparison. An honestly-`unknown` aperture that is
+    the same on both endpoints does not affect a mass-definition
+    conversion, so `convert` allows it; `require_comparable` is the gate
+    that refuses `unknown`, and it still does (see
+    test_definitions.py). Folding the two checks together would make every
+    honestly-unknown field unconvertible."""
+    log_m, path = convert(14.0, d(aperture="unknown"),
+                          d(mass_def="Mvir", aperture="unknown"), z=0.1)
+    assert 14.0 < log_m < 15.0
+    assert any("Mvir" in step for step in path)
+
+
+def test_unknown_aperture_on_one_side_only_is_refused():
+    """...but an `unknown` facing a known value is still a difference."""
+    with pytest.raises(ConversionError, match="aperture"):
+        convert(14.0, d(aperture="unknown"), d(mass_def="Mvir"), z=0.1)
+
+
 def test_missing_cli_binary_raises_with_actionable_message(monkeypatch):
     from pathlib import Path
 

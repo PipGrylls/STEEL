@@ -12,6 +12,22 @@ from .definitions import Definition
 
 CLI = Path(__file__).resolve().parents[2] / "rust" / "target" / "release" / "steel-harmonise-cli"
 
+# The only definition fields `steel-harmonise-cli` can actually change.
+# These are the three `_endpoint` transmits; everything else in a
+# `Definition` is invisible to the CLI.
+CONVERTIBLE_FIELDS = ("mass_def", "imf", "h_convention")
+
+# Everything else. The CLI has no operation for any of these -- there is no
+# aperture conversion, no cosmology conversion, no redshift-range
+# conversion, and changing `quantity` or `component` is a change of
+# physical meaning, not of units. Because `_endpoint` never transmits them,
+# a difference here used to be dropped silently: the CLI would happily
+# convert the mass and return a value that looked authoritative while the
+# two endpoints described different things. That is the exact failure class
+# this apparatus exists to forbid, so it is a refusal.
+NON_CONVERTIBLE_FIELDS = ("quantity", "component", "aperture",
+                          "cosmology", "z_range")
+
 
 class ConversionError(Exception):
     """The conversion was refused or the CLI failed."""
@@ -20,6 +36,36 @@ class ConversionError(Exception):
 def _endpoint(defn: Definition) -> dict:
     return {"mass_def": defn.mass_def, "imf": defn.imf,
             "h_convention": defn.h_convention}
+
+
+def _require_convertible(frm: Definition, to: Definition) -> None:
+    """Refuse when the two endpoints differ in a field the CLI cannot change.
+
+    Note the deliberate difference from `require_comparable`: this checks
+    *inequality only*, not `"unknown"`. Conversion and comparison are
+    different questions. Re-expressing a halo mass from Mvir to M500c is a
+    valid operation whether or not the aperture of the underlying
+    measurement is known, provided it is the *same* on both sides -- the
+    conversion does not depend on it. Deciding whether the converted value
+    may then be *compared* with something else is `require_comparable`'s
+    job, and there `"unknown"` blocks, including against itself. Folding
+    the two checks together here would either let real mismatches through
+    or make every honestly-`unknown` field unconvertible; keeping them
+    separate lets a derivation convert an axis and still be refused at the
+    comparison, which is what the design intends.
+    """
+    offending = [f for f in NON_CONVERTIBLE_FIELDS
+                 if getattr(frm, f) != getattr(to, f)]
+    if offending:
+        detail = "; ".join(
+            f"{f}: {getattr(frm, f)!r} != {getattr(to, f)!r}" for f in offending)
+        raise ConversionError(
+            "steel-harmonise-cli cannot convert " + ", ".join(offending)
+            + f" -- these differ between the two endpoints ({detail}). "
+            "Only " + ", ".join(CONVERTIBLE_FIELDS) + " are convertible; "
+            "a difference in any other field is a change of meaning, not "
+            "of units, and must be resolved explicitly rather than "
+            "silently ignored")
 
 
 def _select_op(frm: Definition, to: Definition) -> str:
@@ -64,10 +110,14 @@ def convert(log_m: float, frm: Definition, to: Definition, z: float) -> tuple[fl
 
     Returns the converted value and the ordered list of steps taken, which
     the caller records as provenance.
+
+    Refuses (rather than silently ignoring) any difference in a field the
+    CLI cannot convert -- see `_require_convertible`.
     """
     if not CLI.exists():
         raise ConversionError(
             f"{CLI} not built; run: cargo build --release -p steel-harmonise-cli")
+    _require_convertible(frm, to)
     op = _select_op(frm, to)
     req = {"op": op, "log_m": log_m, "z": z,
            "from": _endpoint(frm), "to": _endpoint(to)}
