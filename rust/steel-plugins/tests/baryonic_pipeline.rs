@@ -164,7 +164,7 @@ fn unstripped_noiseless_trajectory_matches_the_cython_when_the_gas_cap_is_neutra
     let ctx = AccretionContext::central(&track, &cosmo, MassDefinition::Vir);
 
     let mut rng = StdRng::seed_from_u64(1);
-    let history = pipeline.evolve(&galaxy, &timeline, false, false, &ctx, &mut rng);
+    let history = pipeline.evolve(&galaxy, &timeline, true, false, false, &ctx, &mut rng);
     assert_matches(&history.log_sm, &PYTHON_UNSTRIPPED, 1e-8);
 }
 
@@ -183,7 +183,7 @@ fn stripped_noiseless_trajectory_matches_the_cython_exactly() {
     let ctx = AccretionContext::central(&track, &cosmo, MassDefinition::Vir);
 
     let mut rng = StdRng::seed_from_u64(1);
-    let history = pipeline.evolve(&galaxy, &timeline, true, false, &ctx, &mut rng);
+    let history = pipeline.evolve(&galaxy, &timeline, true, true, false, &ctx, &mut rng);
     assert_matches(&history.log_sm, &PYTHON_STRIPPED, 1e-8);
 }
 
@@ -200,9 +200,9 @@ fn the_gas_supply_cap_engages_and_suppresses_growth() {
     let ctx = AccretionContext::central(&track, &cosmo, MassDefinition::Vir);
 
     let mut rng = StdRng::seed_from_u64(1);
-    let capped = build_pipeline(&cosmo).evolve(&galaxy, &timeline, false, false, &ctx, &mut rng);
+    let capped = build_pipeline(&cosmo).evolve(&galaxy, &timeline, true, false, false, &ctx, &mut rng);
     let mut rng = StdRng::seed_from_u64(1);
-    let uncapped = build_uncapped_pipeline().evolve(&galaxy, &timeline, false, false, &ctx, &mut rng);
+    let uncapped = build_uncapped_pipeline().evolve(&galaxy, &timeline, true, false, false, &ctx, &mut rng);
 
     // The two agree until the galaxy has formed enough new stars to
     // exhaust its gas, then diverge.
@@ -245,9 +245,9 @@ fn stripped_satellite_ends_lower_mass_than_unstripped() {
     let ctx = AccretionContext::central(&track, &cosmo, MassDefinition::Vir);
 
     let mut rng_a = StdRng::seed_from_u64(1);
-    let unstripped = pipeline.evolve(&galaxy, &timeline, false, false, &ctx, &mut rng_a);
+    let unstripped = pipeline.evolve(&galaxy, &timeline, true, false, false, &ctx, &mut rng_a);
     let mut rng_b = StdRng::seed_from_u64(1);
-    let stripped = pipeline.evolve(&galaxy, &timeline, true, false, &ctx, &mut rng_b);
+    let stripped = pipeline.evolve(&galaxy, &timeline, true, true, false, &ctx, &mut rng_b);
 
     assert!(*stripped.log_sm.last().unwrap() < *unstripped.log_sm.last().unwrap());
 }
@@ -262,9 +262,9 @@ fn scatter_on_gives_reproducible_results_for_a_fixed_seed() {
     let ctx = AccretionContext::central(&track, &cosmo, MassDefinition::Vir);
 
     let mut rng1 = StdRng::seed_from_u64(99);
-    let h1 = pipeline.evolve(&galaxy, &timeline, false, true, &ctx, &mut rng1);
+    let h1 = pipeline.evolve(&galaxy, &timeline, true, false, true, &ctx, &mut rng1);
     let mut rng2 = StdRng::seed_from_u64(99);
-    let h2 = pipeline.evolve(&galaxy, &timeline, false, true, &ctx, &mut rng2);
+    let h2 = pipeline.evolve(&galaxy, &timeline, true, false, true, &ctx, &mut rng2);
 
     // Exact equality is deliberate here, not an oversight. The claim
     // under test is specifically that an identical seed reproduces
@@ -288,9 +288,9 @@ fn noiseless_evolution_does_not_consume_randomness() {
     let ctx = AccretionContext::central(&track, &cosmo, MassDefinition::Vir);
 
     let mut rng_a = StdRng::seed_from_u64(1);
-    let a = pipeline.evolve(&galaxy, &timeline, false, false, &ctx, &mut rng_a);
+    let a = pipeline.evolve(&galaxy, &timeline, true, false, false, &ctx, &mut rng_a);
     let mut rng_b = StdRng::seed_from_u64(12345);
-    let b = pipeline.evolve(&galaxy, &timeline, false, false, &ctx, &mut rng_b);
+    let b = pipeline.evolve(&galaxy, &timeline, true, false, false, &ctx, &mut rng_b);
 
     assert_eq!(a.log_sm, b.log_sm, "a noiseless run must not depend on the seed");
 }
@@ -334,7 +334,7 @@ fn stripped_mass_closes_the_budget() {
     let ctx = AccretionContext::central(&track, &cosmo, MassDefinition::Vir);
     let mut rng = StdRng::seed_from_u64(4);
 
-    let h = pipeline.evolve(&galaxy, &timeline, true, false, &ctx, &mut rng);
+    let h = pipeline.evolve(&galaxy, &timeline, true, true, false, &ctx, &mut rng);
 
     let m0 = 10f64.powf(h.log_sm[0]);
     let m1 = 10f64.powf(h.log_sm[1]);
@@ -389,7 +389,7 @@ fn hard_stripping_does_not_produce_nan_masses() {
             Box::new(ScaledStripping::new(Cattaneo11, strength)),
         );
         let mut rng = StdRng::seed_from_u64(4);
-        let h = pipeline.evolve(&galaxy, &timeline, true, false, &ctx, &mut rng);
+        let h = pipeline.evolve(&galaxy, &timeline, true, true, false, &ctx, &mut rng);
 
         assert!(
             h.log_sm.iter().all(|v| !v.is_nan()),
@@ -426,7 +426,7 @@ fn no_stripping_banks_no_mass() {
     let ctx = AccretionContext::central(&track, &cosmo, MassDefinition::Vir);
     let mut rng = StdRng::seed_from_u64(4);
 
-    let h = pipeline.evolve(&galaxy, &timeline, false, false, &ctx, &mut rng);
+    let h = pipeline.evolve(&galaxy, &timeline, true, false, false, &ctx, &mut rng);
 
     assert!(h.stripped.iter().all(|&s| s == 0.0), "{:?}", h.stripped);
 }

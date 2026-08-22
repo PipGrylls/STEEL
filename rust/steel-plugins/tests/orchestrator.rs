@@ -422,3 +422,67 @@ fn a_shorter_dynamical_friction_time_moves_satellites_from_survivors_to_mergers(
         merged(&slow)
     );
 }
+
+/// `[run].star_formation` must actually gate star formation in satellites.
+///
+/// `STEEL.py:386-392` branches three ways — `SF and Stripping`, `elif SF`,
+/// `elif Stripping` — and that third branch calls `StellarMassLoss` alone,
+/// with no `StarFormation` call at all. The Rust port originally passed
+/// only `config.stellar_stripping` into `BaryonicPipeline::evolve` and
+/// never plumbed `config.star_formation` through, so with stripping on the
+/// pipeline ran and formed stars regardless of the flag. A 300-row sweep
+/// over both settings came back byte-identical in every column.
+///
+/// Satellites that never form stars must deliver strictly less stellar
+/// mass, so the merging-satellite mass function must differ and must be
+/// lower overall.
+#[test]
+fn disabling_star_formation_reduces_delivered_satellite_mass() {
+    let sim = build_small_simulation();
+
+    let mut with_sf = small_config();
+    with_sf.star_formation = true;
+    with_sf.stellar_stripping = true;
+
+    let mut without_sf = small_config();
+    without_sf.star_formation = false;
+    without_sf.stellar_stripping = true;
+
+    let a = sim.run(&with_sf);
+    let b = sim.run(&without_sf);
+
+    let total_a: f64 = a.accretion_history.iter().sum();
+    let total_b: f64 = b.accretion_history.iter().sum();
+
+    assert!(total_a > 0.0, "test is vacuous if the SF-on run delivers nothing");
+    assert!(
+        total_b < total_a,
+        "switching satellite star formation off must reduce delivered mass, \
+         got {total_b} with SF off vs {total_a} with SF on"
+    );
+}
+
+/// Guards against the two `bool` switches being transposed at the call
+/// site. Both are adjacent arguments of the same type, so a swap compiles
+/// silently; these two configurations are each other's mirror image and
+/// must not produce the same answer.
+#[test]
+fn star_formation_and_stripping_switches_are_not_interchangeable() {
+    let sim = build_small_simulation();
+
+    let mut sf_only = small_config();
+    sf_only.star_formation = true;
+    sf_only.stellar_stripping = false;
+
+    let mut strip_only = small_config();
+    strip_only.star_formation = false;
+    strip_only.stellar_stripping = true;
+
+    let a: f64 = sim.run(&sf_only).accretion_history.iter().sum();
+    let b: f64 = sim.run(&strip_only).accretion_history.iter().sum();
+
+    assert!(
+        (a - b).abs() > 1e-12 * a.abs().max(b.abs()).max(1.0),
+        "SF-only and stripping-only must differ; got {a} and {b}"
+    );
+}

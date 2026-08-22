@@ -763,6 +763,7 @@ impl Simulation {
                             let history = self.baryonic.evolve(
                                 &galaxy,
                                 &timeline,
+                                config.star_formation,
                                 config.stellar_stripping,
                                 config.scatter,
                                 &ctx,

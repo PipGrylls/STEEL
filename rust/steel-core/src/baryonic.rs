@@ -176,10 +176,23 @@ impl BaryonicPipeline {
     /// noiseless, exactly-reproducible trajectory is available for
     /// testing/validation against the Python.
     #[allow(clippy::too_many_arguments)]
+    /// `apply_star_formation` and `apply_stripping` are `STEEL.py`'s `SF`
+    /// and `Stripping` switches, in that order. The Python branches three
+    /// ways on them (`STEEL.py:386-392`): `SF and Stripping` feeds the
+    /// stripping factor into star formation, `elif SF` forms stars with no
+    /// mass loss, and `elif Stripping` calls `StellarMassLoss` **alone**,
+    /// with no `StarFormation` call at all. That third branch is the one
+    /// this port originally lacked — `apply_star_formation` did not exist,
+    /// so a satellite formed stars whenever the pipeline ran.
+    ///
+    /// The two flags are adjacent and both `bool`, so a transposed call
+    /// compiles silently; `star_formation_and_stripping_switches_are_not_interchangeable`
+    /// in `steel-plugins/tests/orchestrator.rs` exists to catch that.
     pub fn evolve(
         &self,
         galaxy: &SatelliteState,
         timeline: &Timeline,
+        apply_star_formation: bool,
         apply_stripping: bool,
         scatter_on: bool,
         ctx: &AccretionContext<'_>,
@@ -274,7 +287,14 @@ impl BaryonicPipeline {
                 continue;
             }
 
-            let mut sfr = if quench.t_quench < timeline.t[i] && i != 0 {
+            let mut sfr = if !apply_star_formation {
+                // `STEEL.py`'s `elif Stripping:` branch: mass loss only,
+                // with no `StarFormation` call. No stars form, so nothing
+                // is added here and nothing is recycled later — `sfh`
+                // stays zero, which zeroes `gmlr` too, leaving the mass
+                // recursion below as pure stripping.
+                0.0
+            } else if quench.t_quench < timeline.t[i] && i != 0 {
                 // Quenched: exponential fade from the SFR at the moment
                 // quenching began.
                 let faded = sfr_at_quench_onset * (-((timeline.t[i] - quench.t_quench) / quench.tau_fade)).exp();
@@ -287,8 +307,10 @@ impl BaryonicPipeline {
                 sf
             };
 
-            // Scatter around the main sequence / fade track.
-            if scatter_on {
+            // Scatter around the main sequence / fade track. Skipped
+            // entirely when star formation is off: scattering an SFR of
+            // zero is a no-op that would still consume an RNG draw.
+            if scatter_on && apply_star_formation {
                 sfr = 10f64.powf(sfr.log10() + normal.sample(rng));
             }
 

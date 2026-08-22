@@ -84,7 +84,7 @@ fn main() {
 
     for (label, stripping) in [("unstripped", false), ("stripped", true)] {
         let mut rng = StdRng::seed_from_u64(1);
-        let history = pipeline.evolve(&galaxy, &timeline, stripping, false, &ctx, &mut rng);
+        let history = pipeline.evolve(&galaxy, &timeline, true, stripping, false, &ctx, &mut rng);
         println!("# log_sm ({label}, noiseless)");
         for v in &history.log_sm {
             println!("{v:.10}");

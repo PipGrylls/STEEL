@@ -325,9 +325,9 @@ mod tests {
         // the full trajectory (stripping factor, gas cap, main-sequence
         // SFR, scatter draws), not just a bare-bones path.
         let mut rng_a = StdRng::seed_from_u64(7);
-        let a = no_quenching_pipeline.evolve(&galaxy, &timeline, true, true, &ctx, &mut rng_a);
+        let a = no_quenching_pipeline.evolve(&galaxy, &timeline, true, true, true, &ctx, &mut rng_a);
         let mut rng_b = StdRng::seed_from_u64(7);
-        let b = baseline_pipeline.evolve(&galaxy, &timeline, true, true, &ctx, &mut rng_b);
+        let b = baseline_pipeline.evolve(&galaxy, &timeline, true, true, true, &ctx, &mut rng_b);
 
         assert_eq!(
             a.log_sm, b.log_sm,
