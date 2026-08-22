@@ -58,3 +58,7 @@ research/**/*.egg-info/
 # committed sweep CSV in research/data/ -- the run record in Mongo carries
 # the code hash and input ids, so the binary itself is not the artifact.
 /research/figures/
+
+# Exploratory working artifacts. Kept locally for reference; regenerate
+# anything needed for publication through research/derivations/ instead.
+/development/
