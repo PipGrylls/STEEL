@@ -6,7 +6,11 @@ build-backend = "setuptools.build_meta"
 name = "steel-research"
 version = "0.1.0"
 requires-python = ">=3.11"
-dependencies = ["pymongo>=4.6", "mcp>=1.2", "matplotlib>=3.8"]
+# mcp>=2.0, not >=1.2: `mcp_server/server.py` imports `mcp.server.MCPServer`,
+# which only exists from 2.0. 1.x shipped `mcp.server.fastmcp.FastMCP`
+# instead, and that module is gone in 2.0 -- so a 1.x resolution installs
+# cleanly and then fails at import time.
+dependencies = ["pymongo>=4.6", "mcp>=2.0", "matplotlib>=3.8"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "colossus>=1.3"]

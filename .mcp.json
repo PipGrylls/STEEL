@@ -6,8 +6,7 @@
     },
     "research-store": {
       "command": "research/.venv/bin/python",
-      "args": ["-m", "mcp_server.server"],
-      "cwd": "research"
+      "args": ["-m", "mcp_server.server"]
     }
   }
 }
