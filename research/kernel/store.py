@@ -58,6 +58,15 @@ class Store:
         if kind not in KNOWN_KINDS:
             raise GateViolation(
                 f"kind must be one of {sorted(KNOWN_KINDS)}, got {kind!r}")
+        # `put()` keys its write on `doc["_id"]`. That is a store-level
+        # invariant that applies to every kind, not just "measurement" --
+        # without this check, any doc lacking `_id` (a perfectly plausible
+        # call, e.g. `{"kind": "source"}`) reaches `doc["_id"]` in `put()`
+        # and raises an unhandled `KeyError` instead of a clean refusal.
+        doc_id = doc.get("_id")
+        if not isinstance(doc_id, str) or not doc_id:
+            raise GateViolation(
+                f"_id must be a non-empty string, got {doc_id!r}")
         if kind != "measurement":
             return
         source_id = doc.get("source_id")
